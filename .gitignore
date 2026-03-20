@@ -1,0 +1,8 @@
+dist/
+node_modules/
+data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+coverage/

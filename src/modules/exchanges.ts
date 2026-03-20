@@ -1,0 +1,238 @@
+import type { FastifyInstance } from 'fastify';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import { z } from 'zod';
+
+import type { AppDatabase } from '../db/client';
+import { coinTickers, exchangeVolumePoints, exchanges, type ExchangeRow } from '../db/schema';
+import { HttpError } from '../http/errors';
+import { parseBooleanQuery, parseCsvQuery, parsePositiveInt } from '../http/params';
+
+const exchangesQuerySchema = z.object({
+  per_page: z.string().optional(),
+  page: z.string().optional(),
+});
+
+const exchangeVolumeChartQuerySchema = z.object({
+  days: z.string(),
+});
+
+const exchangeTickersQuerySchema = z.object({
+  coin_ids: z.string().optional(),
+  include_exchange_logo: z.enum(['true', 'false']).optional(),
+  page: z.string().optional(),
+  order: z.string().optional(),
+});
+
+function parseJsonArray<T>(value: string) {
+  return JSON.parse(value) as T[];
+}
+
+function buildExchangeSummary(row: ExchangeRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    year_established: row.yearEstablished,
+    country: row.country,
+    description: row.description,
+    url: row.url,
+    image: row.imageUrl,
+    has_trading_incentive: row.hasTradingIncentive,
+    trust_score: row.trustScore,
+    trust_score_rank: row.trustScoreRank,
+    trade_volume_24h_btc: row.tradeVolume24hBtc,
+    trade_volume_24h_btc_normalized: row.tradeVolume24hBtcNormalized,
+  };
+}
+
+function buildExchangeDetail(row: ExchangeRow) {
+  return {
+    ...buildExchangeSummary(row),
+    facebook_url: row.facebookUrl,
+    reddit_url: row.redditUrl,
+    telegram_url: row.telegramUrl,
+    slack_url: row.slackUrl,
+    other_url_1: parseJsonArray<string>(row.otherUrlJson)[0] ?? null,
+    other_url_2: parseJsonArray<string>(row.otherUrlJson)[1] ?? null,
+    twitter_handle: row.twitterHandle,
+    centralized: row.centralised,
+    public_notice: row.publicNotice,
+    alert_notice: row.alertNotice,
+    tickers: [],
+  };
+}
+
+function sortNumber(value: number | null | undefined, fallback: number) {
+  return value ?? fallback;
+}
+
+function getExchangeTickerRows(database: AppDatabase, exchangeId: string, coinIds?: string[]) {
+  const whereCondition = coinIds?.length
+    ? and(eq(coinTickers.exchangeId, exchangeId), inArray(coinTickers.coinId, coinIds))
+    : eq(coinTickers.exchangeId, exchangeId);
+
+  return database.db
+    .select({
+      ticker: coinTickers,
+      exchange: exchanges,
+    })
+    .from(coinTickers)
+    .innerJoin(exchanges, eq(exchanges.id, coinTickers.exchangeId))
+    .where(whereCondition)
+    .all();
+}
+
+function sortExchangeTickerRows(
+  rows: ReturnType<typeof getExchangeTickerRows>,
+  order: string | undefined,
+) {
+  const normalizedOrder = (order ?? 'volume_desc').toLowerCase();
+  const sortableRows = [...rows];
+
+  switch (normalizedOrder) {
+    case 'trust_score_desc':
+    case 'volume_desc':
+      return sortableRows.sort((left, right) => sortNumber(right.ticker.convertedVolumeUsd, -1) - sortNumber(left.ticker.convertedVolumeUsd, -1));
+    case 'volume_asc':
+      return sortableRows.sort((left, right) => sortNumber(left.ticker.convertedVolumeUsd, Number.MAX_SAFE_INTEGER) - sortNumber(right.ticker.convertedVolumeUsd, Number.MAX_SAFE_INTEGER));
+    default:
+      throw new HttpError(400, 'invalid_parameter', `Unsupported order value: ${order}`);
+  }
+}
+
+function buildExchangeTickerPayload(
+  row: ReturnType<typeof getExchangeTickerRows>[number],
+  includeExchangeLogo: boolean,
+) {
+  return {
+    base: row.ticker.base,
+    target: row.ticker.target,
+    market: {
+      name: row.exchange.name,
+      identifier: row.exchange.id,
+      has_trading_incentive: row.exchange.hasTradingIncentive,
+      ...(includeExchangeLogo ? { logo: row.exchange.imageUrl } : {}),
+    },
+    last: row.ticker.last,
+    volume: row.ticker.volume,
+    converted_last: {
+      btc: row.ticker.convertedLastBtc,
+      usd: row.ticker.convertedLastUsd,
+      eth: row.ticker.convertedLastUsd === null ? null : row.ticker.convertedLastUsd / 2000,
+    },
+    converted_volume: {
+      btc: row.ticker.convertedVolumeUsd === null ? null : row.ticker.convertedVolumeUsd / 85000,
+      usd: row.ticker.convertedVolumeUsd,
+      eth: row.ticker.convertedVolumeUsd === null ? null : row.ticker.convertedVolumeUsd / 2000,
+    },
+    trust_score: row.ticker.trustScore,
+    bid_ask_spread_percentage: row.ticker.bidAskSpreadPercentage,
+    timestamp: row.ticker.lastTradedAt?.getTime() ?? null,
+    last_traded_at: row.ticker.lastTradedAt?.toISOString() ?? null,
+    last_fetch_at: row.ticker.lastFetchAt?.toISOString() ?? null,
+    is_anomaly: row.ticker.isAnomaly,
+    is_stale: row.ticker.isStale,
+    trade_url: row.ticker.tradeUrl,
+    token_info_url: row.ticker.tokenInfoUrl,
+    coin_id: row.ticker.coinId,
+    target_coin_id: null,
+  };
+}
+
+function getExchangeTickers(
+  database: AppDatabase,
+  exchangeId: string,
+  options: {
+    coinIds?: string[];
+    includeExchangeLogo: boolean;
+    page: number;
+    order?: string;
+  },
+) {
+  const perPage = 100;
+  const rows = sortExchangeTickerRows(getExchangeTickerRows(database, exchangeId, options.coinIds), options.order);
+  const start = (options.page - 1) * perPage;
+
+  return rows.slice(start, start + perPage).map((row) => buildExchangeTickerPayload(row, options.includeExchangeLogo));
+}
+
+function getExchangeOrThrow(database: AppDatabase, exchangeId: string) {
+  const exchange = database.db.select().from(exchanges).where(eq(exchanges.id, exchangeId)).limit(1).get();
+
+  if (!exchange) {
+    throw new HttpError(404, 'not_found', `Exchange not found: ${exchangeId}`);
+  }
+
+  return exchange;
+}
+
+function getExchangeVolumeChart(database: AppDatabase, exchangeId: string, days: string) {
+  const parsedDays = Number(days);
+
+  if (!Number.isFinite(parsedDays) || parsedDays <= 0) {
+    throw new HttpError(400, 'invalid_parameter', `Invalid days value: ${days}`);
+  }
+
+  const rows = database.db.select().from(exchangeVolumePoints).where(eq(exchangeVolumePoints.exchangeId, exchangeId)).orderBy(asc(exchangeVolumePoints.timestamp)).all();
+
+  return rows.slice(-Math.ceil(parsedDays)).map((row) => [row.timestamp.getTime(), row.volumeBtc]);
+}
+
+export function registerExchangeRoutes(app: FastifyInstance, database: AppDatabase) {
+  app.get('/exchanges/list', async () => {
+    const rows = database.db.select().from(exchanges).orderBy(asc(exchanges.id)).all();
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+    }));
+  });
+
+  app.get('/exchanges', async (request) => {
+    const query = exchangesQuerySchema.parse(request.query);
+    const page = parsePositiveInt(query.page, 1);
+    const perPage = Math.min(parsePositiveInt(query.per_page, 100), 250);
+    const rows = database.db.select().from(exchanges).orderBy(asc(exchanges.trustScoreRank), asc(exchanges.id)).all();
+    const start = (page - 1) * perPage;
+
+    return rows.slice(start, start + perPage).map(buildExchangeSummary);
+  });
+
+  app.get('/exchanges/:id', async (request) => {
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const exchange = getExchangeOrThrow(database, params.id);
+
+    return {
+      ...buildExchangeDetail(exchange),
+      tickers: getExchangeTickers(database, params.id, {
+        includeExchangeLogo: false,
+        page: 1,
+      }),
+    };
+  });
+
+  app.get('/exchanges/:id/volume_chart', async (request) => {
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const query = exchangeVolumeChartQuerySchema.parse(request.query);
+
+    getExchangeOrThrow(database, params.id);
+
+    return getExchangeVolumeChart(database, params.id, query.days);
+  });
+
+  app.get('/exchanges/:id/tickers', async (request) => {
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const query = exchangeTickersQuerySchema.parse(request.query);
+    const page = parsePositiveInt(query.page, 1);
+    const exchange = getExchangeOrThrow(database, params.id);
+
+    return {
+      name: exchange.name,
+      tickers: getExchangeTickers(database, params.id, {
+        coinIds: parseCsvQuery(query.coin_ids),
+        includeExchangeLogo: parseBooleanQuery(query.include_exchange_logo, false),
+        page,
+        order: query.order,
+      }),
+    };
+  });
+}
