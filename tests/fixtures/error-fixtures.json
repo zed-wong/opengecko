@@ -1,0 +1,48 @@
+{
+  "simplePriceMissingLookup": {
+    "error": "invalid_parameter",
+    "message": "One of ids, names, or symbols must be provided."
+  },
+  "simplePriceBadPrecision": {
+    "error": "invalid_parameter",
+    "message": "Invalid precision value: not-a-number"
+  },
+  "coinsListBadIncludePlatform": {
+    "error": "invalid_request"
+  },
+  "coinHistoryBadDate": {
+    "error": "invalid_parameter",
+    "message": "Invalid history date: invalid-date"
+  },
+  "coinMarketsBadPerPage": {
+    "error": "invalid_parameter",
+    "message": "Invalid integer value: 0"
+  },
+  "coinMarketsBadOrder": {
+    "error": "invalid_parameter",
+    "message": "Unsupported order value: unsupported"
+  },
+  "coinChartBadDays": {
+    "error": "invalid_parameter",
+    "message": "Invalid days value: bad"
+  },
+  "coinChartRangeBadFrom": {
+    "error": "invalid_parameter",
+    "message": "Invalid from value: bad"
+  },
+  "coinChartRangeBadBounds": {
+    "error": "invalid_parameter",
+    "message": "Invalid time range: from must be less than or equal to to."
+  },
+  "coinTickersBadOrder": {
+    "error": "invalid_parameter",
+    "message": "Unsupported order value: unsupported"
+  },
+  "exchangeTickersBadOrder": {
+    "error": "invalid_parameter",
+    "message": "Unsupported order value: unsupported"
+  },
+  "searchBlankQuery": {
+    "error": "invalid_request"
+  }
+}

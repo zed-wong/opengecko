@@ -1,0 +1,315 @@
+{
+  "ping": {
+    "gecko_says": "(V3) To the Moon!"
+  },
+  "supportedVsCurrencies": ["usd", "eur", "btc", "eth"],
+  "exchangeRates": {
+    "rates": {
+      "btc": {
+        "name": "Bitcoin",
+        "unit": "BTC",
+        "value": 1,
+        "type": "crypto"
+      },
+      "eth": {
+        "name": "Ether",
+        "unit": "ETH",
+        "value": 42.5,
+        "type": "crypto"
+      },
+      "usd": {
+        "name": "US Dollar",
+        "unit": "$",
+        "value": 85000,
+        "type": "fiat"
+      },
+      "eur": {
+        "name": "Euro",
+        "unit": "€",
+        "value": 78200,
+        "type": "fiat"
+      }
+    }
+  },
+  "assetPlatforms": [
+    {
+      "chain_identifier": null,
+      "id": "bitcoin",
+      "image": null,
+      "name": "Bitcoin",
+      "native_coin_id": "bitcoin",
+      "shortname": "btc"
+    },
+    {
+      "chain_identifier": 1,
+      "id": "ethereum",
+      "image": null,
+      "name": "Ethereum",
+      "native_coin_id": "ethereum",
+      "shortname": "eth"
+    }
+  ],
+  "exchangesList": [
+    {
+      "id": "binance",
+      "name": "Binance"
+    },
+    {
+      "id": "coinbase_exchange",
+      "name": "Coinbase Exchange"
+    }
+  ],
+  "exchanges": [
+    {
+      "id": "binance",
+      "name": "Binance",
+      "year_established": 2017,
+      "country": "Cayman Islands",
+      "trust_score_rank": 1,
+      "trade_volume_24h_btc": 320000,
+      "trade_volume_24h_btc_normalized": 310000
+    },
+    {
+      "id": "coinbase_exchange",
+      "name": "Coinbase Exchange",
+      "year_established": 2012,
+      "country": "United States",
+      "trust_score_rank": 2,
+      "trade_volume_24h_btc": 145000,
+      "trade_volume_24h_btc_normalized": 142500
+    }
+  ],
+  "exchangeDetail": {
+    "id": "binance",
+    "name": "Binance",
+    "year_established": 2017,
+    "country": "Cayman Islands",
+    "url": "https://www.binance.com",
+    "twitter_handle": "binance",
+    "centralized": true,
+    "tickers": [
+      {
+        "base": "BTC",
+        "target": "USDT",
+        "coin_id": "bitcoin"
+      },
+      {
+        "base": "ETH",
+        "target": "USDT",
+        "coin_id": "ethereum"
+      },
+      {
+        "base": "USDC",
+        "target": "USDT",
+        "coin_id": "usd-coin"
+      }
+    ]
+  },
+  "exchangeTickers": {
+    "name": "Binance",
+    "tickers": [
+      {
+        "base": "BTC",
+        "target": "USDT",
+        "market": {
+          "name": "Binance",
+          "identifier": "binance",
+          "has_trading_incentive": false,
+          "logo": "https://assets.coingecko.com/markets/images/52/small/binance.jpg"
+        },
+        "last": 85010,
+        "coin_id": "bitcoin",
+        "trust_score": "green"
+      },
+      {
+        "base": "ETH",
+        "target": "USDT",
+        "market": {
+          "name": "Binance",
+          "identifier": "binance",
+          "has_trading_incentive": false,
+          "logo": "https://assets.coingecko.com/markets/images/52/small/binance.jpg"
+        },
+        "last": 2005,
+        "coin_id": "ethereum",
+        "trust_score": "green"
+      },
+      {
+        "base": "USDC",
+        "target": "USDT",
+        "market": {
+          "name": "Binance",
+          "identifier": "binance",
+          "has_trading_incentive": false,
+          "logo": "https://assets.coingecko.com/markets/images/52/small/binance.jpg"
+        },
+        "last": 1,
+        "coin_id": "usd-coin",
+        "trust_score": "green"
+      }
+    ]
+  },
+  "exchangeVolumeChart": [
+    [1773446400000, 295000],
+    [1773532800000, 300500],
+    [1773619200000, 305000],
+    [1773705600000, 299500],
+    [1773792000000, 308000],
+    [1773878400000, 315000],
+    [1773964800000, 320000]
+  ],
+  "ethereumTokenList": {
+    "name": "OpenGecko Ethereum Token List",
+    "timestamp": "2026-03-20T00:00:00.000Z",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    },
+    "keywords": ["opengecko", "ethereum"],
+    "logoURI": null,
+    "tokens": [
+      {
+        "chainId": 1,
+        "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "name": "USDC",
+        "symbol": "USDC",
+        "decimals": 6,
+        "logoURI": "https://assets.coingecko.com/coins/images/6319/small/usdc.png",
+        "extensions": {
+          "geckoId": "usd-coin"
+        }
+      }
+    ]
+  },
+  "simplePrice": {
+    "bitcoin": {
+      "eur": 78200,
+      "eur_24h_change": 1.8,
+      "eur_24h_vol": 23000000000,
+      "eur_market_cap": 1564000000000,
+      "last_updated_at": 1773964800,
+      "usd": 85000,
+      "usd_24h_change": 1.8,
+      "usd_24h_vol": 25000000000,
+      "usd_market_cap": 1700000000000
+    },
+    "ethereum": {
+      "eur": 1840,
+      "eur_24h_change": 2.56,
+      "eur_24h_vol": 9200000000,
+      "eur_market_cap": 220800000000,
+      "last_updated_at": 1773964800,
+      "usd": 2000,
+      "usd_24h_change": 2.56,
+      "usd_24h_vol": 10000000000,
+      "usd_market_cap": 240000000000
+    }
+  },
+  "tokenPrice": {
+    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+      "usd": 1
+    }
+  },
+  "searchEth": {
+    "coins": [
+      {
+        "id": "ethereum",
+        "symbol": "eth"
+      }
+    ],
+    "exchanges": [],
+    "categories": [],
+    "nfts": []
+  },
+  "searchStable": {
+    "categories": [
+      {
+        "id": "stablecoins",
+        "name": "Stablecoins"
+      }
+    ]
+  },
+  "global": {
+    "data": {
+      "active_cryptocurrencies": 3,
+      "total_market_cap": {
+        "usd": 2000000000000
+      },
+      "total_volume": {
+        "usd": 41000000000
+      }
+    }
+  },
+  "coinDetail": {
+    "id": "bitcoin",
+    "symbol": "btc",
+    "name": "Bitcoin",
+    "market_data": {
+      "current_price": {
+        "usd": 85000
+      }
+    }
+  },
+  "coinDetailWithoutMarketData": {
+    "id": "bitcoin",
+    "symbol": "btc",
+    "name": "Bitcoin",
+    "description": {
+      "en": "Bitcoin is the first decentralized digital currency and remains the reference asset for the broader crypto market."
+    },
+    "market_data": null,
+    "community_data": null,
+    "developer_data": null
+  },
+  "bitcoinTickers": {
+    "name": "Bitcoin",
+    "tickers": [
+      {
+        "base": "BTC",
+        "target": "USDT",
+        "market": {
+          "name": "Binance",
+          "identifier": "binance",
+          "has_trading_incentive": false,
+          "logo": "https://assets.coingecko.com/markets/images/52/small/binance.jpg"
+        },
+        "last": 85010,
+        "trust_score": "green",
+        "coin_id": "bitcoin"
+      },
+      {
+        "base": "BTC",
+        "target": "USD",
+        "market": {
+          "name": "Coinbase Exchange",
+          "identifier": "coinbase_exchange",
+          "has_trading_incentive": false,
+          "logo": "https://assets.coingecko.com/markets/images/23/small/Coinbase.jpg"
+        },
+        "last": 84980,
+        "trust_score": "green",
+        "coin_id": "bitcoin"
+      }
+    ]
+  },
+  "bitcoinRangeChart": {
+    "prices": [
+      [1773446400000, 79000],
+      [1773532800000, 80500],
+      [1773619200000, 82250],
+      [1773705600000, 81750],
+      [1773792000000, 83000],
+      [1773878400000, 84250],
+      [1773964800000, 85000]
+    ]
+  },
+  "categoriesList": [
+    {
+      "category_id": "smart-contract-platform"
+    },
+    {
+      "category_id": "stablecoins"
+    }
+  ]
+}

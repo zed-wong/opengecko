@@ -1,0 +1,214 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import type { FastifyInstance } from 'fastify';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { buildApp } from '../src/app';
+import errorFixtures from './fixtures/error-fixtures.json';
+
+describe('OpenGecko invalid parameter handling', () => {
+  let app: FastifyInstance | undefined;
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), 'opengecko-errors-'));
+    app = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'test.db'),
+        logLevel: 'silent',
+      },
+    });
+  });
+
+  afterEach(async () => {
+    if (app) {
+      await app.close();
+    }
+
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('rejects simple price requests without a lookup selector', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/simple/price?vs_currencies=usd',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.simplePriceMissingLookup);
+  });
+
+  it('rejects invalid precision values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/simple/price?ids=bitcoin&vs_currencies=usd&precision=not-a-number',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.simplePriceBadPrecision);
+  });
+
+  it('rejects invalid boolean values parsed by zod', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/coins/list?include_platform=maybe',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.coinsListBadIncludePlatform);
+  });
+
+  it('rejects invalid history dates', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/coins/bitcoin/history?date=invalid-date',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.coinHistoryBadDate);
+  });
+
+  it('rejects invalid paging values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/coins/markets?vs_currency=usd&per_page=0',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.coinMarketsBadPerPage);
+  });
+
+  it('rejects unsupported market ordering values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/coins/markets?vs_currency=usd&order=unsupported',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.coinMarketsBadOrder);
+  });
+
+  it('rejects unsupported coin ticker ordering values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/coins/bitcoin/tickers?order=unsupported',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.coinTickersBadOrder);
+  });
+
+  it('rejects invalid chart day values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/coins/bitcoin/market_chart?vs_currency=usd&days=bad',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.coinChartBadDays);
+  });
+
+  it('rejects invalid chart range values', async () => {
+    const badFromResponse = await app!.inject({
+      method: 'GET',
+      url: '/coins/bitcoin/market_chart/range?vs_currency=usd&from=bad&to=1773964800',
+    });
+    const badBoundsResponse = await app!.inject({
+      method: 'GET',
+      url: '/coins/bitcoin/market_chart/range?vs_currency=usd&from=1773964800&to=1773446400',
+    });
+
+    expect(badFromResponse.statusCode).toBe(400);
+    expect(badFromResponse.json()).toMatchObject(errorFixtures.coinChartRangeBadFrom);
+
+    expect(badBoundsResponse.statusCode).toBe(400);
+    expect(badBoundsResponse.json()).toMatchObject(errorFixtures.coinChartRangeBadBounds);
+  });
+
+  it('rejects blank search queries', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/search?query=%20%20',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.searchBlankQuery);
+  });
+
+  it('returns not found for unknown token list platforms', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/token_lists/not-a-platform/all.json',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Asset platform not found: not-a-platform',
+    });
+  });
+
+  it('rejects invalid exchange volume chart day values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/exchanges/binance/volume_chart?days=bad',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid days value: bad',
+    });
+  });
+
+  it('rejects unsupported exchange ticker ordering values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/exchanges/binance/tickers?order=unsupported',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.exchangeTickersBadOrder);
+  });
+
+  it('returns not found for unknown exchanges', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/exchanges/not-an-exchange',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Exchange not found: not-an-exchange',
+    });
+  });
+
+  it('returns not found for unknown exchange tickers', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/exchanges/not-an-exchange/tickers',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Exchange not found: not-an-exchange',
+    });
+  });
+
+  it('returns not found for unknown coin tickers', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/coins/not-a-coin/tickers',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Coin not found: not-a-coin',
+    });
+  });
+});
