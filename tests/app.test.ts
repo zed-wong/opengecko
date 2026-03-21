@@ -150,6 +150,24 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('returns derivatives exchange registry rows', async () => {
+    const listResponse = await getApp().inject({
+      method: 'GET',
+      url: '/derivatives/exchanges/list',
+    });
+    const exchangesResponse = await getApp().inject({
+      method: 'GET',
+      url: '/derivatives/exchanges?order=trade_volume_24h_btc_desc&per_page=1&page=1',
+    });
+
+    expect(listResponse.statusCode).toBe(200);
+    expect(listResponse.json()).toEqual(contractFixtures.derivativesExchangesList);
+
+    expect(exchangesResponse.statusCode).toBe(200);
+    expect(exchangesResponse.json()).toHaveLength(1);
+    expect(exchangesResponse.json()[0]).toMatchObject(contractFixtures.derivativesExchanges[0]);
+  });
+
   it('returns token list data for an asset platform', async () => {
     const response = await getApp().inject({
       method: 'GET',
@@ -234,6 +252,22 @@ describe('OpenGecko app scaffold', () => {
       sparkline_in_7d: {
         price: [79000, 80500, 82250, 81750, 83000, 84250, 85000],
       },
+    });
+  });
+
+  it('supports market category filters and extra price change windows', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/coins/markets?vs_currency=usd&category=smart-contract-platform&price_change_percentage=24h,7d',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toHaveLength(2);
+    expect(response.json().map((row: { id: string }) => row.id)).toEqual(['bitcoin', 'ethereum']);
+    expect(response.json()[0]).toMatchObject({
+      id: 'bitcoin',
+      price_change_percentage_24h_in_currency: 0.89,
+      price_change_percentage_7d_in_currency: 7.59,
     });
   });
 
@@ -324,6 +358,31 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('supports category detail flags on coin detail responses', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/coins/ethereum?include_categories_details=true&dex_pair_format=symbol',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().categories_details).toEqual([
+      {
+        id: 'smart-contract-platform',
+        name: 'Smart Contract Platform',
+        market_cap: 1940000000000,
+        market_cap_change_24h: 2.3,
+        volume_24h: 35000000000,
+      },
+      {
+        id: 'layer-1',
+        name: 'Layer 1',
+        market_cap: null,
+        market_cap_change_24h: null,
+        volume_24h: null,
+      },
+    ]);
+  });
+
   it('includes seeded tickers in default coin detail responses', async () => {
     const response = await getApp().inject({
       method: 'GET',
@@ -375,7 +434,7 @@ describe('OpenGecko app scaffold', () => {
     });
     const chartResponse = await getApp().inject({
       method: 'GET',
-      url: '/coins/bitcoin/market_chart?vs_currency=usd&days=7',
+      url: '/coins/bitcoin/market_chart?vs_currency=usd&days=7&interval=daily',
     });
     const maxChartResponse = await getApp().inject({
       method: 'GET',
@@ -387,12 +446,15 @@ describe('OpenGecko app scaffold', () => {
     });
     const ohlcResponse = await getApp().inject({
       method: 'GET',
-      url: '/coins/bitcoin/ohlc?vs_currency=usd&days=7',
+      url: '/coins/bitcoin/ohlc?vs_currency=usd&days=7&interval=daily',
     });
 
     expect(historyResponse.statusCode).toBe(200);
     expect(historyResponse.json()).toMatchObject({
       id: 'bitcoin',
+      description: {
+        en: 'Bitcoin is the first decentralized digital currency and remains the reference asset for the broader crypto market.',
+      },
       market_data: {
         current_price: {
           usd: 85000,
@@ -420,7 +482,7 @@ describe('OpenGecko app scaffold', () => {
     });
     const categoriesResponse = await getApp().inject({
       method: 'GET',
-      url: '/coins/categories',
+      url: '/coins/categories?order=name_desc',
     });
     const contractResponse = await getApp().inject({
       method: 'GET',
@@ -428,7 +490,11 @@ describe('OpenGecko app scaffold', () => {
     });
     const contractChartResponse = await getApp().inject({
       method: 'GET',
-      url: '/coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/market_chart?vs_currency=usd&days=7',
+      url: '/coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/market_chart?vs_currency=usd&days=7&interval=daily',
+    });
+    const contractRangeResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/market_chart/range?vs_currency=usd&from=1773446400&to=1773964800&interval=weekly',
     });
 
     expect(categoriesListResponse.statusCode).toBe(200);
@@ -436,7 +502,7 @@ describe('OpenGecko app scaffold', () => {
 
     expect(categoriesResponse.statusCode).toBe(200);
     expect(categoriesResponse.json()[0]).toMatchObject({
-      id: 'smart-contract-platform',
+      id: 'stablecoins',
     });
 
     expect(contractResponse.statusCode).toBe(200);
@@ -453,6 +519,12 @@ describe('OpenGecko app scaffold', () => {
 
     expect(contractChartResponse.statusCode).toBe(200);
     expect(contractChartResponse.json().prices[0]).toEqual([1773446400000, 1]);
+
+    expect(contractRangeResponse.statusCode).toBe(200);
+    expect(contractRangeResponse.json().prices).toEqual([
+      [1773446400000, 1],
+      [1773964800000, 1],
+    ]);
   });
 
   it('returns not found for unknown chart-style coin routes', async () => {

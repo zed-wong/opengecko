@@ -24,6 +24,7 @@ const coinMarketsQuerySchema = z.object({
   order: z.string().optional(),
   per_page: z.string().optional(),
   page: z.string().optional(),
+  price_change_percentage: z.string().optional(),
   sparkline: z.enum(['true', 'false']).optional(),
   precision: z.string().optional(),
 });
@@ -35,6 +36,8 @@ const coinDetailQuerySchema = z.object({
   community_data: z.enum(['true', 'false']).optional(),
   developer_data: z.enum(['true', 'false']).optional(),
   sparkline: z.enum(['true', 'false']).optional(),
+  include_categories_details: z.enum(['true', 'false']).optional(),
+  dex_pair_format: z.string().optional(),
 });
 
 const coinHistoryQuerySchema = z.object({
@@ -45,6 +48,7 @@ const coinHistoryQuerySchema = z.object({
 const coinChartQuerySchema = z.object({
   vs_currency: z.string(),
   days: z.string(),
+  interval: z.string().optional(),
   precision: z.string().optional(),
 });
 
@@ -52,7 +56,12 @@ const coinChartRangeQuerySchema = z.object({
   vs_currency: z.string(),
   from: z.string(),
   to: z.string(),
+  interval: z.string().optional(),
   precision: z.string().optional(),
+});
+
+const categoriesQuerySchema = z.object({
+  order: z.string().optional(),
 });
 
 const coinTickersQuerySchema = z.object({
@@ -179,7 +188,56 @@ function getSeriesChangePercentage(database: AppDatabase, coinId: string, vsCurr
 }
 
 function normalizeCategoryId(value: string) {
-  return value.trim().toLowerCase();
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function parseDexPairFormat(value: string | undefined) {
+  if (!value) {
+    return 'symbol';
+  }
+
+  const normalized = value.toLowerCase();
+
+  if (normalized === 'symbol' || normalized === 'contract_address') {
+    return normalized;
+  }
+
+  throw new HttpError(400, 'invalid_parameter', `Unsupported dex_pair_format value: ${value}`);
+}
+
+function parseChartInterval(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.toLowerCase();
+
+  if (normalized === 'hourly' || normalized === 'daily' || normalized === 'weekly') {
+    return normalized;
+  }
+
+  throw new HttpError(400, 'invalid_parameter', `Unsupported interval value: ${value}`);
+}
+
+function getGranularityMs(durationMs: number, interval?: string) {
+  const parsedInterval = parseChartInterval(interval);
+
+  if (!parsedInterval) {
+    return getChartGranularityMs(durationMs);
+  }
+
+  switch (parsedInterval) {
+    case 'hourly':
+      return 60 * 60 * 1000;
+    case 'daily':
+      return 24 * 60 * 60 * 1000;
+    case 'weekly':
+      return 7 * 24 * 60 * 60 * 1000;
+  }
 }
 
 function sortNumber(value: number | null | undefined, fallback: number) {
@@ -243,11 +301,63 @@ function buildSparkline(database: AppDatabase, coinId: string, vsCurrency: strin
   };
 }
 
+function getSeriesChangePercentageForWindowDays(
+  database: AppDatabase,
+  coinId: string,
+  vsCurrency: string,
+  windowDays: number,
+) {
+  const rows = getChartSeries(database, coinId, 'usd');
+
+  if (rows.length < 2) {
+    return null;
+  }
+
+  const rate = getConversionRate(vsCurrency);
+  const latestTimestamp = rows.at(-1)!.timestamp.getTime();
+  const cutoff = latestTimestamp - windowDays * 24 * 60 * 60 * 1000;
+  const firstRow = rows.find((row) => row.timestamp.getTime() >= cutoff) ?? rows[0]!;
+  const first = firstRow.price * rate;
+  const last = rows.at(-1)!.price * rate;
+
+  if (first === 0) {
+    return null;
+  }
+
+  return ((last - first) / first) * 100;
+}
+
+function buildMarketPriceChangeFields(
+  database: AppDatabase,
+  coinId: string,
+  vsCurrency: string,
+  requestedWindows: string[],
+  precision: number | 'full',
+) {
+  const supportedWindows = [
+    { input: '24h', field: 'price_change_percentage_24h_in_currency', days: 1 },
+    { input: '7d', field: 'price_change_percentage_7d_in_currency', days: 7 },
+    { input: '14d', field: 'price_change_percentage_14d_in_currency', days: 14 },
+    { input: '30d', field: 'price_change_percentage_30d_in_currency', days: 30 },
+    { input: '200d', field: 'price_change_percentage_200d_in_currency', days: 200 },
+    { input: '1y', field: 'price_change_percentage_1y_in_currency', days: 365 },
+  ] as const;
+
+  return Object.fromEntries(
+    supportedWindows
+      .filter((window) => requestedWindows.includes(window.input))
+      .map((window) => [
+        window.field,
+        toNumberOrNull(getSeriesChangePercentageForWindowDays(database, coinId, vsCurrency, window.days), precision),
+      ]),
+  );
+}
+
 function buildMarketRow(
   database: AppDatabase,
   row: { coin: CoinRow; snapshot: MarketSnapshotRow | null },
   vsCurrency: string,
-  options: { sparkline: boolean; precision: number | 'full' },
+  options: { sparkline: boolean; precision: number | 'full'; priceChangePercentages: string[] },
 ) {
   const snapshot = row.snapshot;
   const rate = getConversionRate(vsCurrency);
@@ -281,8 +391,26 @@ function buildMarketRow(
     atl_date: snapshot?.atlDate?.toISOString() ?? null,
     roi: null,
     last_updated: snapshot?.lastUpdated?.toISOString() ?? null,
+    ...buildMarketPriceChangeFields(database, row.coin.id, vsCurrency, options.priceChangePercentages, options.precision),
     sparkline_in_7d: options.sparkline ? buildSparkline(database, row.coin.id, vsCurrency) : null,
   };
+}
+
+function buildCategoriesDetails(database: AppDatabase, categoriesList: string[]) {
+  const categoriesById = new Map(getCategories(database).map((category) => [category.id, category]));
+
+  return categoriesList.map((entry) => {
+    const categoryId = normalizeCategoryId(entry);
+    const category = categoriesById.get(categoryId);
+
+    return {
+      id: categoryId,
+      name: category?.name ?? entry,
+      market_cap: category?.marketCap ?? null,
+      market_cap_change_24h: category?.marketCapChange24h ?? null,
+      volume_24h: category?.volume24h ?? null,
+    };
+  });
 }
 
 function buildCoinDetail(
@@ -296,6 +424,7 @@ function buildCoinDetail(
     includeCommunityData: boolean;
     includeDeveloperData: boolean;
     includeSparkline: boolean;
+    includeCategoriesDetails: boolean;
   },
 ) {
   const categoriesList = parseJsonArray<string>(coin.categoriesJson);
@@ -344,6 +473,7 @@ function buildCoinDetail(
     block_time_in_minutes: coin.blockTimeInMinutes,
     hashing_algorithm: coin.hashingAlgorithm,
     categories: categoriesList,
+    categories_details: options.includeCategoriesDetails ? buildCategoriesDetails(database, categoriesList) : [],
     public_notice: null,
     additional_notices: [],
     description: options.includeLocalization ? description : { en: description.en ?? '' },
@@ -521,6 +651,7 @@ function getRequiredCoin(database: AppDatabase, coinId: string) {
 }
 
 function getHistorySnapshot(database: AppDatabase, coinId: string, targetDate: number) {
+  const currentRow = getMarketRows(database, 'usd', { ids: [coinId], status: 'all' })[0];
   const chartSeries = getChartSeries(database, coinId, 'usd', { to: targetDate });
   const lastPoint = chartSeries.at(-1);
 
@@ -528,14 +659,20 @@ function getHistorySnapshot(database: AppDatabase, coinId: string, targetDate: n
     return null;
   }
 
+  if (!currentRow?.snapshot) {
+    return null;
+  }
+
   return {
-    current_price: { usd: lastPoint.price },
-    market_cap: { usd: lastPoint.marketCap },
-    total_volume: { usd: lastPoint.totalVolume },
+    ...currentRow.snapshot,
+    price: lastPoint.price,
+    marketCap: lastPoint.marketCap,
+    totalVolume: lastPoint.totalVolume,
+    lastUpdated: new Date(targetDate),
   };
 }
 
-function getChartRowsForDays(database: AppDatabase, coinId: string, days: string) {
+function getChartRowsForDays(database: AppDatabase, coinId: string, days: string, interval?: string) {
   const rows = getChartSeries(database, coinId, 'usd');
 
   if (days === 'max') {
@@ -545,7 +682,7 @@ function getChartRowsForDays(database: AppDatabase, coinId: string, days: string
 
     const duration = rows.at(-1)!.timestamp.getTime() - rows[0]!.timestamp.getTime();
 
-    return downsampleTimeSeries(rows, getChartGranularityMs(duration));
+    return downsampleTimeSeries(rows, getGranularityMs(duration, interval));
   }
 
   const dayCount = Number(days);
@@ -563,13 +700,38 @@ function getChartRowsForDays(database: AppDatabase, coinId: string, days: string
   const cutoff = latestTimestamp - dayCount * 24 * 60 * 60 * 1000;
   const filteredRows = rows.filter((row) => row.timestamp.getTime() >= cutoff);
 
-  return downsampleTimeSeries(filteredRows, getChartGranularityMs(dayCount * 24 * 60 * 60 * 1000));
+  return downsampleTimeSeries(filteredRows, getGranularityMs(dayCount * 24 * 60 * 60 * 1000, interval));
 }
 
-function getChartRowsForRange(database: AppDatabase, coinId: string, range: { from: number; to: number }) {
+function getChartRowsForRange(database: AppDatabase, coinId: string, range: { from: number; to: number }, interval?: string) {
   const rows = getChartSeries(database, coinId, 'usd', range);
 
-  return downsampleTimeSeries(rows, getChartGranularityMs(getRangeDurationMs(range)));
+  return downsampleTimeSeries(rows, getGranularityMs(getRangeDurationMs(range), interval));
+}
+
+function sortCategories(
+  rows: ReturnType<typeof getCategories>,
+  order: string | undefined,
+) {
+  const normalizedOrder = (order ?? 'market_cap_desc').toLowerCase();
+  const sortableRows = [...rows];
+
+  switch (normalizedOrder) {
+    case 'market_cap_desc':
+      return sortableRows.sort((left, right) => sortNumber(right.marketCap, -1) - sortNumber(left.marketCap, -1));
+    case 'market_cap_asc':
+      return sortableRows.sort((left, right) => sortNumber(left.marketCap, Number.MAX_SAFE_INTEGER) - sortNumber(right.marketCap, Number.MAX_SAFE_INTEGER));
+    case 'volume_desc':
+      return sortableRows.sort((left, right) => sortNumber(right.volume24h, -1) - sortNumber(left.volume24h, -1));
+    case 'volume_asc':
+      return sortableRows.sort((left, right) => sortNumber(left.volume24h, Number.MAX_SAFE_INTEGER) - sortNumber(right.volume24h, Number.MAX_SAFE_INTEGER));
+    case 'name_asc':
+      return sortableRows.sort((left, right) => left.name.localeCompare(right.name));
+    case 'name_desc':
+      return sortableRows.sort((left, right) => right.name.localeCompare(left.name));
+    default:
+      throw new HttpError(400, 'invalid_parameter', `Unsupported order value: ${order}`);
+  }
 }
 
 function buildChartPayload(
@@ -618,6 +780,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const sparkline = parseBooleanQuery(query.sparkline, false);
     const category = query.category ? normalizeCategoryId(query.category) : undefined;
     const vsCurrency = query.vs_currency.toLowerCase();
+    const priceChangePercentages = parseCsvQuery(query.price_change_percentage).map((value) => value.toLowerCase());
     const rows = getMarketRows(database, 'usd', {
       ids: parseCsvQuery(query.ids),
       names: parseCsvQuery(query.names),
@@ -638,12 +801,17 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
 
     const start = (page - 1) * perPage;
 
-    return sortedRows.slice(start, start + perPage).map((row) => buildMarketRow(database, row, vsCurrency, { sparkline, precision }));
+    return sortedRows.slice(start, start + perPage).map((row) => buildMarketRow(database, row, vsCurrency, {
+      sparkline,
+      precision,
+      priceChangePercentages,
+    }));
   });
 
   app.get('/coins/:id', async (request) => {
     const params = z.object({ id: z.string() }).parse(request.params);
     const query = coinDetailQuerySchema.parse(request.query);
+    parseDexPairFormat(query.dex_pair_format);
     const row = getMarketRows(database, 'usd', { ids: [params.id], status: 'all' })[0];
 
     if (!row) {
@@ -657,6 +825,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
       includeCommunityData: parseBooleanQuery(query.community_data, true),
       includeDeveloperData: parseBooleanQuery(query.developer_data, true),
       includeSparkline: parseBooleanQuery(query.sparkline, false),
+      includeCategoriesDetails: parseBooleanQuery(query.include_categories_details, false),
     });
   });
 
@@ -669,17 +838,17 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
       throw new HttpError(404, 'not_found', `Coin not found: ${params.id}`);
     }
 
-    return {
-      id: coin.id,
-      symbol: coin.symbol,
-      name: coin.name,
-      localization: parseBooleanQuery(query.localization, true) ? { en: coin.name } : {},
-      image: {
-        thumb: coin.imageThumbUrl,
-        small: coin.imageSmallUrl,
-      },
-      market_data: getHistorySnapshot(database, coin.id, parseHistoryDate(query.date)),
-    };
+    const historicalSnapshot = getHistorySnapshot(database, coin.id, parseHistoryDate(query.date));
+
+    return buildCoinDetail(database, coin, historicalSnapshot, {
+      includeLocalization: parseBooleanQuery(query.localization, true),
+      includeMarketData: true,
+      includeTickers: false,
+      includeCommunityData: false,
+      includeDeveloperData: false,
+      includeSparkline: false,
+      includeCategoriesDetails: false,
+    });
   });
 
   app.get('/coins/:id/tickers', async (request) => {
@@ -705,7 +874,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const query = coinChartQuerySchema.parse(request.query);
     getRequiredCoin(database, params.id);
     const vsCurrency = query.vs_currency.toLowerCase();
-    const rows = getChartRowsForDays(database, params.id, query.days);
+    const rows = getChartRowsForDays(database, params.id, query.days, query.interval);
 
     return buildChartPayload(rows, vsCurrency, parsePrecision(query.precision));
   });
@@ -715,7 +884,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const query = coinChartRangeQuerySchema.parse(request.query);
     getRequiredCoin(database, params.id);
     const vsCurrency = query.vs_currency.toLowerCase();
-    const rows = getChartRowsForRange(database, params.id, parseChartRange(query));
+    const rows = getChartRowsForRange(database, params.id, parseChartRange(query), query.interval);
 
     return buildChartPayload(rows, vsCurrency, parsePrecision(query.precision));
   });
@@ -727,7 +896,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const precision = parsePrecision(query.precision);
     const vsCurrency = query.vs_currency.toLowerCase();
     const rate = getConversionRate(vsCurrency);
-    const rows = getChartRowsForDays(database, params.id, query.days);
+    const rows = getChartRowsForDays(database, params.id, query.days, query.interval);
 
     return rows.map((row) => {
       const price = toNumberOrNull(row.price * rate, precision);
@@ -743,8 +912,10 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     }));
   });
 
-  app.get('/coins/categories', async () => {
-    return getCategories(database).map((category) => ({
+  app.get('/coins/categories', async (request) => {
+    const query = categoriesQuerySchema.parse(request.query);
+
+    return sortCategories(getCategories(database), query.order).map((category) => ({
       id: category.id,
       name: category.name,
       market_cap: category.marketCap,
@@ -759,6 +930,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
   app.get('/coins/:platform_id/contract/:contract_address', async (request) => {
     const params = z.object({ platform_id: z.string(), contract_address: z.string() }).parse(request.params);
     const query = coinDetailQuerySchema.parse(request.query);
+    parseDexPairFormat(query.dex_pair_format);
     const coin = getCoinByContract(database, params.platform_id, params.contract_address);
 
     if (!coin) {
@@ -774,6 +946,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
       includeCommunityData: parseBooleanQuery(query.community_data, true),
       includeDeveloperData: parseBooleanQuery(query.developer_data, true),
       includeSparkline: parseBooleanQuery(query.sparkline, false),
+      includeCategoriesDetails: parseBooleanQuery(query.include_categories_details, false),
     });
   });
 
@@ -787,7 +960,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     }
 
     const vsCurrency = query.vs_currency.toLowerCase();
-    const rows = getChartRowsForDays(database, coin.id, query.days);
+    const rows = getChartRowsForDays(database, coin.id, query.days, query.interval);
 
     return buildChartPayload(rows, vsCurrency, parsePrecision(query.precision));
   });
@@ -802,7 +975,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     }
 
     const vsCurrency = query.vs_currency.toLowerCase();
-    const rows = getChartRowsForRange(database, coin.id, parseChartRange(query));
+    const rows = getChartRowsForRange(database, coin.id, parseChartRange(query), query.interval);
 
     return buildChartPayload(rows, vsCurrency, parsePrecision(query.precision));
   });

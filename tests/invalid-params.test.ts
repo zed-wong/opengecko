@@ -110,6 +110,16 @@ describe('OpenGecko invalid parameter handling', () => {
     expect(response.json()).toMatchObject(errorFixtures.coinChartBadDays);
   });
 
+  it('rejects unsupported chart interval values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/coins/bitcoin/market_chart?vs_currency=usd&days=7&interval=monthly',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.coinChartBadInterval);
+  });
+
   it('rejects invalid chart range values', async () => {
     const badFromResponse = await app!.inject({
       method: 'GET',
@@ -125,6 +135,26 @@ describe('OpenGecko invalid parameter handling', () => {
 
     expect(badBoundsResponse.statusCode).toBe(400);
     expect(badBoundsResponse.json()).toMatchObject(errorFixtures.coinChartRangeBadBounds);
+  });
+
+  it('rejects unsupported dex pair formats on coin detail routes', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/coins/bitcoin?dex_pair_format=bad',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.coinDetailBadDexPairFormat);
+  });
+
+  it('rejects unsupported category ordering values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/coins/categories?order=unsupported',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.coinCategoriesBadOrder);
   });
 
   it('rejects blank search queries', async () => {
@@ -171,6 +201,16 @@ describe('OpenGecko invalid parameter handling', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject(errorFixtures.exchangeTickersBadOrder);
+  });
+
+  it('rejects unsupported derivatives exchange ordering values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/derivatives/exchanges?order=unsupported',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.derivativesExchangesBadOrder);
   });
 
   it('returns not found for unknown exchanges', async () => {

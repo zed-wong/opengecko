@@ -7,7 +7,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
 import { rebuildSearchIndex } from './search-index';
-import { assetPlatforms, categories, chartPoints, coinTickers, coins, exchangeVolumePoints, exchanges, marketSnapshots } from './schema';
+import { assetPlatforms, categories, chartPoints, coinTickers, coins, derivativesExchanges, exchangeVolumePoints, exchanges, marketSnapshots } from './schema';
 
 const MIGRATIONS_FOLDER = resolve(process.cwd(), 'drizzle');
 const MIGRATION_JOURNAL = resolve(MIGRATIONS_FOLDER, 'meta', '_journal.json');
@@ -40,6 +40,7 @@ export function createDatabase(databaseUrl: string) {
       chartPoints,
       coinTickers,
       coins,
+      derivativesExchanges,
       exchangeVolumePoints,
       exchanges,
       marketSnapshots,
@@ -263,6 +264,39 @@ const seededExchanges = [
     centralised: true,
     publicNotice: null,
     alertNotice: null,
+    updatedAt: new Date(seedTimestamp),
+  },
+];
+
+const seededDerivativesExchanges = [
+  {
+    id: 'binance_futures',
+    name: 'Binance Futures',
+    openInterestBtc: 185000,
+    tradeVolume24hBtc: 910000,
+    numberOfPerpetualPairs: 412,
+    numberOfFuturesPairs: 38,
+    yearEstablished: 2019,
+    country: 'Cayman Islands',
+    description: 'Binance Futures is Binance’s derivatives venue for perpetual and dated futures markets.',
+    url: 'https://www.binance.com/en/futures',
+    imageUrl: 'https://assets.coingecko.com/markets/images/52/small/binance.jpg',
+    centralised: true,
+    updatedAt: new Date(seedTimestamp),
+  },
+  {
+    id: 'bybit',
+    name: 'Bybit',
+    openInterestBtc: 132500,
+    tradeVolume24hBtc: 640000,
+    numberOfPerpetualPairs: 356,
+    numberOfFuturesPairs: 24,
+    yearEstablished: 2018,
+    country: 'United Arab Emirates',
+    description: 'Bybit is a crypto derivatives exchange focused on perpetual and futures trading.',
+    url: 'https://www.bybit.com',
+    imageUrl: 'https://assets.coingecko.com/markets/images/698/small/bybit_spot.png',
+    centralised: true,
     updatedAt: new Date(seedTimestamp),
   },
 ];
@@ -515,6 +549,7 @@ export function seedReferenceData(database: AppDatabase) {
   const [{ value: categoryCount }] = database.db.select({ value: count() }).from(categories).all();
   const [{ value: chartPointCount }] = database.db.select({ value: count() }).from(chartPoints).all();
   const [{ value: exchangeCount }] = database.db.select({ value: count() }).from(exchanges).all();
+  const [{ value: derivativesExchangeCount }] = database.db.select({ value: count() }).from(derivativesExchanges).all();
   const [{ value: exchangeVolumePointCount }] = database.db.select({ value: count() }).from(exchangeVolumePoints).all();
   const [{ value: coinTickerCount }] = database.db.select({ value: count() }).from(coinTickers).all();
 
@@ -547,6 +582,10 @@ export function seedReferenceData(database: AppDatabase) {
 
   if (exchangeCount === 0) {
     database.db.insert(exchanges).values(seededExchanges).run();
+  }
+
+  if (derivativesExchangeCount === 0) {
+    database.db.insert(derivativesExchanges).values(seededDerivativesExchanges).run();
   }
 
   if (exchangeVolumePointCount === 0) {

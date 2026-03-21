@@ -19,16 +19,16 @@ Use this tracker for current status, active priorities, completed milestones, an
 
 ## Current Delivery Target
 
-- Current release focus: `R0`
+- Current release focus: `R2`
 - Current architecture direction: `Bun + TypeScript + Fastify + Zod + SQLite + Drizzle + better-sqlite3 + SQLite FTS5 + CCXT + Vitest`
-- Current repository state: `the SQLite-first scaffold, expanded schema, CCXT provider abstraction, complete R0 general/simple endpoints, `token_lists` support, early exchange endpoints, and a first wave of early R1 endpoints are implemented and passing validation`
+- Current repository state: `the SQLite-first scaffold, expanded schema, CCXT provider abstraction, complete R0 general/simple endpoints, complete R1 core coin endpoints, `token_lists` support, early exchange endpoints, and the first seeded derivatives exchange registry endpoints are implemented and passing validation`
 
 ## Current Priorities
 
-1. Expand the compatibility shell for more faithful response shaping and edge-case handling.
-2. Broaden repository-layer and fixture coverage across more market/history/detail edge cases.
-3. Finalize chart granularity/downsampling rules and retention assumptions.
-4. Deepen `/coins/{id}` fidelity beyond the current localization/detail-platform/community/developer baseline.
+1. Expand the exchange and derivatives compatibility shell beyond the current seeded baseline.
+2. Broaden repository-layer and fixture coverage across R2 exchange behaviors and richer live-data edge cases.
+3. Finalize chart granularity/downsampling rules and retention assumptions for retained historical data beyond the current seeded window.
+4. Replace seeded ticker and history slices with CCXT-backed refresh and backfill paths where practical.
 5. Expose scheduling and lag assumptions for live refresh jobs.
 
 ## Workstream Status
@@ -36,8 +36,8 @@ Use this tracker for current status, active priorities, completed milestones, an
 | Workstream | Scope | Status | Notes |
 | --- | --- | --- | --- |
 | Project scaffold | Fastify app, TypeScript config, test setup, logging | done | Package scripts, app entrypoints, and tests are in place |
-| Storage | SQLite connection, migrations, Drizzle schema, WAL mode | done | SQLite bootstraps with Drizzle migrations and seed data, including seeded exchange registry and exchange volume history |
-| Compatibility layer | Param normalization, error shapes, serializers | partial | Several endpoint serializers exist, `/exchange_rates`, `/token_lists/{asset_platform_id}/all.json`, the first `/exchanges*` routes, seeded `/coins/{id}/tickers`, and seeded `/exchanges/{id}/tickers` support are implemented; `/coins/markets` order/pagination handling improved, stale market snapshots are degraded deterministically, chart-style routes validate range inputs and missing coins explicitly, and `/coins/{id}` now includes richer baseline detail sections |
+| Storage | SQLite connection, migrations, Drizzle schema, WAL mode | done | SQLite bootstraps with Drizzle migrations and seed data, including seeded exchange registry, seeded derivatives exchange registry, and exchange volume history |
+| Compatibility layer | Param normalization, error shapes, serializers | partial | Several endpoint serializers exist, `/exchange_rates`, `/token_lists/{asset_platform_id}/all.json`, the first `/exchanges*` routes, the first `/derivatives/exchanges*` routes, seeded `/coins/{id}/tickers`, and seeded `/exchanges/{id}/tickers` support are implemented; the full R1 coin family now includes category filtering, extra price-change windows, category-detail flags, category ordering, richer history responses, and interval-aware chart-style routes |
 | Search | SQLite FTS5 indexing and `/search` support | done | FTS5 virtual table, rebuild job, and ranked `/search` queries are in place |
 | Historical data | Local chart and OHLC storage | partial | Seeded chart and OHLC routes exist; initial granularity/downsampling helpers are implemented, but retention policy remains open |
 | Background refresh jobs | Snapshot refresh and search rebuild jobs | partial | CCXT-backed market refresh and search rebuild scripts exist, and seed-vs-live ownership is now encoded in a shared snapshot service; scheduling is still not locked |
@@ -54,8 +54,8 @@ Use this tracker for current status, active priorities, completed milestones, an
 | `/search` | R0 | done | FTS5-backed grouped search route implemented and tested |
 | `/global` | R0 | done | Aggregate market snapshot route implemented and tested |
 | `/coins/list` | R0 | done | Seeded coin registry route implemented and tested |
-| Core coin market endpoints | R1 | partial | `/coins/markets`, `/coins/{id}`, `/coins/{id}/tickers`, history, chart, OHLC, categories, and contract-address chart/detail routes are implemented from seeded data |
-| Exchanges / derivatives | R2 | partial | `/exchanges/list`, `/exchanges`, `/exchanges/{id}`, `/exchanges/{id}/tickers`, and `/exchanges/{id}/volume_chart` are implemented from seeded exchange and ticker data |
+| Core coin market endpoints | R1 | done | `/coins/markets`, `/coins/{id}`, history, chart, OHLC, categories, token lists, and contract-address chart/detail routes are implemented and validated with seeded compatibility coverage, including category filters/details, category ordering, richer history payloads, and interval-aware chart semantics |
+| Exchanges / derivatives | R2 | partial | `/exchanges/list`, `/exchanges`, `/exchanges/{id}`, `/exchanges/{id}/tickers`, `/exchanges/{id}/volume_chart`, `/derivatives/exchanges/list`, and `/derivatives/exchanges` are implemented from seeded exchange and derivatives venue data |
 | NFTs | R3 | not started | later phase |
 | Public treasury | R3 | not started | later phase |
 | Onchain DEX | R4 | not started | major milestone, intentionally deferred |
@@ -76,13 +76,13 @@ Use this tracker for current status, active priorities, completed milestones, an
 
 - Define fixture sources for compatibility-oriented contract tests.
 
-## Known Seeded R1 Divergences
+## Known Data-Fidelity Follow-ups After R1 Contract Completion
 
-- `/coins/{id}` still serves a reduced market-data object, and `/coins/{id}/tickers` is currently backed by a small seeded ticker set rather than live venue ingestion.
-- `/coins/*/market_chart*` and `/ohlc` currently operate on a small seeded daily series rather than live/backfilled interval data.
-- `/coins/categories*` and contract-address variants are limited to the current seeded catalog subset.
-- `/token_lists/{asset_platform_id}/all.json` is currently backed by the seeded platform catalog and limited token metadata/decimals.
+- `/coins/{id}` and `/coins/{id}/history` now satisfy the intended R1 contract shape, but their values still come from the current seeded market/history slices rather than live/backfilled sources.
+- `/coins/*/market_chart*` and `/ohlc` now support interval-aware semantics, but the underlying series still comes from the current seeded historical window.
+- `/coins/categories*`, contract-address variants, and `/token_lists/{asset_platform_id}/all.json` are contract-complete for the current seed set, but broader taxonomy/platform coverage still depends on larger catalogs.
 - `/exchanges*` currently uses a small seeded exchange registry, seeded ticker rows, and seeded BTC volume history rather than live exchange ingestion.
+- `/derivatives/exchanges*` currently uses a small seeded derivatives venue registry and does not yet expose contract-level derivatives tickers or venue detail routes.
 
 ## Completed Milestones
 
@@ -105,6 +105,9 @@ Use this tracker for current status, active priorities, completed milestones, an
 - Added seeded exchange registry and volume history support for `/exchanges/list`, `/exchanges`, `/exchanges/{id}`, and `/exchanges/{id}/volume_chart`.
 - Added seeded `/coins/{id}/tickers` support with filtering, ordering, and coverage for missing coins and invalid order values.
 - Added seeded `/exchanges/{id}/tickers` support with filtering, ordering, and ticker-rich exchange detail responses.
+- Added the remaining R1 compatibility semantics for `/coins/markets`, `/coins/{id}`, `/coins/{id}/history`, `/coins/categories`, and contract chart routes, including category filters/details, extra price-change windows, category ordering, richer history payloads, and optional chart intervals.
+- Completed the R1 core coin endpoint family with passing validation coverage.
+- Added seeded derivatives exchange registry support for `/derivatives/exchanges/list` and `/derivatives/exchanges`, including ordering, pagination, and invalid-order coverage.
 - Added passing tests for `/ping`, `/simple/*`, `/asset_platforms`, `/search`, `/global`, `/coins/list`, and the first seeded `/coins/*` market endpoints.
 
 ## Update Rules

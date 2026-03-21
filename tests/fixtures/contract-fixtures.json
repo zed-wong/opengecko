@@ -158,6 +158,38 @@
     [1773878400000, 315000],
     [1773964800000, 320000]
   ],
+  "derivativesExchangesList": [
+    {
+      "id": "binance_futures",
+      "name": "Binance Futures"
+    },
+    {
+      "id": "bybit",
+      "name": "Bybit"
+    }
+  ],
+  "derivativesExchanges": [
+    {
+      "id": "binance_futures",
+      "name": "Binance Futures",
+      "open_interest_btc": 185000,
+      "trade_volume_24h_btc": 910000,
+      "number_of_perpetual_pairs": 412,
+      "number_of_futures_pairs": 38,
+      "year_established": 2019,
+      "country": "Cayman Islands"
+    },
+    {
+      "id": "bybit",
+      "name": "Bybit",
+      "open_interest_btc": 132500,
+      "trade_volume_24h_btc": 640000,
+      "number_of_perpetual_pairs": 356,
+      "number_of_futures_pairs": 24,
+      "year_established": 2018,
+      "country": "United Arab Emirates"
+    }
+  ],
   "ethereumTokenList": {
     "name": "OpenGecko Ethereum Token List",
     "timestamp": "2026-03-20T00:00:00.000Z",

@@ -3,7 +3,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { AppDatabase } from '../db/client';
-import { coinTickers, exchangeVolumePoints, exchanges, type ExchangeRow } from '../db/schema';
+import { coinTickers, derivativesExchanges, exchangeVolumePoints, exchanges, type DerivativesExchangeRow, type ExchangeRow } from '../db/schema';
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePositiveInt } from '../http/params';
 
@@ -21,6 +21,12 @@ const exchangeTickersQuerySchema = z.object({
   include_exchange_logo: z.enum(['true', 'false']).optional(),
   page: z.string().optional(),
   order: z.string().optional(),
+});
+
+const derivativesExchangesQuerySchema = z.object({
+  order: z.string().optional(),
+  per_page: z.string().optional(),
+  page: z.string().optional(),
 });
 
 function parseJsonArray<T>(value: string) {
@@ -58,6 +64,23 @@ function buildExchangeDetail(row: ExchangeRow) {
     public_notice: row.publicNotice,
     alert_notice: row.alertNotice,
     tickers: [],
+  };
+}
+
+function buildDerivativesExchangeSummary(row: DerivativesExchangeRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    open_interest_btc: row.openInterestBtc,
+    trade_volume_24h_btc: row.tradeVolume24hBtc,
+    number_of_perpetual_pairs: row.numberOfPerpetualPairs,
+    number_of_futures_pairs: row.numberOfFuturesPairs,
+    year_established: row.yearEstablished,
+    country: row.country,
+    description: row.description,
+    url: row.url,
+    image: row.imageUrl,
+    centralized: row.centralised,
   };
 }
 
@@ -177,6 +200,28 @@ function getExchangeVolumeChart(database: AppDatabase, exchangeId: string, days:
   return rows.slice(-Math.ceil(parsedDays)).map((row) => [row.timestamp.getTime(), row.volumeBtc]);
 }
 
+function sortDerivativesExchangeRows(rows: DerivativesExchangeRow[], order: string | undefined) {
+  const normalizedOrder = (order ?? 'open_interest_btc_desc').toLowerCase();
+  const sortableRows = [...rows];
+
+  switch (normalizedOrder) {
+    case 'open_interest_btc_desc':
+      return sortableRows.sort((left, right) => sortNumber(right.openInterestBtc, -1) - sortNumber(left.openInterestBtc, -1));
+    case 'open_interest_btc_asc':
+      return sortableRows.sort((left, right) => sortNumber(left.openInterestBtc, Number.MAX_SAFE_INTEGER) - sortNumber(right.openInterestBtc, Number.MAX_SAFE_INTEGER));
+    case 'trade_volume_24h_btc_desc':
+      return sortableRows.sort((left, right) => sortNumber(right.tradeVolume24hBtc, -1) - sortNumber(left.tradeVolume24hBtc, -1));
+    case 'trade_volume_24h_btc_asc':
+      return sortableRows.sort((left, right) => sortNumber(left.tradeVolume24hBtc, Number.MAX_SAFE_INTEGER) - sortNumber(right.tradeVolume24hBtc, Number.MAX_SAFE_INTEGER));
+    case 'name_asc':
+      return sortableRows.sort((left, right) => left.name.localeCompare(right.name));
+    case 'name_desc':
+      return sortableRows.sort((left, right) => right.name.localeCompare(left.name));
+    default:
+      throw new HttpError(400, 'invalid_parameter', `Unsupported order value: ${order}`);
+  }
+}
+
 export function registerExchangeRoutes(app: FastifyInstance, database: AppDatabase) {
   app.get('/exchanges/list', async () => {
     const rows = database.db.select().from(exchanges).orderBy(asc(exchanges.id)).all();
@@ -234,5 +279,25 @@ export function registerExchangeRoutes(app: FastifyInstance, database: AppDataba
         order: query.order,
       }),
     };
+  });
+
+  app.get('/derivatives/exchanges/list', async () => {
+    const rows = database.db.select().from(derivativesExchanges).orderBy(asc(derivativesExchanges.id)).all();
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+    }));
+  });
+
+  app.get('/derivatives/exchanges', async (request) => {
+    const query = derivativesExchangesQuerySchema.parse(request.query);
+    const page = parsePositiveInt(query.page, 1);
+    const perPage = Math.min(parsePositiveInt(query.per_page, 100), 250);
+    const rows = database.db.select().from(derivativesExchanges).all();
+    const sortedRows = sortDerivativesExchangeRows(rows, query.order);
+    const start = (page - 1) * perPage;
+
+    return sortedRows.slice(start, start + perPage).map(buildDerivativesExchangeSummary);
   });
 }

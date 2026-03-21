@@ -133,6 +133,22 @@ export const exchangeVolumePoints = sqliteTable(
   }),
 );
 
+export const derivativesExchanges = sqliteTable('derivatives_exchanges', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  openInterestBtc: real('open_interest_btc'),
+  tradeVolume24hBtc: real('trade_volume_24h_btc'),
+  numberOfPerpetualPairs: integer('number_of_perpetual_pairs'),
+  numberOfFuturesPairs: integer('number_of_futures_pairs'),
+  yearEstablished: integer('year_established'),
+  country: text('country'),
+  description: text('description').notNull().default(''),
+  url: text('url').notNull(),
+  imageUrl: text('image_url'),
+  centralised: integer('centralised', { mode: 'boolean' }).notNull().default(true),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
 export const coinTickers = sqliteTable(
   'coin_tickers',
   {
@@ -172,4 +188,5 @@ export type CategoryRow = typeof categories.$inferSelect;
 export type ChartPointRow = typeof chartPoints.$inferSelect;
 export type ExchangeRow = typeof exchanges.$inferSelect;
 export type ExchangeVolumePointRow = typeof exchangeVolumePoints.$inferSelect;
+export type DerivativesExchangeRow = typeof derivativesExchanges.$inferSelect;
 export type CoinTickerRow = typeof coinTickers.$inferSelect;

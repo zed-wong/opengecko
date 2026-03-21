@@ -36,6 +36,13 @@
       "when": 1774051200000,
       "tag": "0004_coin_tickers",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1774080000000,
+      "tag": "0005_derivatives_exchanges",
+      "breakpoints": true
     }
   ]
 }
