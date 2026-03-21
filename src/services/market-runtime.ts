@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from '../config/env';
 import type { AppDatabase } from '../db/client';
 import { refreshCurrencyApiRatesOnce } from './currency-rates';
+import type { MarketDataRuntimeState } from './market-runtime-state';
 import { runMarketRefreshOnce } from './market-refresh';
 import { runSearchRebuildOnce } from './search-rebuild';
 
@@ -56,6 +57,7 @@ export function createMarketRuntime(
   database: AppDatabase,
   config: Pick<AppConfig, 'ccxtExchanges' | 'currencyRefreshIntervalSeconds' | 'marketRefreshIntervalSeconds' | 'searchRebuildIntervalSeconds'>,
   logger: RuntimeLogger,
+  state: MarketDataRuntimeState,
   overrides: MarketRuntimeOverrides = {},
 ): MarketRuntime {
   let currencyTimer: NodeJS.Timeout | null = null;
@@ -76,6 +78,7 @@ export function createMarketRuntime(
     async start() {
       await runCurrencyJob.run();
       await runMarketJob.run();
+      state.hasCompletedBootMarketRefresh = true;
 
       currencyTimer = setInterval(() => {
         void runCurrencyJob.run();

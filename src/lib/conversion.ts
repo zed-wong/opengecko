@@ -1,7 +1,7 @@
 import type { AppDatabase } from '../db/client';
 import { HttpError } from '../http/errors';
 import { getMarketRows } from '../modules/catalog';
-import { getUsableSnapshot } from '../modules/market-freshness';
+import { getUsableSnapshot, type SnapshotAccessPolicy } from '../modules/market-freshness';
 import { getCurrencyApiSnapshot } from '../services/currency-rates';
 
 export const SUPPORTED_VS_CURRENCIES = ['usd', 'eur', 'btc', 'eth'] as const;
@@ -20,18 +20,24 @@ function getCoinSnapshot(
   coinId: string,
   vsCurrency: SupportedVsCurrency,
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
 ) {
   return getUsableSnapshot(
     getMarketRows(database, vsCurrency, { ids: [coinId], status: 'all' })[0]?.snapshot ?? null,
     marketFreshnessThresholdSeconds,
+    snapshotAccessPolicy,
   );
 }
 
-export function getConversionRates(database: AppDatabase, marketFreshnessThresholdSeconds: number) {
+export function getConversionRates(
+  database: AppDatabase,
+  marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
+) {
   const currencyApiSnapshot = getCurrencyApiSnapshot();
   const usdPerUsdt = currencyApiSnapshot.usdt.usd;
-  const bitcoinUsdSnapshot = getCoinSnapshot(database, 'bitcoin', 'usd', marketFreshnessThresholdSeconds);
-  const ethereumUsdSnapshot = getCoinSnapshot(database, 'ethereum', 'usd', marketFreshnessThresholdSeconds);
+  const bitcoinUsdSnapshot = getCoinSnapshot(database, 'bitcoin', 'usd', marketFreshnessThresholdSeconds, snapshotAccessPolicy);
+  const ethereumUsdSnapshot = getCoinSnapshot(database, 'ethereum', 'usd', marketFreshnessThresholdSeconds, snapshotAccessPolicy);
 
   return {
     usd: 1,
@@ -49,9 +55,10 @@ export function getConversionRate(
   database: AppDatabase,
   vsCurrency: string,
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
 ) {
   const normalized = vsCurrency.toLowerCase();
-  const rates = getConversionRates(database, marketFreshnessThresholdSeconds);
+  const rates = getConversionRates(database, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
 
   if (normalized in rates) {
     return rates[normalized as keyof typeof rates];
@@ -60,8 +67,12 @@ export function getConversionRate(
   throw new HttpError(400, 'invalid_parameter', `Unsupported vs_currency: ${vsCurrency}`);
 }
 
-export function buildExchangeRatesPayload(database: AppDatabase, marketFreshnessThresholdSeconds: number) {
-  const conversionRates = getConversionRates(database, marketFreshnessThresholdSeconds);
+export function buildExchangeRatesPayload(
+  database: AppDatabase,
+  marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
+) {
+  const conversionRates = getConversionRates(database, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const bitcoinValueUsd = 1 / conversionRates.btc;
 
   return {

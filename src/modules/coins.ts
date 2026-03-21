@@ -7,9 +7,10 @@ import { coinTickers, exchanges, type CoinRow, type MarketSnapshotRow } from '..
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePositiveInt, parsePrecision } from '../http/params';
 import { getConversionRate, getConversionRates } from '../lib/conversion';
+import type { MarketDataRuntimeState } from '../services/market-runtime-state';
 import { getCategories, getChartSeries, getCoinByContract, getCoinById, getCoins, getMarketRows, parseJsonArray, parseJsonObject } from './catalog';
 import { downsampleTimeSeries, getChartGranularityMs, getRangeDurationMs } from './chart-semantics';
-import { getUsableSnapshot } from './market-freshness';
+import { getSnapshotAccessPolicy, type SnapshotAccessPolicy, getUsableSnapshot } from './market-freshness';
 import { getCanonicalCandles } from '../services/candle-store';
 
 const coinsListQuerySchema = z.object({
@@ -154,10 +155,11 @@ function getSeriesExtremes(
   coinId: string,
   vsCurrency: string,
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
   precision: number | 'full' = 'full',
 ) {
   const rows = getChartSeries(database, coinId, 'usd');
-  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds);
+  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const values = rows.map((row) => row.price * rate);
 
   if (values.length === 0) {
@@ -178,6 +180,7 @@ function getSeriesChangePercentage(
   coinId: string,
   vsCurrency: string,
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
 ) {
   const rows = getChartSeries(database, coinId, 'usd');
 
@@ -185,7 +188,7 @@ function getSeriesChangePercentage(
     return null;
   }
 
-  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds);
+  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const first = rows[0]!.price * rate;
   const last = rows.at(-1)!.price * rate;
 
@@ -291,8 +294,9 @@ function buildSparkline(
   coinId: string,
   vsCurrency: string,
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
 ) {
-  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds);
+  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const rows = downsampleTimeSeries(getChartSeries(database, coinId, 'usd'), getChartGranularityMs(7 * 24 * 60 * 60 * 1000));
 
   return {
@@ -305,6 +309,7 @@ function getSeriesChangePercentageForWindowDays(
   coinId: string,
   vsCurrency: string,
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
   windowDays: number,
 ) {
   const rows = getChartSeries(database, coinId, 'usd');
@@ -313,7 +318,7 @@ function getSeriesChangePercentageForWindowDays(
     return null;
   }
 
-  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds);
+  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const latestTimestamp = rows.at(-1)!.timestamp.getTime();
   const cutoff = latestTimestamp - windowDays * 24 * 60 * 60 * 1000;
   const firstRow = rows.find((row) => row.timestamp.getTime() >= cutoff) ?? rows[0]!;
@@ -332,6 +337,7 @@ function buildMarketPriceChangeFields(
   coinId: string,
   vsCurrency: string,
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
   requestedWindows: string[],
   precision: number | 'full',
 ) {
@@ -355,6 +361,7 @@ function buildMarketPriceChangeFields(
             coinId,
             vsCurrency,
             marketFreshnessThresholdSeconds,
+            snapshotAccessPolicy,
             window.days,
           ),
           precision,
@@ -368,10 +375,11 @@ function buildMarketRow(
   row: { coin: CoinRow; snapshot: MarketSnapshotRow | null },
   vsCurrency: string,
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
   options: { sparkline: boolean; precision: number | 'full'; priceChangePercentages: string[] },
 ) {
   const snapshot = row.snapshot;
-  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds);
+  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const chartSeries = getChartSeries(database, row.coin.id, 'usd');
   const prices = chartSeries.map((point) => point.price * rate);
 
@@ -403,15 +411,16 @@ function buildMarketRow(
     roi: null,
     last_updated: snapshot?.lastUpdated?.toISOString() ?? null,
     ...buildMarketPriceChangeFields(
-      database,
-      row.coin.id,
-      vsCurrency,
-      marketFreshnessThresholdSeconds,
-      options.priceChangePercentages,
-      options.precision,
-    ),
+        database,
+        row.coin.id,
+        vsCurrency,
+        marketFreshnessThresholdSeconds,
+        snapshotAccessPolicy,
+        options.priceChangePercentages,
+        options.precision,
+      ),
     sparkline_in_7d: options.sparkline
-      ? buildSparkline(database, row.coin.id, vsCurrency, marketFreshnessThresholdSeconds)
+      ? buildSparkline(database, row.coin.id, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy)
       : null,
   };
 }
@@ -438,6 +447,7 @@ function buildCoinDetail(
   coin: CoinRow,
   snapshot: MarketSnapshotRow | null,
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
   options: {
     includeLocalization: boolean;
     includeMarketData: boolean;
@@ -451,8 +461,8 @@ function buildCoinDetail(
   const categoriesList = parseJsonArray<string>(coin.categoriesJson);
   const description = parseJsonObject<Record<string, string>>(coin.descriptionJson);
   const links = parseJsonObject<Record<string, unknown>>(coin.linksJson);
-  const seriesExtremes = getSeriesExtremes(database, coin.id, 'usd', marketFreshnessThresholdSeconds);
-  const priceChangePercentage7d = getSeriesChangePercentage(database, coin.id, 'usd', marketFreshnessThresholdSeconds);
+  const seriesExtremes = getSeriesExtremes(database, coin.id, 'usd', marketFreshnessThresholdSeconds, snapshotAccessPolicy);
+  const priceChangePercentage7d = getSeriesChangePercentage(database, coin.id, 'usd', marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const marketData = !options.includeMarketData || !snapshot
     ? null
     : {
@@ -480,7 +490,7 @@ function buildCoinDetail(
         market_cap_rank: snapshot.marketCapRank,
         last_updated: snapshot.lastUpdated.toISOString(),
         sparkline_7d: options.includeSparkline
-          ? buildSparkline(database, coin.id, 'usd', marketFreshnessThresholdSeconds)
+          ? buildSparkline(database, coin.id, 'usd', marketFreshnessThresholdSeconds, snapshotAccessPolicy)
           : null,
       };
 
@@ -532,6 +542,7 @@ function buildCoinDetail(
         includeExchangeLogo: false,
         page: 1,
         marketFreshnessThresholdSeconds,
+        snapshotAccessPolicy,
       }).tickers
       : [],
   };
@@ -629,12 +640,13 @@ function getCoinTickers(
     page: number;
     order?: string;
     marketFreshnessThresholdSeconds: number;
+    snapshotAccessPolicy: SnapshotAccessPolicy;
   },
 ) {
   const perPage = 100;
   const rows = sortCoinTickerRows(getCoinTickerRows(database, coinId, options.exchangeIds), options.order);
   const start = (options.page - 1) * perPage;
-  const conversionRates = getConversionRates(database, options.marketFreshnessThresholdSeconds);
+  const conversionRates = getConversionRates(database, options.marketFreshnessThresholdSeconds, options.snapshotAccessPolicy);
 
   return {
     tickers: rows.slice(start, start + perPage).map((row) => buildCoinTickerPayload(row, options.includeExchangeLogo, conversionRates)),
@@ -812,9 +824,10 @@ function buildChartPayload(
   rows: Array<{ timestamp: Date; price: number; marketCap: number | null; totalVolume: number | null }>,
   vsCurrency: string,
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
   precision: number | 'full',
 ) {
-  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds);
+  const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
 
   return {
     prices: rows.map((row) => [row.timestamp.getTime(), toNumberOrNull(row.price * rate, precision)]),
@@ -823,7 +836,12 @@ function buildChartPayload(
   };
 }
 
-export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, marketFreshnessThresholdSeconds: number) {
+export function registerCoinRoutes(
+  app: FastifyInstance,
+  database: AppDatabase,
+  marketFreshnessThresholdSeconds: number,
+  runtimeState: MarketDataRuntimeState,
+) {
   app.get('/coins/list', async (request) => {
     const query = coinsListQuerySchema.parse(request.query);
     const includePlatforms = parseBooleanQuery(query.include_platform, false);
@@ -856,6 +874,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const category = query.category ? normalizeCategoryId(query.category) : undefined;
     const vsCurrency = query.vs_currency.toLowerCase();
     const priceChangePercentages = parseCsvQuery(query.price_change_percentage).map((value) => value.toLowerCase());
+    const snapshotAccessPolicy = getSnapshotAccessPolicy(runtimeState);
     const rows = getMarketRows(database, 'usd', {
       ids: parseCsvQuery(query.ids),
       names: parseCsvQuery(query.names),
@@ -870,13 +889,13 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
         .includes(category);
     }).map((row) => ({
       coin: row.coin,
-      snapshot: getUsableSnapshot(row.snapshot, marketFreshnessThresholdSeconds),
+      snapshot: getUsableSnapshot(row.snapshot, marketFreshnessThresholdSeconds, snapshotAccessPolicy),
     }));
     const sortedRows = sortMarketRows(rows, query.order);
 
     const start = (page - 1) * perPage;
 
-    return sortedRows.slice(start, start + perPage).map((row) => buildMarketRow(database, row, vsCurrency, marketFreshnessThresholdSeconds, {
+    return sortedRows.slice(start, start + perPage).map((row) => buildMarketRow(database, row, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy, {
       sparkline,
       precision,
       priceChangePercentages,
@@ -888,12 +907,13 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const query = coinDetailQuerySchema.parse(request.query);
     parseDexPairFormat(query.dex_pair_format);
     const row = getMarketRows(database, 'usd', { ids: [params.id], status: 'all' })[0];
+    const snapshotAccessPolicy = getSnapshotAccessPolicy(runtimeState);
 
     if (!row) {
       throw new HttpError(404, 'not_found', `Coin not found: ${params.id}`);
     }
 
-    return buildCoinDetail(database, row.coin, getUsableSnapshot(row.snapshot, marketFreshnessThresholdSeconds), marketFreshnessThresholdSeconds, {
+    return buildCoinDetail(database, row.coin, getUsableSnapshot(row.snapshot, marketFreshnessThresholdSeconds, snapshotAccessPolicy), marketFreshnessThresholdSeconds, snapshotAccessPolicy, {
       includeLocalization: parseBooleanQuery(query.localization, true),
       includeMarketData: parseBooleanQuery(query.market_data, true),
       includeTickers: parseBooleanQuery(query.tickers, true),
@@ -915,7 +935,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
 
     const historicalSnapshot = getHistorySnapshot(database, coin.id, parseHistoryDate(query.date));
 
-    return buildCoinDetail(database, coin, historicalSnapshot, marketFreshnessThresholdSeconds, {
+    return buildCoinDetail(database, coin, historicalSnapshot, marketFreshnessThresholdSeconds, getSnapshotAccessPolicy(runtimeState), {
       includeLocalization: parseBooleanQuery(query.localization, true),
       includeMarketData: true,
       includeTickers: false,
@@ -937,6 +957,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
       page,
       order: query.order,
       marketFreshnessThresholdSeconds,
+      snapshotAccessPolicy: getSnapshotAccessPolicy(runtimeState),
     });
 
     return {
@@ -952,7 +973,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const vsCurrency = query.vs_currency.toLowerCase();
     const rows = getChartRowsForDays(database, params.id, query.days, query.interval);
 
-    return buildChartPayload(database, rows, vsCurrency, marketFreshnessThresholdSeconds, parsePrecision(query.precision));
+    return buildChartPayload(database, rows, vsCurrency, marketFreshnessThresholdSeconds, getSnapshotAccessPolicy(runtimeState), parsePrecision(query.precision));
   });
 
   app.get('/coins/:id/market_chart/range', async (request) => {
@@ -962,7 +983,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const vsCurrency = query.vs_currency.toLowerCase();
     const rows = getChartRowsForRange(database, params.id, parseChartRange(query), query.interval);
 
-    return buildChartPayload(database, rows, vsCurrency, marketFreshnessThresholdSeconds, parsePrecision(query.precision));
+    return buildChartPayload(database, rows, vsCurrency, marketFreshnessThresholdSeconds, getSnapshotAccessPolicy(runtimeState), parsePrecision(query.precision));
   });
 
   app.get('/coins/:id/ohlc', async (request) => {
@@ -971,7 +992,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     getRequiredCoin(database, params.id);
     const precision = parsePrecision(query.precision);
     const vsCurrency = query.vs_currency.toLowerCase();
-    const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds);
+    const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, getSnapshotAccessPolicy(runtimeState));
     const rows = getOhlcRowsForDays(database, params.id, query.days, query.interval);
 
     return rows.map((row) => {
@@ -1017,8 +1038,9 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     }
 
     const marketRow = getMarketRows(database, 'usd', { ids: [coin.id] })[0] ?? { coin, snapshot: null };
+    const snapshotAccessPolicy = getSnapshotAccessPolicy(runtimeState);
 
-    return buildCoinDetail(database, marketRow.coin, getUsableSnapshot(marketRow.snapshot, marketFreshnessThresholdSeconds), marketFreshnessThresholdSeconds, {
+    return buildCoinDetail(database, marketRow.coin, getUsableSnapshot(marketRow.snapshot, marketFreshnessThresholdSeconds, snapshotAccessPolicy), marketFreshnessThresholdSeconds, snapshotAccessPolicy, {
       includeLocalization: parseBooleanQuery(query.localization, true),
       includeMarketData: parseBooleanQuery(query.market_data, true),
       includeTickers: parseBooleanQuery(query.tickers, true),
@@ -1041,7 +1063,7 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const vsCurrency = query.vs_currency.toLowerCase();
     const rows = getChartRowsForDays(database, coin.id, query.days, query.interval);
 
-    return buildChartPayload(database, rows, vsCurrency, marketFreshnessThresholdSeconds, parsePrecision(query.precision));
+    return buildChartPayload(database, rows, vsCurrency, marketFreshnessThresholdSeconds, getSnapshotAccessPolicy(runtimeState), parsePrecision(query.precision));
   });
 
   app.get('/coins/:platform_id/contract/:contract_address/market_chart/range', async (request) => {
@@ -1056,6 +1078,6 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const vsCurrency = query.vs_currency.toLowerCase();
     const rows = getChartRowsForRange(database, coin.id, parseChartRange(query), query.interval);
 
-    return buildChartPayload(database, rows, vsCurrency, marketFreshnessThresholdSeconds, parsePrecision(query.precision));
+    return buildChartPayload(database, rows, vsCurrency, marketFreshnessThresholdSeconds, getSnapshotAccessPolicy(runtimeState), parsePrecision(query.precision));
   });
 }

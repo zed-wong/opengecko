@@ -4,9 +4,10 @@ import { count } from 'drizzle-orm';
 import type { AppDatabase } from '../db/client';
 import type { MarketSnapshotRow } from '../db/schema';
 import { getConversionRate, SUPPORTED_VS_CURRENCIES } from '../lib/conversion';
+import type { MarketDataRuntimeState } from '../services/market-runtime-state';
 import { exchanges } from '../db/schema';
 import { getMarketRows } from './catalog';
-import { getUsableSnapshot } from './market-freshness';
+import { getSnapshotAccessPolicy, getUsableSnapshot } from './market-freshness';
 
 function computeMarketCapChangePercentage24hUsd(
   marketRows: Array<{ snapshot: MarketSnapshotRow }>,
@@ -30,12 +31,18 @@ function computeMarketCapChangePercentage24hUsd(
   return ((currentMarketCapUsd - previousMarketCapUsd) / previousMarketCapUsd) * 100;
 }
 
-export function registerGlobalRoutes(app: FastifyInstance, database: AppDatabase, marketFreshnessThresholdSeconds: number) {
+export function registerGlobalRoutes(
+  app: FastifyInstance,
+  database: AppDatabase,
+  marketFreshnessThresholdSeconds: number,
+  runtimeState: MarketDataRuntimeState,
+) {
   app.get('/global', async () => {
+    const snapshotAccessPolicy = getSnapshotAccessPolicy(runtimeState);
     const marketRows = getMarketRows(database, 'usd', { status: 'active' })
       .map((row) => ({
         coin: row.coin,
-        snapshot: getUsableSnapshot(row.snapshot, marketFreshnessThresholdSeconds),
+        snapshot: getUsableSnapshot(row.snapshot, marketFreshnessThresholdSeconds, snapshotAccessPolicy),
       }))
       .filter((row): row is typeof row & { snapshot: NonNullable<typeof row.snapshot> } => row.snapshot !== null);
     const activeCoinCount = getMarketRows(database, 'usd', { status: 'active' }).length;
@@ -43,10 +50,10 @@ export function registerGlobalRoutes(app: FastifyInstance, database: AppDatabase
     const totalMarketCapUsd = marketRows.reduce((sum, row) => sum + (row.snapshot?.marketCap ?? 0), 0);
     const totalVolumeUsd = marketRows.reduce((sum, row) => sum + (row.snapshot?.totalVolume ?? 0), 0);
     const totalMarketCap = Object.fromEntries(
-      SUPPORTED_VS_CURRENCIES.map((currency) => [currency, totalMarketCapUsd * getConversionRate(database, currency, marketFreshnessThresholdSeconds)]),
+      SUPPORTED_VS_CURRENCIES.map((currency) => [currency, totalMarketCapUsd * getConversionRate(database, currency, marketFreshnessThresholdSeconds, snapshotAccessPolicy)]),
     );
     const totalVolume = Object.fromEntries(
-      SUPPORTED_VS_CURRENCIES.map((currency) => [currency, totalVolumeUsd * getConversionRate(database, currency, marketFreshnessThresholdSeconds)]),
+      SUPPORTED_VS_CURRENCIES.map((currency) => [currency, totalVolumeUsd * getConversionRate(database, currency, marketFreshnessThresholdSeconds, snapshotAccessPolicy)]),
     );
     const btcMarketCap = marketRows.find((row) => row.coin.id === 'bitcoin')?.snapshot?.marketCap ?? 0;
     const ethMarketCap = marketRows.find((row) => row.coin.id === 'ethereum')?.snapshot?.marketCap ?? 0;

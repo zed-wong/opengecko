@@ -7,7 +7,9 @@ import { coinTickers, derivativeTickers, derivativesExchanges, exchangeVolumePoi
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePositiveInt } from '../http/params';
 import { getConversionRates } from '../lib/conversion';
+import type { MarketDataRuntimeState } from '../services/market-runtime-state';
 import { getCoinById } from './catalog';
+import { getSnapshotAccessPolicy } from './market-freshness';
 
 const exchangesListQuerySchema = z.object({
   status: z.enum(['active', 'inactive', 'all']).optional(),
@@ -228,12 +230,17 @@ function getExchangeTickers(
     order?: string;
     dexPairFormat: string;
     marketFreshnessThresholdSeconds: number;
+    runtimeState: MarketDataRuntimeState;
   },
 ) {
   const perPage = 100;
   const rows = sortExchangeTickerRows(getExchangeTickerRows(database, exchangeId, options.coinIds), options.order);
   const start = (options.page - 1) * perPage;
-  const conversionRates = getConversionRates(database, options.marketFreshnessThresholdSeconds);
+  const conversionRates = getConversionRates(
+    database,
+    options.marketFreshnessThresholdSeconds,
+    getSnapshotAccessPolicy(options.runtimeState),
+  );
 
   return rows.slice(start, start + perPage).map((row) => buildExchangeTickerPayload(database, row, conversionRates, {
     includeExchangeLogo: options.includeExchangeLogo,
@@ -321,7 +328,12 @@ function buildDerivativeTickerPayload(row: { ticker: DerivativeTickerRow; exchan
   };
 }
 
-export function registerExchangeRoutes(app: FastifyInstance, database: AppDatabase, marketFreshnessThresholdSeconds: number) {
+export function registerExchangeRoutes(
+  app: FastifyInstance,
+  database: AppDatabase,
+  marketFreshnessThresholdSeconds: number,
+  runtimeState: MarketDataRuntimeState,
+) {
   app.get('/exchanges/list', async (request) => {
     const query = exchangesListQuerySchema.parse(request.query);
 
@@ -361,6 +373,7 @@ export function registerExchangeRoutes(app: FastifyInstance, database: AppDataba
         page: 1,
         dexPairFormat,
         marketFreshnessThresholdSeconds,
+        runtimeState,
       }),
     };
   });
@@ -391,6 +404,7 @@ export function registerExchangeRoutes(app: FastifyInstance, database: AppDataba
         order: query.order,
         dexPairFormat,
         marketFreshnessThresholdSeconds,
+        runtimeState,
       }),
     };
   });

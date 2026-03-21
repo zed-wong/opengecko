@@ -13,6 +13,7 @@ import { registerSearchRoutes } from './modules/search';
 import { registerSimpleRoutes } from './modules/simple';
 import { registerTreasuryRoutes } from './modules/treasury';
 import { createMarketRuntime } from './services/market-runtime';
+import { createMarketDataRuntimeState } from './services/market-runtime-state';
 
 export type BuildAppOptions = {
   config?: Partial<AppConfig>;
@@ -26,19 +27,20 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
   const database = createDatabase(config.databaseUrl);
   const shouldStartBackgroundJobs = options.startBackgroundJobs ?? false;
-  const runtime = shouldStartBackgroundJobs ? createMarketRuntime(database, config, app.log) : null;
+  const marketDataRuntimeState = createMarketDataRuntimeState();
+  const runtime = shouldStartBackgroundJobs ? createMarketRuntime(database, config, app.log, marketDataRuntimeState) : null;
 
   initializeDatabase(database);
   registerErrorHandler(app);
   registerHealthRoutes(app);
-  registerSimpleRoutes(app, database, config.marketFreshnessThresholdSeconds);
+  registerSimpleRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
   registerAssetPlatformRoutes(app, database);
-  registerCoinRoutes(app, database, config.marketFreshnessThresholdSeconds);
-  registerExchangeRoutes(app, database, config.marketFreshnessThresholdSeconds);
+  registerCoinRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
+  registerExchangeRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
   registerTreasuryRoutes(app, database);
   registerOnchainRoutes(app, database);
   registerSearchRoutes(app, database);
-  registerGlobalRoutes(app, database, config.marketFreshnessThresholdSeconds);
+  registerGlobalRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
 
   if (runtime) {
     app.addHook('onReady', async () => {

@@ -1,4 +1,5 @@
 import type { MarketSnapshotRow } from '../db/schema';
+import type { MarketDataRuntimeState } from '../services/market-runtime-state';
 import { getSnapshotOwnership } from '../services/market-snapshots';
 
 export type SnapshotFreshness = {
@@ -6,6 +7,10 @@ export type SnapshotFreshness = {
   isStale: boolean;
   providers: string[];
   sourceCount: number;
+};
+
+export type SnapshotAccessPolicy = {
+  allowSeededFallback: boolean;
 };
 
 export function isLiveSnapshot(snapshot: Pick<MarketSnapshotRow, 'sourceCount'>) {
@@ -27,9 +32,16 @@ export function getSnapshotFreshness(
   };
 }
 
+export function getSnapshotAccessPolicy(runtimeState: MarketDataRuntimeState): SnapshotAccessPolicy {
+  return {
+    allowSeededFallback: !runtimeState.hasCompletedBootMarketRefresh,
+  };
+}
+
 export function getUsableSnapshot<T extends Pick<MarketSnapshotRow, 'lastUpdated' | 'sourceProvidersJson' | 'sourceCount'>>(
   snapshot: T | null,
   thresholdSeconds: number,
+  accessPolicy: SnapshotAccessPolicy,
   now = Date.now(),
 ) {
   if (!snapshot) {
@@ -37,6 +49,10 @@ export function getUsableSnapshot<T extends Pick<MarketSnapshotRow, 'lastUpdated
   }
 
   if (!isLiveSnapshot(snapshot)) {
+    if (!accessPolicy.allowSeededFallback) {
+      return null;
+    }
+
     return snapshot;
   }
 

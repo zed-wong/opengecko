@@ -7,6 +7,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabase, initializeDatabase, type AppDatabase } from '../src/db/client';
 import { HttpError } from '../src/http/errors';
 import { buildExchangeRatesPayload, getConversionRate, SUPPORTED_VS_CURRENCIES } from '../src/lib/conversion';
+import type { SnapshotAccessPolicy } from '../src/modules/market-freshness';
+
+const seedFriendlyPolicy: SnapshotAccessPolicy = {
+  allowSeededFallback: true,
+};
 
 describe('conversion helpers', () => {
   let database: AppDatabase;
@@ -28,19 +33,19 @@ describe('conversion helpers', () => {
   });
 
   it('returns stable conversion rates for supported currencies', () => {
-    expect(getConversionRate(database, 'usd', 300)).toBe(1);
-    expect(getConversionRate(database, 'eur', 300)).toBe(0.8627000182076447);
-    expect(getConversionRate(database, 'btc', 300)).toBe(1 / 85_000);
-    expect(getConversionRate(database, 'eth', 300)).toBe(1 / 2_000);
+    expect(getConversionRate(database, 'usd', 300, seedFriendlyPolicy)).toBe(1);
+    expect(getConversionRate(database, 'eur', 300, seedFriendlyPolicy)).toBe(0.8627000182076447);
+    expect(getConversionRate(database, 'btc', 300, seedFriendlyPolicy)).toBe(1 / 85_000);
+    expect(getConversionRate(database, 'eth', 300, seedFriendlyPolicy)).toBe(1 / 2_000);
   });
 
   it('throws consistently for unsupported currencies', () => {
-    expect(() => getConversionRate(database, 'sgd', 300)).toThrowError(HttpError);
-    expect(() => getConversionRate(database, 'sgd', 300)).toThrow('Unsupported vs_currency: sgd');
+    expect(() => getConversionRate(database, 'sgd', 300, seedFriendlyPolicy)).toThrowError(HttpError);
+    expect(() => getConversionRate(database, 'sgd', 300, seedFriendlyPolicy)).toThrow('Unsupported vs_currency: sgd');
   });
 
   it('builds the exchange-rates payload from the shared conversion source', () => {
-    expect(buildExchangeRatesPayload(database, 300)).toEqual({
+    expect(buildExchangeRatesPayload(database, 300, seedFriendlyPolicy)).toEqual({
       rates: {
         btc: {
           name: 'Bitcoin',

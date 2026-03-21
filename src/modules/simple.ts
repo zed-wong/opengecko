@@ -6,8 +6,9 @@ import type { MarketSnapshotRow } from '../db/schema';
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePrecision } from '../http/params';
 import { buildExchangeRatesPayload, getConversionRate, SUPPORTED_VS_CURRENCIES } from '../lib/conversion';
+import type { MarketDataRuntimeState } from '../services/market-runtime-state';
 import { getCoinByContract, getMarketRows, parseJsonObject } from './catalog';
-import { getUsableSnapshot } from './market-freshness';
+import { getSnapshotAccessPolicy, type SnapshotAccessPolicy, getUsableSnapshot } from './market-freshness';
 
 const simplePriceQuerySchema = z.object({
   ids: z.string().optional(),
@@ -48,6 +49,7 @@ function buildSimplePayload(
   snapshot: MarketSnapshotRow,
   requestedCurrencies: string[],
   marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
   options: {
     includeMarketCap: boolean;
     include24hrVol: boolean;
@@ -58,7 +60,7 @@ function buildSimplePayload(
 ) {
   return Object.fromEntries(
     requestedCurrencies.flatMap((vsCurrency) => {
-      const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds);
+      const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
       const entries: Array<[string, number | null]> = [[vsCurrency, toPreciseNumber(snapshot.price * rate, options.precision)]];
 
       if (options.includeMarketCap) {
@@ -82,8 +84,17 @@ function buildSimplePayload(
   );
 }
 
-export function registerSimpleRoutes(app: FastifyInstance, database: AppDatabase, marketFreshnessThresholdSeconds: number) {
-  app.get('/exchange_rates', async () => buildExchangeRatesPayload(database, marketFreshnessThresholdSeconds));
+export function registerSimpleRoutes(
+  app: FastifyInstance,
+  database: AppDatabase,
+  marketFreshnessThresholdSeconds: number,
+  runtimeState: MarketDataRuntimeState,
+) {
+  app.get('/exchange_rates', async () => buildExchangeRatesPayload(
+    database,
+    marketFreshnessThresholdSeconds,
+    getSnapshotAccessPolicy(runtimeState),
+  ));
 
   app.get('/simple/supported_vs_currencies', async () => [...SUPPORTED_VS_CURRENCIES]);
 
@@ -101,6 +112,7 @@ export function registerSimpleRoutes(app: FastifyInstance, database: AppDatabase
     }
 
     const precision = parsePrecision(query.precision);
+    const snapshotAccessPolicy = getSnapshotAccessPolicy(runtimeState);
     const rows = getMarketRows(database, 'usd', {
       ids: parseCsvQuery(query.ids),
       names: parseCsvQuery(query.names),
@@ -111,12 +123,12 @@ export function registerSimpleRoutes(app: FastifyInstance, database: AppDatabase
       rows
         .map((row) => ({
           coin: row.coin,
-          snapshot: getUsableSnapshot(row.snapshot, marketFreshnessThresholdSeconds),
+          snapshot: getUsableSnapshot(row.snapshot, marketFreshnessThresholdSeconds, snapshotAccessPolicy),
         }))
         .filter((row) => row.snapshot)
         .map((row) => [
           row.coin.id,
-          buildSimplePayload(database, row.snapshot!, requestedCurrencies, marketFreshnessThresholdSeconds, {
+          buildSimplePayload(database, row.snapshot!, requestedCurrencies, marketFreshnessThresholdSeconds, snapshotAccessPolicy, {
             includeMarketCap: parseBooleanQuery(query.include_market_cap, false),
             include24hrVol: parseBooleanQuery(query.include_24hr_vol, false),
             include24hrChange: parseBooleanQuery(query.include_24hr_change, false),
@@ -142,6 +154,7 @@ export function registerSimpleRoutes(app: FastifyInstance, database: AppDatabase
     }
 
     const precision = parsePrecision(query.precision);
+    const snapshotAccessPolicy = getSnapshotAccessPolicy(runtimeState);
 
     return Object.fromEntries(
       contractAddresses.flatMap((contractAddress) => {
@@ -154,6 +167,7 @@ export function registerSimpleRoutes(app: FastifyInstance, database: AppDatabase
         const snapshot = getUsableSnapshot(
           getMarketRows(database, 'usd', { ids: [coin.id] })[0]?.snapshot ?? null,
           marketFreshnessThresholdSeconds,
+          snapshotAccessPolicy,
         );
 
         if (!snapshot) {
@@ -165,7 +179,7 @@ export function registerSimpleRoutes(app: FastifyInstance, database: AppDatabase
 
         return [[
           normalizedAddress,
-          buildSimplePayload(database, snapshot, requestedCurrencies, marketFreshnessThresholdSeconds, {
+          buildSimplePayload(database, snapshot, requestedCurrencies, marketFreshnessThresholdSeconds, snapshotAccessPolicy, {
             includeMarketCap: parseBooleanQuery(query.include_market_cap, false),
             include24hrVol: parseBooleanQuery(query.include_24hr_vol, false),
             include24hrChange: parseBooleanQuery(query.include_24hr_change, false),

@@ -27,18 +27,20 @@ describe('market runtime', () => {
     const runCurrencyRefreshOnce = vi.fn().mockResolvedValue(undefined);
     const runMarketRefreshOnce = vi.fn().mockResolvedValue(undefined);
     const runSearchRebuildOnce = vi.fn().mockResolvedValue(undefined);
+    const state = { hasCompletedBootMarketRefresh: false };
     const runtime = createMarketRuntime({} as never, {
       ccxtExchanges: ['binance'],
       currencyRefreshIntervalSeconds: 300,
       marketRefreshIntervalSeconds: 60,
       searchRebuildIntervalSeconds: 900,
-    }, logger, {
+    }, logger, state, {
       runCurrencyRefreshOnce,
       runMarketRefreshOnce,
       runSearchRebuildOnce,
     });
 
     await runtime.start();
+    expect(state.hasCompletedBootMarketRefresh).toBe(true);
     expect(runCurrencyRefreshOnce).toHaveBeenCalledTimes(1);
     expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
     expect(runSearchRebuildOnce).toHaveBeenCalledTimes(0);
@@ -74,7 +76,7 @@ describe('market runtime', () => {
       currencyRefreshIntervalSeconds: 1,
       marketRefreshIntervalSeconds: 60,
       searchRebuildIntervalSeconds: 900,
-    }, logger, {
+    }, logger, { hasCompletedBootMarketRefresh: false }, {
       runCurrencyRefreshOnce,
       runMarketRefreshOnce: vi.fn().mockResolvedValue(undefined),
       runSearchRebuildOnce: vi.fn().mockResolvedValue(undefined),
@@ -113,7 +115,7 @@ describe('market runtime', () => {
       currencyRefreshIntervalSeconds: 300,
       marketRefreshIntervalSeconds: 1,
       searchRebuildIntervalSeconds: 900,
-    }, logger, {
+    }, logger, { hasCompletedBootMarketRefresh: false }, {
       runCurrencyRefreshOnce: vi.fn().mockResolvedValue(undefined),
       runMarketRefreshOnce,
       runSearchRebuildOnce: vi.fn().mockResolvedValue(undefined),

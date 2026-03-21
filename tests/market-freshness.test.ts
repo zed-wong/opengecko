@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getSnapshotFreshness } from '../src/modules/market-freshness';
+import { getSnapshotAccessPolicy, getSnapshotFreshness, getUsableSnapshot } from '../src/modules/market-freshness';
 
 describe('market snapshot freshness', () => {
   it('marks recent snapshots as fresh and exposes provider metadata', () => {
@@ -35,5 +35,33 @@ describe('market snapshot freshness', () => {
 
     expect(freshness.isStale).toBe(true);
     expect(freshness.ageSeconds).toBe(601);
+  });
+
+  it('keeps seeded fallback available before boot refresh completes', () => {
+    const snapshot = {
+      lastUpdated: new Date('2026-03-20T00:00:00.000Z'),
+      sourceProvidersJson: '[]',
+      sourceCount: 0,
+    };
+
+    expect(getUsableSnapshot(
+      snapshot,
+      300,
+      getSnapshotAccessPolicy({ hasCompletedBootMarketRefresh: false }),
+      Date.parse('2026-03-20T00:01:00.000Z'),
+    )).toEqual(snapshot);
+  });
+
+  it('disables seeded fallback after boot refresh completes', () => {
+    expect(getUsableSnapshot(
+      {
+        lastUpdated: new Date('2026-03-20T00:00:00.000Z'),
+        sourceProvidersJson: '[]',
+        sourceCount: 0,
+      },
+      300,
+      getSnapshotAccessPolicy({ hasCompletedBootMarketRefresh: true }),
+      Date.parse('2026-03-20T00:01:00.000Z'),
+    )).toBeNull();
   });
 });
