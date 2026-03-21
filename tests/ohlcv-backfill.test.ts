@@ -9,22 +9,12 @@ import { getCanonicalCandles } from '../src/services/candle-store';
 import { runOhlcvBackfillOnce } from '../src/services/ohlcv-backfill';
 
 vi.mock('../src/providers/ccxt', () => ({
-  fetchExchangeOHLCV: vi.fn().mockResolvedValue([
-    {
-      exchangeId: 'coinbase',
-      symbol: 'BTC/USD',
-      timeframe: '1d',
-      timestamp: Date.parse('2026-03-19T00:00:00.000Z'),
-      open: 81000,
-      high: 82000,
-      low: 80000,
-      close: 81500,
-      volume: 12345,
-      raw: [0, 0, 0, 0, 0, 0],
-    },
-  ]),
+  fetchExchangeMarkets: vi.fn(),
+  fetchExchangeOHLCV: vi.fn(),
   isSupportedExchangeId: (value: string) => ['binance', 'coinbase', 'kraken'].includes(value),
 }));
+
+import { fetchExchangeMarkets, fetchExchangeOHLCV } from '../src/providers/ccxt';
 
 describe('ohlcv backfill service', () => {
   let tempDir: string;
@@ -34,6 +24,8 @@ describe('ohlcv backfill service', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'opengecko-backfill-'));
     database = createDatabase(join(tempDir, 'test.db'));
     initializeDatabase(database);
+    vi.mocked(fetchExchangeMarkets).mockReset();
+    vi.mocked(fetchExchangeOHLCV).mockReset();
   });
 
   afterEach(() => {
@@ -41,20 +33,97 @@ describe('ohlcv backfill service', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('writes fetched daily candles into the canonical store', async () => {
-    await runOhlcvBackfillOnce(database, { ccxtExchanges: ['coinbase'] }, { lookbackDays: 30 });
+  it('writes fetched daily candles into the canonical store for dynamically discovered Binance pairs', async () => {
+    vi.mocked(fetchExchangeMarkets).mockImplementation(async (exchangeId) => {
+      if (exchangeId !== 'binance') {
+        return [];
+      }
 
-    const rows = getCanonicalCandles(database, 'bitcoin', 'usd', '1d', {
+      return [
+        {
+          exchangeId: 'binance',
+          symbol: 'BTC/USDT',
+          base: 'BTC',
+          quote: 'USDT',
+          active: true,
+          spot: true,
+          baseName: 'Bitcoin',
+          raw: {},
+        },
+        {
+          exchangeId: 'binance',
+          symbol: 'LTC/USDT',
+          base: 'LTC',
+          quote: 'USDT',
+          active: true,
+          spot: true,
+          baseName: 'Litecoin',
+          raw: {},
+        },
+      ];
+    });
+    vi.mocked(fetchExchangeOHLCV).mockImplementation(async (_exchangeId, symbol) => {
+      if (symbol === 'BTC/USDT') {
+        return [
+          {
+            exchangeId: 'binance',
+            symbol: 'BTC/USDT',
+            timeframe: '1d',
+            timestamp: Date.parse('2026-03-19T00:00:00.000Z'),
+            open: 81000,
+            high: 82000,
+            low: 80000,
+            close: 81500,
+            volume: 12345,
+            raw: [0, 0, 0, 0, 0, 0],
+          },
+        ];
+      }
+
+      if (symbol === 'LTC/USDT') {
+        return [
+          {
+            exchangeId: 'binance',
+            symbol: 'LTC/USDT',
+            timeframe: '1d',
+            timestamp: Date.parse('2026-03-19T00:00:00.000Z'),
+            open: 120,
+            high: 126,
+            low: 118,
+            close: 124,
+            volume: 4567,
+            raw: [0, 0, 0, 0, 0, 0],
+          },
+        ];
+      }
+
+      return [];
+    });
+
+    await runOhlcvBackfillOnce(database, { ccxtExchanges: ['binance'] }, { lookbackDays: 30 });
+
+    const bitcoinRows = getCanonicalCandles(database, 'bitcoin', 'usd', '1d', {
+      from: Date.parse('2026-03-19T00:00:00.000Z'),
+      to: Date.parse('2026-03-19T00:00:00.000Z'),
+    });
+    const litecoinRows = getCanonicalCandles(database, 'litecoin', 'usd', '1d', {
       from: Date.parse('2026-03-19T00:00:00.000Z'),
       to: Date.parse('2026-03-19T00:00:00.000Z'),
     });
 
-    expect(rows[0]).toMatchObject({
+    expect(bitcoinRows[0]).toMatchObject({
       open: 81000,
       high: 82000,
       low: 80000,
       close: 81500,
       totalVolume: 12345,
+    });
+    expect(litecoinRows[0]).toMatchObject({
+      open: 120,
+      high: 126,
+      low: 118,
+      close: 124,
+      totalVolume: 4567,
     });
   });
 });
