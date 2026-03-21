@@ -825,6 +825,8 @@ Exit criteria:
 - multi-chain freshness is measurable
 - advanced ranking and analytics endpoints have explicit quality caveats or grades
 
+> **Endpoint-level detail:** Release phase scoping, endpoint-by-endpoint priority, and difficulty ratings are maintained in `docs/plans/2026-03-20-opengecko-endpoint-parity-matrix.md`.
+
 ## 22. Non-Functional Requirements
 
 ### 22.1 Availability and latency

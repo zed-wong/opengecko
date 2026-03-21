@@ -1,10 +1,12 @@
 # OpenGecko Engineering Execution Plan
 
+> **Strategic framing only.** For operational status, milestones, and workstream tracking, see `docs/status/implementation-tracker.md`.
+
 ## 1. Purpose
 
-This document converts the OpenGecko PRD into a concrete engineering delivery plan.
+This document provides strategic and architectural framing for OpenGecko delivery.
 
-It is grounded in the current repository state and should be used to drive implementation sequencing, milestone planning, and execution decisions.
+It defines execution principles, delivery objectives, workstream strategy, and risk areas. It is intentionally a high-level document — day-to-day status lives in `docs/status/implementation-tracker.md`.
 
 Primary inputs:
 
@@ -16,36 +18,32 @@ Primary inputs:
 
 ### 2.1 Current repo state
 
-The current repository is beyond pure scaffolding.
-
-Implemented or materially in place:
+The repository has reached R4 with the following in place:
 
 - Bun + TypeScript + Fastify + Zod application scaffold
-- SQLite + Drizzle storage and migrations
-- seeded registry and market data model
-- CCXT provider abstraction
-- CCXT-backed market refresh job scaffold
-- SQLite FTS5-backed `/search`
-- deterministic stale-snapshot handling in market-facing routes
-- initial chart granularity/downsampling helpers
-- passing tests for `/ping`, `/simple/*`, `/asset_platforms`, `/search`, `/global`, `/coins/list`, and the first wave of seeded `/coins/*` endpoints
+- SQLite + Drizzle storage, migrations, WAL mode, and FTS5 search
+- Seeded registry and market data (coins, platforms, categories, exchanges, derivatives, treasury, onchain)
+- CCXT provider abstraction and CCXT-backed market snapshot refresh job
+- Deterministic stale-snapshot handling in market-facing routes
+- Complete R0 endpoints: `/ping`, `/simple/*`, `/asset_platforms`, `/search`, `/global`, `/coins/list`
+- Complete R1 core coin endpoints: `/coins/markets`, `/coins/{id}`, history, chart, OHLC, categories, contract-address variants
+- Complete R2 exchange/derivatives endpoints: `/exchanges/*`, `/derivatives/*`
+- Complete R3 public treasury endpoints: `/entities/list`, `/public_treasury/*`, holding charts, transaction history
+- Partial R4 onchain endpoints: `/onchain/networks`, `/onchain/networks/{network}/dexes`
 
 ### 2.2 Current release focus
 
-- Current target: `R2` completed and validated
-- Current transition: move directly into public treasury and onchain kickoff while keeping NFT work out of the active roadmap
+- Current target: `R4` partial — onchain DEX catalog expansion
+- Current architecture: `Bun + TypeScript + Fastify + Zod + SQLite + Drizzle + better-sqlite3 + SQLite FTS5 + CCXT + Vitest`
 
-### 2.3 Current execution truth
+### 2.3 Current priorities
 
-The next phase should treat fresh-by-default market data as a central product value while continuing the next roadmap families.
+The R4 phase focuses on:
 
-The next phase should be:
-
-1. making hot market reads fresh by default through boot-time and continuous refresh behavior
-2. starting seeded public treasury coverage
-3. starting seeded onchain network and DEX catalogs
-4. widening fixtures and validation for the new families immediately
-5. preserving the same compatibility-first discipline used in R1 and R2
+1. Making hot market endpoints fresh by default via boot-time refresh and continuous internal snapshot updates
+2. Expanding the onchain DEX family beyond the initial seeded network and DEX catalogs
+3. Broadening repository-layer and fixture coverage across treasury, onchain, and remaining seeded data-fidelity edge cases
+4. Replacing seeded ticker and history slices with CCXT-backed refresh and backfill paths where practical
 
 ## 3. Execution Principles
 
@@ -73,399 +71,116 @@ The OSS reference architecture should remain practical for local development and
 
 For supported hot-price endpoints, the system should maintain an always-hot internal snapshot layer so REST requests return current data by default rather than seeded placeholders or request-time upstream fetches.
 
+### 3.7 Keep the public contract stable
+
+The external CoinGecko-style HTTP contract is the product. Internal implementation changes must not break it.
+
 ## 4. Delivery Objectives
 
 ### 4.1 Near-term objective
 
-Turn the current R0 + early R1 implementation into a stable, well-tested, compatibility-labeled MVP surface.
+Complete the R4 onchain DEX surface: network catalogs, DEX catalogs, pool detail/list, token detail, trades, and OHLCV endpoints — all with seeded curated data and explicit divergence notes.
 
 ### 4.2 Mid-term objective
 
-Add live-backed confidence, deterministic historical semantics, and the first low-risk exchange-family endpoints.
+Replace seeded market and history slices with CCXT-backed live refresh paths. Add exchange and derivatives tickers from live ingestion.
 
 ### 4.3 Long-term objective
 
-Expand into exchanges, derivatives, treasury, and onchain in a controlled order without breaking the trustworthiness of the public contract.
+Expand onchain analytics (trending, holders, traders), enrich treasury data coverage, and reach broader onchain DEX parity — without breaking the public contract.
 
-## 5. Milestones
+## 5. Milestone Tracking
 
-| Milestone | Scope | Depends on | Exit criteria |
-| --- | --- | --- | --- |
-| `M0` | R1 hardening plan lock | current codebase | stale-data policy, fixture policy, chart policy, and exchange-set decision documented |
-| `M1` | Compatibility hardening for current R1 surface | `M0` | `/coins/*` seeded endpoints have expanded fixtures, edge-case tests, and explicit divergence tracking |
-| `M2` | Live-data and freshness stabilization | `M0`, `M1` | refresh cadence, stale-response behavior, and freshness assertions are implemented and tested |
-| `M3` | Historical semantics stabilization | `M0`, `M1` | chart/range/OHLC semantics are deterministic and protected by tests |
-| `M4` | Low-risk R2 foundation | `M1`, `M2`, `M3` | first exchange registry/detail and token-list endpoints land as stable `partial` or `compatible` |
-| `M5` | Ticker-heavy R2 expansion | `M4` | ticker normalization and venue semantics are defined before ticker endpoints broaden |
-| `M6` | Public treasury foundation | `M5` | `/entities/list` and the first `/public_treasury*` routes land with seeded curated coverage and explicit divergence notes |
-| `M7` | Onchain catalog foundation | `M6` | `/onchain/networks` and `/onchain/networks/{network}/dexes` land with JSON:API-style seeded coverage |
+Milestones are tracked in `docs/status/implementation-tracker.md`, not in this document.
 
-## 6. Workstreams
+The tracker provides:
+- **Workstream Status table** — operational status per workstream
+- **Endpoint Family Progress table** — per-endpoint status with phase and notes
+- **Completed Milestones** — narrative list of delivered work
+- **Active Decisions** — confirmed engineering decisions
+- **Open Questions / Blockers** — current unknowns
 
-### 6.1 Workstream A: Compatibility fidelity
+This execution plan provides strategic framing; the tracker is the operational truth.
 
-### Goal
+## 6. Workstream Strategy
 
-Bring existing endpoints closer to CoinGecko contract behavior.
+### WS-A: Compatibility fidelity
 
-### Scope
+**Goal:** Existing endpoints maintain and improve CoinGecko contract compatibility.
 
-- parameter precedence
-- default handling
-- null vs omitted semantics
-- pagination behavior
-- sort and order behavior
-- invalid-parameter responses
-- serializer parity for large objects such as `/coins/{id}`
+**Scope:** Parameter precedence, null vs omitted semantics, pagination, ordering, serializer parity, divergence tracking.
 
-### Concrete tasks
+**Status:** Ongoing — R0-R3 endpoints are `done`; R4 onchain endpoints need compatibility work as surface expands.
 
-- audit each existing `/coins/*` endpoint against expected request and response semantics
-- create endpoint-specific divergence notes for current known mismatches
-- normalize inconsistent placeholder values and empty arrays/objects
-- add compatibility-focused fixtures for pagination, ordering, precision, and optional flags
+### WS-B: Live market ingestion and freshness
 
-### Exit criteria
+**Goal:** Move from seeded confidence to fresh-by-default live-backed market behavior.
 
-- every current seeded R1 endpoint has a documented parity checklist
-- route-level and repository-level tests exist for major edge cases
-- no endpoint remains `partial` without an explicit reason
+**Scope:** Boot-time refresh, continuous in-process or worker-driven refresh scheduling, stale snapshot policy, CCXT exchange set.
 
-### 6.2 Workstream B: Live market ingestion and freshness behavior
+**Current cadence:** market refresh every `60s`, search rebuild every `900s`, live freshness threshold `300s`.
 
-### Goal
+**Status:** Partial — scaffold exists; boot-time and continuous scheduling not fully locked.
 
-Move from seeded confidence to fresh-by-default live-backed market behavior.
+### WS-C: Historical chart and OHLC semantics
 
-### Scope
+**Goal:** Chart, OHLC, and OHLCV behavior is deterministic and compatible.
 
-- initial CCXT exchange set
-- boot-time refresh behavior
-- continuous in-process or worker-driven refresh scheduling
-- streaming ingestion where it is worth the complexity
-- polling cadence
-- stale snapshot policy
-- fallback behavior when refresh jobs fail
-- freshness metadata exposure and internal enforcement
+**Scope:** Granularity and downsampling rules, range behavior, onchain OHLCV support.
 
-### Concrete tasks
+**Status:** Partial — seeded routes exist; retention policy is open.
 
-- choose a narrow default exchange set for the first live rollout
-- run a best-effort market refresh during server boot or paired worker startup
-- keep market snapshots warm continuously without relying on request-time upstream reads
-- define when streaming adapters should replace or augment polling
-- define refresh cadence for hot endpoints
-- define what happens when market data exceeds freshness thresholds
-- encode stale-data behavior in services and tests
-- add monitoring points for refresh failures and lag
+### WS-D: Canonical entity resolution
 
-### Proposed first exchange set
+**Goal:** Stable internal mapping layer for coins, contracts, networks, exchanges, venues, treasury entities.
 
-- `binance`
-- `coinbase`
-- `kraken`
+**Scope:** Coin/platform ID resolution, contract-address resolution, exchange venue identity, onchain network/DEX IDs.
 
-This set should remain intentionally narrow until fidelity and mapping quality are validated.
+**Status:** Ongoing — works for seeded data; needs expansion for live ingestion and onchain families.
 
-### Current default live cadence
+### WS-E: Contract testing and fixtures
 
-- market refresh: every `60s`
-- search rebuild: every `900s`
-- live snapshot freshness threshold: `300s`
+**Goal:** Upgrade testing from smoke coverage to compatibility-grade confidence.
 
-### Current stale-data policy
+**Scope:** Representative fixture corpus, invalid-parameter matrices, repository/service-layer tests, freshness assertions.
 
-- seeded snapshots with no live providers remain usable during bootstrap
-- live snapshots older than the freshness threshold are treated as stale
-- stale live snapshots are omitted from simple-price and global aggregate responses
-- stale live snapshots degrade market/detail response market fields to `null` rather than silently serving stale values
+**Status:** Partial — smoke tests exist; broader fixture and repository-layer coverage is ongoing.
 
-### Current seeded R1 divergence notes
+### WS-F: Jobs, operations, and observability
 
-- `/coins/{id}` still returns a reduced `market_data` object and placeholder empty structures for `tickers`, `community_data`, and `developer_data`
-- `/coins/{id}/market_chart*` and `/ohlc` currently use a small seeded daily series instead of live/backfilled interval data
-- `/coins/categories*` and contract-address routes only cover the seeded local catalog
+**Goal:** Background jobs are reliable and observable.
 
-### Exit criteria
+**Scope:** Market refresh scheduling, search rebuild behavior, job failure handling, freshness reporting.
 
-- stale-data behavior is deterministic
-- refresh cadence is encoded and tested
-- freshness lag is measurable
+**Status:** Partial — jobs exist; scheduling, failure handling, and observability need hardening.
 
-### 6.3 Workstream C: Historical chart and OHLC semantics
+## 7. R4 Focus
 
-### Goal
+The current phase is R4 — onchain DEX expansion. The recommended R4 build order:
 
-Make all current chart endpoints deterministic and compatible enough to trust.
+1. **Catalogs first** — `/onchain/networks`, `/onchain/networks/{network}/dexes` (already done)
+2. **Pool and token primitives** — pool detail, pool list, token detail, token multi, token info
+3. **Trade and OHLCV** — pool trades, pool OHLCV, token OHLCV
+4. **Trending and search** — trending pools, onchain pool search
+5. **Advanced analytics** — top holders, top traders, holder charts (P3/premium scope)
 
-### Scope
-
-- `market_chart`
-- `market_chart/range`
-- `ohlc`
-- contract-address chart variants
-- granularity and downsampling rules
-- explicit range behavior
-
-### Concrete tasks
-
-- define MVP interval support rules
-- define rolling-window vs explicit-range behavior
-- define `days=max` assumptions
-- define downsampling behavior for larger windows
-- ensure contract-address charts mirror coin-id chart behavior
-- add fixtures for chart edge cases and interval rules
-
-### Exit criteria
-
-- chart and OHLC behavior is documented in code-facing tests
-- edge cases are covered by fixtures
-- range semantics do not depend on ad hoc implementation details
-
-### 6.4 Workstream D: Canonical entity resolution
-
-### Goal
-
-Stabilize the internal mapping layer needed by current and next-phase endpoints.
-
-### Scope
-
-- coin IDs
-- asset platform IDs
-- contract addresses
-- category IDs
-- exchange IDs for upcoming R2 work
-- inactive and aliased assets
-
-### Concrete tasks
-
-- audit current coin and contract resolution rules
-- add tests for ambiguous symbol/name and contract mappings where relevant
-- define inactive-asset behavior for list/history/detail endpoints
-- prepare exchange/venue identity schema before exchange-family work starts
-
-### Exit criteria
-
-- contract-address detail and chart endpoints resolve deterministically
-- identity assumptions for exchange-family work are locked
-
-### 6.5 Workstream E: Contract testing and fixtures
-
-### Goal
-
-Upgrade testing from route-smoke coverage to compatibility-grade confidence.
-
-### Scope
-
-- representative fixture corpus
-- invalid-parameter matrices
-- repository/service-layer tests
-- divergence tracking
-- freshness assertions
-
-### Concrete tasks
-
-- define fixture source policy
-- add repository-layer tests for market and history queries
-- add fixture coverage for `/coins/markets`, `/coins/{id}`, charts, and categories
-- add regression coverage for stale-data behavior
-- maintain a gap list between current outputs and target outputs
-
-### Exit criteria
-
-- every current MVP endpoint has fixture-backed tests
-- major edge cases are encoded as regressions
-- the test suite can defend endpoint status labels
-
-### 6.6 Workstream F: Jobs, operations, and observability
-
-### Goal
-
-Make background jobs reliable enough for continuous data refresh and index maintenance.
-
-### Scope
-
-- market refresh scheduling
-- search rebuild behavior
-- job failure handling
-- lag reporting
-- freshness reporting
-
-### Concrete tasks
-
-- define scheduler expectations for refresh jobs
-- define rebuild cadence for search index updates
-- expose refresh lag and failure counters
-- document degraded-mode behavior when jobs fail or data is stale
-
-### Exit criteria
-
-- jobs are runnable, observable, and predictable in local and hosted modes
-- degraded behavior is explicit rather than accidental
-
-## 7. Concrete Phase Plan
-
-### Phase A: Planning lock for current implementation
-
-### Objective
-
-Close the open design decisions blocking clean execution.
-
-### Required decisions
-
-1. stale-data API behavior
-2. chart granularity and downsampling policy
-3. first CCXT exchange set and polling cadence
-4. compatibility fixture source policy
-
-### Deliverables
-
-- decisions written down in repo planning docs or implementation notes
-- associated test plan defined per decision
-
-### Phase B: R1 hardening sprint
-
-### Objective
-
-Turn seeded early R1 endpoints into a stable, testable contract surface.
-
-### Scope
-
-- `/coins/markets`
-- `/coins/{id}`
-- `/coins/{id}/history`
-- `/coins/{id}/market_chart`
-- `/coins/{id}/market_chart/range`
-- `/coins/{id}/ohlc`
-- `/coins/categories`
-- `/coins/categories/list`
-- contract-address detail/chart variants
-
-### Deliverables
-
-- response-shape audit completed
-- explicit divergence list
-- expanded fixtures and invalid-parameter coverage
-- repository-layer tests for market/history reads
-
-### Phase C: Freshness and live-data stabilization
-
-### Objective
-
-Make the API safe to run against live refresh behavior.
-
-### Scope
-
-- refresh cadence
-- freshness thresholds
-- stale snapshot policy
-- service behavior on stale reads
-
-### Deliverables
-
-- job schedule assumptions
-- service behavior for stale data
-- freshness-focused tests and internal metrics
-
-### Phase D: Historical semantics stabilization
-
-### Objective
-
-Make chart and OHLC behavior deterministic before higher-complexity expansion.
-
-### Deliverables
-
-- chart interval rules
-- downsampling rules
-- range behavior rules
-- test matrix covering range and interval edge cases
-
-### Phase E: Selective low-risk R2 foundation
-
-### Objective
-
-Start only the safest R2 surfaces after R1 is trustworthy.
-
-### Recommended first R2 scope
-
-- `/token_lists/{asset_platform_id}/all.json`
-- `/exchanges/list`
-- `/exchanges`
-- `/exchanges/{id}`
-- `/exchanges/{id}/volume_chart`
-- `/derivatives/exchanges/list`
-
-### Do not start yet
-
-- `/coins/{id}/tickers`
-- `/exchanges/{id}/tickers`
-- `/derivatives`
-- advanced movers, trending, or trust-score-heavy endpoints
-
-These should wait until venue normalization, ticker semantics, and richer exchange metadata are defined.
+Do not start advanced analytics before pool/token primitives are stable.
 
 ## 8. Immediate Backlog
 
-The next implementation cycle should execute the following in order:
+The current implementation cycle should execute in order:
 
-1. extend the current chart granularity/downsampling rules into explicit documented policy
-2. define fixture source policy for compatibility tests
-3. audit `/coins/{id}` response shape and optional field behavior
-4. add more pagination/order/default-param fixtures for `/coins/markets`
-5. broaden repository-layer tests for market snapshot and history reads
-6. add more chart/range edge-case tests for `/market_chart*` and `/ohlc`
-7. encode seed-vs-live ownership more explicitly in jobs/services
-8. design the exchange venue identity schema before starting exchange-family routes
-9. expose scheduling/lag assumptions for local and hosted execution
+1. Expand onchain pool and token endpoints with seeded compatibility fixtures
+2. Define fixture source policy for onchain compatibility tests
+3. Add repository-layer tests for onchain queries
+4. Add chart/OHLCV edge-case tests for onchain routes
+5. Define retention/backfill assumptions for onchain OHLCV data
+6. Encode seed-vs-live ownership for onchain data in services
+7. Define pool ranking and trending signal inputs before starting trending endpoints
+8. Expose scheduling/lag assumptions for local and hosted execution
+9. Replace seeded ticker and history slices with CCXT-backed paths where practical
 
-## 9. 30 / 60 / 90 Day Plan
-
-### 9.1 First 30 days
-
-Primary goal: stabilize current scope.
-
-Expected outputs:
-
-- open policy decisions locked
-- R1 endpoint parity audit completed
-- fixture and regression coverage expanded
-- stale-data behavior encoded and tested
-
-Success condition:
-
-OpenGecko can credibly present its current R0 + early R1 surface as a stable partial-compatibility MVP.
-
-### 9.2 First 60 days
-
-Primary goal: move from seeded confidence to live-backed confidence.
-
-Expected outputs:
-
-- live refresh cadence operating reliably
-- chart semantics locked
-- contract-address and market/history behavior hardened
-- first exchange-family schema work completed
-
-Success condition:
-
-R2 is effectively complete for MVP scope and ready for treasury/onchain expansion.
-
-### 9.3 First 90 days
-
-Primary goal: land the first useful public treasury and onchain catalog surface.
-
-Expected outputs:
-
-- treasury entity registry support
-- grouped public treasury responses for seeded holdings
-- onchain network registry support
-- onchain DEX catalog support
-
-Success condition:
-
-The public launch surface is strong on R0 + R1 + R2 with treasury and onchain foundations in place while NFT scope remains explicitly removed from the roadmap.
-
-## 10. Definition of Done
+## 9. Definition of Done
 
 An endpoint or workstream should not be considered done unless all of the following are true:
 
@@ -477,48 +192,45 @@ An endpoint or workstream should not be considered done unless all of the follow
 - the implementation tracker status can be defended with evidence
 - project validators pass
 
-## 11. Sequencing Risks
+## 10. Sequencing Risks
 
-### Risk 1: expanding endpoints before stabilizing semantics
+### Risk 1: expanding onchain endpoints before stabilizing pool/token semantics
 
-Impact: rework, inconsistent outputs, and confusing endpoint status labels.
+Impact: rework, inconsistent outputs, confusing endpoint status labels.
 
-### Risk 2: treating the CCXT scaffold as sufficient for exchange-heavy surfaces
+### Risk 2: treating seeded data as sufficient for onchain families
 
-Impact: ticker and venue endpoints ship before identity and normalization are ready.
+Impact: endpoints ship with placeholder data that doesn't reflect real chain state.
 
-### Risk 3: leaving stale-data behavior undefined
+### Risk 3: leaving stale-data behavior undefined for onchain routes
 
-Impact: live rollout behaves unpredictably during refresh gaps or provider failures.
+Impact: onchain data becomes stale with no clear policy for freshness vs. degraded responses.
 
-### Risk 4: shipping chart endpoints without explicit interval rules
+### Risk 4: starting advanced analytics (holders, traders, trending) before primitives are stable
 
-Impact: hard-to-debug parity drift across history consumers.
+Impact: project gets pulled into complex ranking and attribution logic before basic data is trustworthy.
 
-### Risk 5: starting R2 ticker work too early
+### Risk 5: shipping onchain routes without fixture coverage
 
-Impact: the project gets pulled into venue normalization and trust logic before the core market surface is trustworthy.
+Impact: compatibility drift is silent and hard to detect without regression tests.
 
-## 12. Recommended Next Review Points
+## 11. Recommended Next Review Points
 
-This execution plan should be revisited when any of the following happen:
+This execution plan should be revisited when:
 
-- R1 hardening milestone completes
-- stale-data policy changes
-- chart retention or granularity policy changes
-- the first live exchange set changes
-- low-risk R2 work begins
+- R4 onchain surface reaches `done` status for pool and token primitives
+- Fresh-by-default market behavior is fully locked
+- Live CCXT-backed paths replace seeded slices for core market endpoints
+- Advanced onchain analytics (trending, holders) are considered for roadmap
 
-## 13. Final Recommendation
+## 12. Final Recommendation
 
-The correct next move for OpenGecko is not “more endpoints.” It is making the current surface reliable, live-aware, and semantically defensible.
+The correct next move for OpenGecko is completing the R4 onchain DEX surface with strong fixture coverage, then moving to live-backed market behavior. The foundation (R0-R3) is solid. R4 should be executed with the same compatibility-first discipline — don't ship endpoints without fixtures, divergence notes, and explicit freshness policy.
 
-Execution should therefore follow this order:
+The priority order:
+1. Pool and token primitives with compatibility fixtures
+2. Trade and OHLCV endpoints
+3. Seeded-to-live market refresh replacement
+4. Trending and advanced analytics (last)
 
-1. lock the open cross-cutting decisions
-2. harden existing R1 endpoints
-3. stabilize live freshness behavior
-4. stabilize historical semantics
-5. only then expand into selective low-risk R2 work
-
-That sequence gives the highest chance of shipping a trustworthy CoinGecko-compatible MVP instead of a broad but brittle clone.
+That sequence gives the highest chance of shipping a trustworthy R4 surface without undermining the R0-R3 foundation.

@@ -27,6 +27,13 @@ Canonical planning documents:
 - Prefer normalized data exposed by CCXT before implementing exchange-specific adapters.
 - Only add custom exchange support when important required data is materially missing from CCXT.
 
+## Versioning Rules
+
+- Treat `package.json` version as the canonical release version and bump it in any change set intended to ship new behavior.
+- Follow SemVer for version bumps: use `patch` for bug fixes and compatibility-preserving implementation/detail changes, `minor` for backward-compatible endpoint additions or response-field expansions, and `major` for intentional breaking changes.
+- Do not bump the version for docs-only edits, test-only changes, or internal refactors with no externally observable behavior change.
+- If a change mixes internal work with externally visible behavior, bump the version based on the highest user-visible impact in that change set.
+
 ## Documentation Rules
 
 - Update the canonical PRD when scope, endpoint family rollout, or architecture assumptions change.

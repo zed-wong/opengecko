@@ -33,15 +33,14 @@ Use this tracker for current status, active priorities, completed milestones, an
 
 ## Workstream Status
 
-| Workstream | Scope | Status | Notes |
+| Strategic workstream | Operational scope | Status | Notes |
 | --- | --- | --- | --- |
-| Project scaffold | Fastify app, TypeScript config, test setup, logging | done | Package scripts, app entrypoints, and tests are in place |
-| Storage | SQLite connection, migrations, Drizzle schema, WAL mode | done | SQLite bootstraps with Drizzle migrations and seed data, including seeded exchange, derivatives, treasury, and onchain registries |
-| Compatibility layer | Param normalization, error shapes, serializers | partial | Several endpoint serializers exist across the complete R0, R1, R2, and R3 surfaces plus the first `/onchain/*` routes; the full R1 coin family includes category filtering, extra price-change windows, category-detail flags, category ordering, richer history responses, and interval-aware chart-style routes |
-| Search | SQLite FTS5 indexing and `/search` support | done | FTS5 virtual table, rebuild job, and ranked `/search` queries are in place |
-| Historical data | Local chart and OHLC storage | partial | Seeded chart and OHLC routes exist; initial granularity/downsampling helpers are implemented, but retention policy remains open |
-| Background refresh jobs | Snapshot refresh and search rebuild jobs | partial | CCXT-backed market refresh and search rebuild scripts exist, and seed-vs-live ownership is now encoded in a shared snapshot service; scheduling and fresh-by-default read guarantees are not yet locked |
-| Contract testing | Endpoint fixtures and schema assertions | partial | Fixture-backed, invalid-parameter, repository-level, stale-data, and chart-semantic tests are in place; broader fixture coverage is still missing |
+| WS-A Compatibility fidelity | Parameter precedence, error shapes, serializers, divergence tracking | partial | R0, R1, R2, and R3 endpoint families are implemented with passing validation; the remaining compatibility work is concentrated in the expanding R4 onchain surface |
+| WS-B Live market ingestion and freshness | CCXT provider abstraction, snapshot refresh, stale-data policy, fresh-by-default reads | partial | CCXT-backed market refresh exists, stale-snapshot handling is deterministic, and seed-vs-live snapshot ownership is encoded in a shared service; boot-time refresh and continuous fresh-by-default guarantees still need hardening |
+| WS-C Historical chart and OHLC semantics | Chart, range, OHLC, and future onchain OHLCV behavior | partial | Seeded chart and OHLC routes exist with initial granularity and downsampling helpers, but retention, backfill, and onchain OHLCV policy remain open |
+| WS-D Canonical entity resolution | Coin, platform, contract, venue, treasury, network, and DEX identity mapping | partial | Seeded registries cover coins, platforms, exchanges, derivatives venues, treasury entities, onchain networks, and DEX catalogs, but live-ingestion and broader onchain identity expansion are still ahead |
+| WS-E Contract testing and fixtures | Endpoint fixtures, invalid-parameter coverage, repository/service-layer assertions | partial | Fixture-backed, invalid-parameter, repository-level, stale-data, and chart-semantic tests are in place; broader treasury/onchain and data-fidelity fixture coverage is still missing |
+| WS-F Jobs, operations, and observability | Refresh scheduling, search rebuilds, job failure handling, lag visibility | partial | Market refresh and search rebuild jobs exist, but scheduling guarantees, degraded-mode behavior, and observability still need to be locked for fresh-by-default operation |
 
 ## Endpoint Family Progress
 

@@ -1,5 +1,7 @@
 # OpenGecko Endpoint Parity Matrix
 
+> **Endpoint-level detail.** For product-level rationale, release phase framing, and non-functional requirements, see `docs/plans/2026-03-20-opengecko-coingecko-compatible-api-prd.md`. For operational status and milestone tracking, see `docs/status/implementation-tracker.md`.
+
 This document turns the CoinGecko endpoint overview into an execution-oriented planning matrix for OpenGecko. It is meant to answer four questions per endpoint:
 
 - how important is it for migration success
