@@ -1,25 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 
 import type { AppDatabase } from '../db/client';
+import { getConversionRate, SUPPORTED_VS_CURRENCIES } from '../lib/conversion';
 import { getMarketRows } from './catalog';
 import { getUsableSnapshot } from './market-freshness';
-
-const SUPPORTED_VS_CURRENCIES = ['usd', 'eur', 'btc', 'eth'] as const;
-
-function getConversionRate(vsCurrency: string) {
-  switch (vsCurrency) {
-    case 'usd':
-      return 1;
-    case 'eur':
-      return 0.92;
-    case 'btc':
-      return 1 / 85_000;
-    case 'eth':
-      return 1 / 2_000;
-    default:
-      return 1;
-  }
-}
 
 export function registerGlobalRoutes(app: FastifyInstance, database: AppDatabase, marketFreshnessThresholdSeconds: number) {
   app.get('/global', async () => {

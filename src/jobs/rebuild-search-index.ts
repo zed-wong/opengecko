@@ -1,13 +1,17 @@
 import { loadConfig } from '../config/env';
 import { createDatabase, initializeDatabase } from '../db/client';
-import { rebuildSearchIndex } from '../db/search-index';
+import { runSearchRebuildOnce } from '../services/search-rebuild';
 
 const config = loadConfig();
 const database = createDatabase(config.databaseUrl);
 
-try {
-  initializeDatabase(database);
-  rebuildSearchIndex(database);
-} finally {
-  database.client.close();
+async function rebuildSearchIndexJob() {
+  try {
+    initializeDatabase(database);
+    await runSearchRebuildOnce(database);
+  } finally {
+    database.client.close();
+  }
 }
+
+void rebuildSearchIndexJob();

@@ -12,9 +12,11 @@ import { registerOnchainRoutes } from './modules/onchain';
 import { registerSearchRoutes } from './modules/search';
 import { registerSimpleRoutes } from './modules/simple';
 import { registerTreasuryRoutes } from './modules/treasury';
+import { createMarketRuntime } from './services/market-runtime';
 
 export type BuildAppOptions = {
   config?: Partial<AppConfig>;
+  startBackgroundJobs?: boolean;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -23,6 +25,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     logger: config.logLevel === 'silent' ? false : { level: config.logLevel },
   });
   const database = createDatabase(config.databaseUrl);
+  const shouldStartBackgroundJobs = options.startBackgroundJobs ?? false;
+  const runtime = shouldStartBackgroundJobs ? createMarketRuntime(database, config, app.log) : null;
 
   initializeDatabase(database);
   registerErrorHandler(app);
@@ -36,7 +40,17 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   registerSearchRoutes(app, database);
   registerGlobalRoutes(app, database, config.marketFreshnessThresholdSeconds);
 
+  if (runtime) {
+    app.addHook('onReady', async () => {
+      await runtime.start();
+    });
+  }
+
   app.addHook('onClose', async () => {
+    if (runtime) {
+      await runtime.stop();
+    }
+
     database.client.close();
   });
 

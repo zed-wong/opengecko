@@ -6,9 +6,11 @@ import type { AppDatabase } from '../db/client';
 import { coinTickers, exchanges, type CoinRow, type MarketSnapshotRow } from '../db/schema';
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePositiveInt, parsePrecision } from '../http/params';
+import { getConversionRate } from '../lib/conversion';
 import { getCategories, getChartSeries, getCoinByContract, getCoinById, getCoins, getMarketRows, parseJsonArray, parseJsonObject } from './catalog';
 import { downsampleTimeSeries, getChartGranularityMs, getRangeDurationMs } from './chart-semantics';
 import { getUsableSnapshot } from './market-freshness';
+import { getCanonicalCandles } from '../services/candle-store';
 
 const coinsListQuerySchema = z.object({
   include_platform: z.enum(['true', 'false']).optional(),
@@ -274,21 +276,6 @@ function sortMarketRows(
       return sortableRows.sort((left, right) => sortNumber(right.coin.marketCapRank, -1) - sortNumber(left.coin.marketCapRank, -1));
     default:
       throw new HttpError(400, 'invalid_parameter', `Unsupported order value: ${order}`);
-  }
-}
-
-function getConversionRate(vsCurrency: string) {
-  switch (vsCurrency) {
-    case 'usd':
-      return 1;
-    case 'eur':
-      return 0.92;
-    case 'btc':
-      return 1 / 85_000;
-    case 'eth':
-      return 1 / 2_000;
-    default:
-      throw new HttpError(400, 'invalid_parameter', `Unsupported vs_currency: ${vsCurrency}`);
   }
 }
 
@@ -673,7 +660,15 @@ function getHistorySnapshot(database: AppDatabase, coinId: string, targetDate: n
 }
 
 function getChartRowsForDays(database: AppDatabase, coinId: string, days: string, interval?: string) {
-  const rows = getChartSeries(database, coinId, 'usd');
+  const candleInterval = parseChartInterval(interval) === 'hourly' ? '1m' : '1d';
+  const rows = candleInterval === '1d'
+    ? getChartSeries(database, coinId, 'usd')
+    : getCanonicalCandles(database, coinId, 'usd', candleInterval).map((row) => ({
+      timestamp: row.timestamp,
+      price: row.close,
+      marketCap: row.marketCap,
+      totalVolume: row.totalVolume,
+    }));
 
   if (days === 'max') {
     if (rows.length === 0) {
@@ -704,9 +699,42 @@ function getChartRowsForDays(database: AppDatabase, coinId: string, days: string
 }
 
 function getChartRowsForRange(database: AppDatabase, coinId: string, range: { from: number; to: number }, interval?: string) {
-  const rows = getChartSeries(database, coinId, 'usd', range);
+  const candleInterval = parseChartInterval(interval) === 'hourly' ? '1m' : '1d';
+  const rows = candleInterval === '1d'
+    ? getChartSeries(database, coinId, 'usd', range)
+    : getCanonicalCandles(database, coinId, 'usd', candleInterval, range).map((row) => ({
+      timestamp: row.timestamp,
+      price: row.close,
+      marketCap: row.marketCap,
+      totalVolume: row.totalVolume,
+    }));
 
   return downsampleTimeSeries(rows, getGranularityMs(getRangeDurationMs(range), interval));
+}
+
+function getOhlcRowsForDays(database: AppDatabase, coinId: string, days: string, interval?: string) {
+  const candleInterval = parseChartInterval(interval) === 'hourly' ? '1m' : '1d';
+  const rows = getCanonicalCandles(database, coinId, 'usd', candleInterval);
+
+  if (days === 'max') {
+    return rows;
+  }
+
+  const dayCount = Number(days);
+
+  if (!Number.isFinite(dayCount) || dayCount <= 0) {
+    throw new HttpError(400, 'invalid_parameter', `Invalid days value: ${days}`);
+  }
+
+  const latestTimestamp = rows.at(-1)?.timestamp?.getTime();
+
+  if (!latestTimestamp) {
+    return [];
+  }
+
+  const cutoff = latestTimestamp - dayCount * 24 * 60 * 60 * 1000;
+
+  return rows.filter((row) => row.timestamp.getTime() >= cutoff);
 }
 
 function sortCategories(
@@ -896,12 +924,15 @@ export function registerCoinRoutes(app: FastifyInstance, database: AppDatabase, 
     const precision = parsePrecision(query.precision);
     const vsCurrency = query.vs_currency.toLowerCase();
     const rate = getConversionRate(vsCurrency);
-    const rows = getChartRowsForDays(database, params.id, query.days, query.interval);
+    const rows = getOhlcRowsForDays(database, params.id, query.days, query.interval);
 
     return rows.map((row) => {
-      const price = toNumberOrNull(row.price * rate, precision);
+      const open = toNumberOrNull(row.open * rate, precision);
+      const high = toNumberOrNull(row.high * rate, precision);
+      const low = toNumberOrNull(row.low * rate, precision);
+      const close = toNumberOrNull(row.close * rate, precision);
 
-      return [row.timestamp.getTime(), price, price, price, price];
+      return [row.timestamp.getTime(), open, high, low, close];
     });
   });
 

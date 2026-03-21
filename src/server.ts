@@ -2,7 +2,7 @@ import { buildApp } from './app';
 import { loadConfig } from './config/env';
 
 const config = loadConfig();
-const app = buildApp({ config });
+const app = buildApp({ config, startBackgroundJobs: true });
 
 async function start() {
   try {

@@ -1,7 +1,8 @@
-import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 import type { AppDatabase } from '../db/client';
-import { categories, chartPoints, coins, marketSnapshots } from '../db/schema';
+import { categories, coins, marketSnapshots } from '../db/schema';
+import { getCanonicalCloseSeries } from '../services/candle-store';
 
 export function parseJsonObject<T extends Record<string, unknown>>(value: string): T {
   return JSON.parse(value) as T;
@@ -104,44 +105,5 @@ export function getChartSeries(
   vsCurrency: string,
   range?: { from?: number; to?: number },
 ) {
-  if (range?.from !== undefined && range?.to !== undefined) {
-    return database.db
-      .select()
-      .from(chartPoints)
-      .where(
-        and(
-          eq(chartPoints.coinId, coinId),
-          eq(chartPoints.vsCurrency, vsCurrency),
-          gte(chartPoints.timestamp, new Date(range.from)),
-          lte(chartPoints.timestamp, new Date(range.to)),
-        ),
-      )
-      .orderBy(asc(chartPoints.timestamp))
-      .all();
-  }
-
-  if (range?.from !== undefined) {
-    return database.db
-      .select()
-      .from(chartPoints)
-      .where(and(eq(chartPoints.coinId, coinId), eq(chartPoints.vsCurrency, vsCurrency), gte(chartPoints.timestamp, new Date(range.from))))
-      .orderBy(asc(chartPoints.timestamp))
-      .all();
-  }
-
-  if (range?.to !== undefined) {
-    return database.db
-      .select()
-      .from(chartPoints)
-      .where(and(eq(chartPoints.coinId, coinId), eq(chartPoints.vsCurrency, vsCurrency), lte(chartPoints.timestamp, new Date(range.to))))
-      .orderBy(asc(chartPoints.timestamp))
-      .all();
-  }
-
-  return database.db
-    .select()
-    .from(chartPoints)
-    .where(and(eq(chartPoints.coinId, coinId), eq(chartPoints.vsCurrency, vsCurrency)))
-    .orderBy(asc(chartPoints.timestamp))
-    .all();
+  return getCanonicalCloseSeries(database, coinId, vsCurrency, '1d', range);
 }

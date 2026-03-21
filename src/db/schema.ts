@@ -94,6 +94,49 @@ export const chartPoints = sqliteTable(
   }),
 );
 
+export const quoteSnapshots = sqliteTable(
+  'quote_snapshots',
+  {
+    coinId: text('coin_id')
+      .notNull()
+      .references(() => coins.id),
+    vsCurrency: text('vs_currency').notNull(),
+    exchangeId: text('exchange_id').notNull(),
+    symbol: text('symbol').notNull(),
+    fetchedAt: integer('fetched_at', { mode: 'timestamp_ms' }).notNull(),
+    price: real('price').notNull(),
+    quoteVolume: real('quote_volume'),
+    priceChangePercentage24h: real('price_change_percentage_24h'),
+    sourcePayloadJson: text('source_payload_json').notNull().default('{}'),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.coinId, table.vsCurrency, table.exchangeId, table.symbol, table.fetchedAt] }),
+  }),
+);
+
+export const ohlcvCandles = sqliteTable(
+  'ohlcv_candles',
+  {
+    coinId: text('coin_id')
+      .notNull()
+      .references(() => coins.id),
+    vsCurrency: text('vs_currency').notNull(),
+    source: text('source').notNull().default('canonical'),
+    interval: text('interval').notNull(),
+    timestamp: integer('timestamp', { mode: 'timestamp_ms' }).notNull(),
+    open: real('open').notNull(),
+    high: real('high').notNull(),
+    low: real('low').notNull(),
+    close: real('close').notNull(),
+    volume: real('volume'),
+    marketCap: real('market_cap'),
+    totalVolume: real('total_volume'),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.coinId, table.vsCurrency, table.source, table.interval, table.timestamp] }),
+  }),
+);
+
 export const exchanges = sqliteTable('exchanges', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -286,6 +329,8 @@ export type AssetPlatformRow = typeof assetPlatforms.$inferSelect;
 export type MarketSnapshotRow = typeof marketSnapshots.$inferSelect;
 export type CategoryRow = typeof categories.$inferSelect;
 export type ChartPointRow = typeof chartPoints.$inferSelect;
+export type QuoteSnapshotRow = typeof quoteSnapshots.$inferSelect;
+export type OhlcvCandleRow = typeof ohlcvCandles.$inferSelect;
 export type ExchangeRow = typeof exchanges.$inferSelect;
 export type ExchangeVolumePointRow = typeof exchangeVolumePoints.$inferSelect;
 export type DerivativesExchangeRow = typeof derivativesExchanges.$inferSelect;

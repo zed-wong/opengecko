@@ -7,7 +7,8 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
 import { rebuildSearchIndex } from './search-index';
-import { assetPlatforms, categories, chartPoints, coinTickers, coins, derivativeTickers, derivativesExchanges, exchangeVolumePoints, exchanges, marketSnapshots, onchainDexes, onchainNetworks, treasuryEntities, treasuryHoldings, treasuryTransactions } from './schema';
+import { seedDailyCandlesFromCloseSeries } from '../services/candle-store';
+import { assetPlatforms, categories, chartPoints, coinTickers, coins, derivativeTickers, derivativesExchanges, exchangeVolumePoints, exchanges, marketSnapshots, ohlcvCandles, onchainDexes, onchainNetworks, quoteSnapshots, treasuryEntities, treasuryHoldings, treasuryTransactions } from './schema';
 
 const MIGRATIONS_FOLDER = resolve(process.cwd(), 'drizzle');
 const MIGRATION_JOURNAL = resolve(MIGRATIONS_FOLDER, 'meta', '_journal.json');
@@ -45,8 +46,10 @@ export function createDatabase(databaseUrl: string) {
       exchangeVolumePoints,
       exchanges,
       marketSnapshots,
+      ohlcvCandles,
       onchainDexes,
       onchainNetworks,
+      quoteSnapshots,
       treasuryEntities,
       treasuryHoldings,
       treasuryTransactions,
@@ -634,6 +637,10 @@ function buildSeededChartPoints() {
   );
 }
 
+function buildSeededOhlcvCandles() {
+  return seedDailyCandlesFromCloseSeries(buildSeededChartPoints());
+}
+
 function buildSeededExchangeVolumePoints() {
   const baseDate = Date.parse('2026-03-14T00:00:00.000Z');
   const seededExchangeVolumes: Array<[string, number[]]> = [
@@ -774,6 +781,8 @@ export function seedReferenceData(database: AppDatabase) {
   const [{ value: categoryCount }] = database.db.select({ value: count() }).from(categories).all();
   const [{ value: chartPointCount }] = database.db.select({ value: count() }).from(chartPoints).all();
   const [{ value: exchangeCount }] = database.db.select({ value: count() }).from(exchanges).all();
+  const [{ value: quoteSnapshotCount }] = database.db.select({ value: count() }).from(quoteSnapshots).all();
+  const [{ value: ohlcvCandleCount }] = database.db.select({ value: count() }).from(ohlcvCandles).all();
   const [{ value: derivativeTickerCount }] = database.db.select({ value: count() }).from(derivativeTickers).all();
   const [{ value: derivativesExchangeCount }] = database.db.select({ value: count() }).from(derivativesExchanges).all();
   const [{ value: exchangeVolumePointCount }] = database.db.select({ value: count() }).from(exchangeVolumePoints).all();
@@ -809,6 +818,10 @@ export function seedReferenceData(database: AppDatabase) {
 
   if (chartPointCount === 0) {
     database.db.insert(chartPoints).values(buildSeededChartPoints()).onConflictDoNothing().run();
+  }
+
+  if (ohlcvCandleCount === 0) {
+    database.db.insert(ohlcvCandles).values(buildSeededOhlcvCandles()).onConflictDoNothing().run();
   }
 
   if (exchangeCount === 0) {
@@ -849,6 +862,22 @@ export function seedReferenceData(database: AppDatabase) {
 
   if (coinTickerCount === 0) {
     database.db.insert(coinTickers).values(seededCoinTickers).onConflictDoNothing().run();
+  }
+
+  if (quoteSnapshotCount === 0) {
+    database.db.insert(quoteSnapshots).values(
+      seededCoinTickers.map((ticker) => ({
+        coinId: ticker.coinId,
+        vsCurrency: 'usd',
+        exchangeId: ticker.exchangeId,
+        symbol: ticker.marketName,
+        fetchedAt: ticker.lastFetchAt ?? new Date(seedTimestamp),
+        price: ticker.convertedLastUsd ?? ticker.last ?? 0,
+        quoteVolume: ticker.convertedVolumeUsd,
+        priceChangePercentage24h: null,
+        sourcePayloadJson: '{}',
+      })),
+    ).onConflictDoNothing().run();
   }
 }
 

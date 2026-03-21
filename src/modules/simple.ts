@@ -5,10 +5,9 @@ import type { AppDatabase } from '../db/client';
 import type { MarketSnapshotRow } from '../db/schema';
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePrecision } from '../http/params';
+import { buildExchangeRatesPayload, getConversionRate, SUPPORTED_VS_CURRENCIES } from '../lib/conversion';
 import { getCoinByContract, getMarketRows, parseJsonObject } from './catalog';
 import { getUsableSnapshot } from './market-freshness';
-
-const SUPPORTED_VS_CURRENCIES = ['usd', 'eur', 'btc', 'eth'] as const;
 
 const simplePriceQuerySchema = z.object({
   ids: z.string().optional(),
@@ -31,21 +30,6 @@ const simpleTokenPriceQuerySchema = z.object({
   include_last_updated_at: z.enum(['true', 'false']).optional(),
   precision: z.string().optional(),
 });
-
-function getConversionRate(vsCurrency: string) {
-  switch (vsCurrency) {
-    case 'usd':
-      return 1;
-    case 'eur':
-      return 0.92;
-    case 'btc':
-      return 1 / 85_000;
-    case 'eth':
-      return 1 / 2_000;
-    default:
-      throw new HttpError(400, 'invalid_parameter', `Unsupported vs_currency: ${vsCurrency}`);
-  }
-}
 
 function toPreciseNumber(value: number | null | undefined, precision: number | 'full') {
   if (value === null || value === undefined) {
@@ -96,39 +80,8 @@ function buildSimplePayload(
   );
 }
 
-function buildExchangeRates() {
-  return {
-    rates: {
-      btc: {
-        name: 'Bitcoin',
-        unit: 'BTC',
-        value: 1,
-        type: 'crypto',
-      },
-      eth: {
-        name: 'Ether',
-        unit: 'ETH',
-        value: 85_000 / 2_000,
-        type: 'crypto',
-      },
-      usd: {
-        name: 'US Dollar',
-        unit: '$',
-        value: 85_000,
-        type: 'fiat',
-      },
-      eur: {
-        name: 'Euro',
-        unit: '€',
-        value: 85_000 * 0.92,
-        type: 'fiat',
-      },
-    },
-  };
-}
-
 export function registerSimpleRoutes(app: FastifyInstance, database: AppDatabase, marketFreshnessThresholdSeconds: number) {
-  app.get('/exchange_rates', async () => buildExchangeRates());
+  app.get('/exchange_rates', async () => buildExchangeRatesPayload());
 
   app.get('/simple/supported_vs_currencies', async () => [...SUPPORTED_VS_CURRENCIES]);
 
