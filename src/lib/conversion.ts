@@ -2,6 +2,7 @@ import type { AppDatabase } from '../db/client';
 import { HttpError } from '../http/errors';
 import { getMarketRows } from '../modules/catalog';
 import { getUsableSnapshot } from '../modules/market-freshness';
+import { getCurrencyApiSnapshot } from '../services/currency-rates';
 
 export const SUPPORTED_VS_CURRENCIES = ['usd', 'eur', 'btc', 'eth'] as const;
 
@@ -27,35 +28,20 @@ function getCoinSnapshot(
 }
 
 export function getConversionRates(database: AppDatabase, marketFreshnessThresholdSeconds: number) {
+  const currencyApiSnapshot = getCurrencyApiSnapshot();
+  const usdPerUsdt = currencyApiSnapshot.usdt.usd;
   const bitcoinUsdSnapshot = getCoinSnapshot(database, 'bitcoin', 'usd', marketFreshnessThresholdSeconds);
-  const bitcoinEurSnapshot = getCoinSnapshot(database, 'bitcoin', 'eur', marketFreshnessThresholdSeconds);
   const ethereumUsdSnapshot = getCoinSnapshot(database, 'ethereum', 'usd', marketFreshnessThresholdSeconds);
-  const ethereumEurSnapshot = getCoinSnapshot(database, 'ethereum', 'eur', marketFreshnessThresholdSeconds);
-  const usdCoinUsdSnapshot = getCoinSnapshot(database, 'usd-coin', 'usd', marketFreshnessThresholdSeconds);
-  const usdCoinEurSnapshot = getCoinSnapshot(database, 'usd-coin', 'eur', marketFreshnessThresholdSeconds);
-  const eurCrossRates = [
-    bitcoinUsdSnapshot && bitcoinEurSnapshot && bitcoinUsdSnapshot.price > 0
-      ? bitcoinEurSnapshot.price / bitcoinUsdSnapshot.price
-      : null,
-    ethereumUsdSnapshot && ethereumEurSnapshot && ethereumUsdSnapshot.price > 0
-      ? ethereumEurSnapshot.price / ethereumUsdSnapshot.price
-      : null,
-    usdCoinUsdSnapshot && usdCoinEurSnapshot && usdCoinUsdSnapshot.price > 0
-      ? usdCoinEurSnapshot.price / usdCoinUsdSnapshot.price
-      : null,
-  ].filter((rate): rate is number => typeof rate === 'number' && Number.isFinite(rate) && rate > 0);
 
   return {
     usd: 1,
-    eur: eurCrossRates.length === 0
-      ? FALLBACK_USD_CONVERSION_RATES.eur
-      : eurCrossRates.reduce((sum, value) => sum + value, 0) / eurCrossRates.length,
+    eur: currencyApiSnapshot.usdt.eur / usdPerUsdt,
     btc: bitcoinUsdSnapshot && bitcoinUsdSnapshot.price > 0
       ? 1 / bitcoinUsdSnapshot.price
-      : FALLBACK_USD_CONVERSION_RATES.btc,
+      : currencyApiSnapshot.usdt.btc / usdPerUsdt,
     eth: ethereumUsdSnapshot && ethereumUsdSnapshot.price > 0
       ? 1 / ethereumUsdSnapshot.price
-      : FALLBACK_USD_CONVERSION_RATES.eth,
+      : currencyApiSnapshot.usdt.eth / usdPerUsdt,
   } satisfies Record<SupportedVsCurrency, number>;
 }
 

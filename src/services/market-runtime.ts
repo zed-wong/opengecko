@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import type { AppConfig } from '../config/env';
 import type { AppDatabase } from '../db/client';
+import { refreshCurrencyApiRatesOnce } from './currency-rates';
 import { runMarketRefreshOnce } from './market-refresh';
 import { runSearchRebuildOnce } from './search-rebuild';
 
@@ -46,19 +47,24 @@ export type MarketRuntime = {
 };
 
 type MarketRuntimeOverrides = {
+  runCurrencyRefreshOnce?: JobRunner;
   runMarketRefreshOnce?: JobRunner;
   runSearchRebuildOnce?: JobRunner;
 };
 
 export function createMarketRuntime(
   database: AppDatabase,
-  config: Pick<AppConfig, 'ccxtExchanges' | 'marketRefreshIntervalSeconds' | 'searchRebuildIntervalSeconds'>,
+  config: Pick<AppConfig, 'ccxtExchanges' | 'currencyRefreshIntervalSeconds' | 'marketRefreshIntervalSeconds' | 'searchRebuildIntervalSeconds'>,
   logger: RuntimeLogger,
   overrides: MarketRuntimeOverrides = {},
 ): MarketRuntime {
+  let currencyTimer: NodeJS.Timeout | null = null;
   let marketTimer: NodeJS.Timeout | null = null;
   let searchTimer: NodeJS.Timeout | null = null;
 
+  const runCurrencyJob = createSerializedJob('currency_refresh', logger, async () => {
+    await (overrides.runCurrencyRefreshOnce ?? (() => refreshCurrencyApiRatesOnce()))();
+  });
   const runMarketJob = createSerializedJob('market_refresh', logger, async () => {
     await (overrides.runMarketRefreshOnce ?? (() => runMarketRefreshOnce(database, config)))();
   });
@@ -68,8 +74,12 @@ export function createMarketRuntime(
 
   return {
     async start() {
+      await runCurrencyJob.run();
       await runMarketJob.run();
 
+      currencyTimer = setInterval(() => {
+        void runCurrencyJob.run();
+      }, config.currencyRefreshIntervalSeconds * 1000);
       marketTimer = setInterval(() => {
         void runMarketJob.run();
       }, config.marketRefreshIntervalSeconds * 1000);
@@ -78,6 +88,11 @@ export function createMarketRuntime(
       }, config.searchRebuildIntervalSeconds * 1000);
     },
     async stop() {
+      if (currencyTimer) {
+        clearInterval(currencyTimer);
+        currencyTimer = null;
+      }
+
       if (marketTimer) {
         clearInterval(marketTimer);
         marketTimer = null;
@@ -88,7 +103,7 @@ export function createMarketRuntime(
         searchTimer = null;
       }
 
-      await Promise.all([runMarketJob.waitForIdle(), runSearchJob.waitForIdle()]);
+      await Promise.all([runCurrencyJob.waitForIdle(), runMarketJob.waitForIdle(), runSearchJob.waitForIdle()]);
     },
   };
 }

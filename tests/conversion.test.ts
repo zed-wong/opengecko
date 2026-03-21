@@ -29,7 +29,7 @@ describe('conversion helpers', () => {
 
   it('returns stable conversion rates for supported currencies', () => {
     expect(getConversionRate(database, 'usd', 300)).toBe(1);
-    expect(getConversionRate(database, 'eur', 300)).toBe(0.92);
+    expect(getConversionRate(database, 'eur', 300)).toBe(0.8627000182076447);
     expect(getConversionRate(database, 'btc', 300)).toBe(1 / 85_000);
     expect(getConversionRate(database, 'eth', 300)).toBe(1 / 2_000);
   });
@@ -63,7 +63,7 @@ describe('conversion helpers', () => {
         eur: {
           name: 'Euro',
           unit: '€',
-          value: 78_200,
+          value: 73_329.50154764981,
           type: 'fiat',
         },
       },

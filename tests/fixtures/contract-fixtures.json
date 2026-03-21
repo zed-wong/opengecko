@@ -23,13 +23,13 @@
         "value": 85000,
         "type": "fiat"
       },
-      "eur": {
-        "name": "Euro",
-        "unit": "€",
-        "value": 78200,
-        "type": "fiat"
-      }
+    "eur": {
+      "name": "Euro",
+      "unit": "€",
+      "value": 73329.50154764981,
+      "type": "fiat"
     }
+  }
   },
   "assetPlatforms": [
     {
@@ -247,24 +247,24 @@
     ]
   },
   "simplePrice": {
-    "bitcoin": {
-      "eur": 78200,
-      "eur_24h_change": 1.8,
-      "eur_24h_vol": 23000000000,
-      "eur_market_cap": 1564000000000,
-      "last_updated_at": 1773964800,
-      "usd": 85000,
-      "usd_24h_change": 1.8,
+  "bitcoin": {
+    "eur": 73329.5,
+    "eur_24h_change": 1.8,
+    "eur_24h_vol": 21567500455.19,
+    "eur_market_cap": 1466590030953,
+    "last_updated_at": 1773964800,
+    "usd": 85000,
+    "usd_24h_change": 1.8,
       "usd_24h_vol": 25000000000,
       "usd_market_cap": 1700000000000
-    },
-    "ethereum": {
-      "eur": 1840,
-      "eur_24h_change": 2.56,
-      "eur_24h_vol": 9200000000,
-      "eur_market_cap": 220800000000,
-      "last_updated_at": 1773964800,
-      "usd": 2000,
+  },
+  "ethereum": {
+    "eur": 1725.4,
+    "eur_24h_change": 2.56,
+    "eur_24h_vol": 8627000182.08,
+    "eur_market_cap": 207048004369.83,
+    "last_updated_at": 1773964800,
+    "usd": 2000,
       "usd_24h_change": 2.56,
       "usd_24h_vol": 10000000000,
       "usd_market_cap": 240000000000

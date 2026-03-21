@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   DEFAULT_CCXT_EXCHANGES,
+  DEFAULT_CURRENCY_REFRESH_INTERVAL_SECONDS,
   DEFAULT_MARKET_FRESHNESS_THRESHOLD_SECONDS,
   DEFAULT_MARKET_REFRESH_INTERVAL_SECONDS,
   DEFAULT_SEARCH_REBUILD_INTERVAL_SECONDS,
@@ -15,6 +16,7 @@ const envSchema = z.object({
   CCXT_EXCHANGES: z.string().default(DEFAULT_CCXT_EXCHANGES.join(',')),
   MARKET_FRESHNESS_THRESHOLD_SECONDS: z.coerce.number().int().positive().default(DEFAULT_MARKET_FRESHNESS_THRESHOLD_SECONDS),
   MARKET_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().positive().default(DEFAULT_MARKET_REFRESH_INTERVAL_SECONDS),
+  CURRENCY_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().positive().default(DEFAULT_CURRENCY_REFRESH_INTERVAL_SECONDS),
   SEARCH_REBUILD_INTERVAL_SECONDS: z.coerce.number().int().positive().default(DEFAULT_SEARCH_REBUILD_INTERVAL_SECONDS),
 });
 
@@ -26,6 +28,7 @@ export type AppConfig = {
   ccxtExchanges: string[];
   marketFreshnessThresholdSeconds: number;
   marketRefreshIntervalSeconds: number;
+  currencyRefreshIntervalSeconds: number;
   searchRebuildIntervalSeconds: number;
 };
 
@@ -40,6 +43,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
     ccxtExchanges: env.CCXT_EXCHANGES.split(',').map((value) => value.trim()).filter(Boolean),
     marketFreshnessThresholdSeconds: env.MARKET_FRESHNESS_THRESHOLD_SECONDS,
     marketRefreshIntervalSeconds: env.MARKET_REFRESH_INTERVAL_SECONDS,
+    currencyRefreshIntervalSeconds: env.CURRENCY_REFRESH_INTERVAL_SECONDS,
     searchRebuildIntervalSeconds: env.SEARCH_REBUILD_INTERVAL_SECONDS,
   };
 }
