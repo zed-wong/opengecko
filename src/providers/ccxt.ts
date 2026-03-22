@@ -1,10 +1,9 @@
 import ccxt, { type Exchange, type OHLCV, type Ticker } from 'ccxt';
 
-export type SupportedExchangeId = 'binance' | 'coinbase' | 'kraken';
-export const SUPPORTED_EXCHANGE_IDS: SupportedExchangeId[] = ['binance', 'coinbase', 'kraken'];
+export type ExchangeId = string;
 
 export type ExchangeTickerSnapshot = {
-  exchangeId: SupportedExchangeId;
+  exchangeId: ExchangeId;
   symbol: string;
   base: string;
   quote: string;
@@ -21,7 +20,7 @@ export type ExchangeTickerSnapshot = {
 };
 
 export type ExchangeOhlcvSnapshot = {
-  exchangeId: SupportedExchangeId;
+  exchangeId: ExchangeId;
   symbol: string;
   timeframe: string;
   timestamp: number;
@@ -34,7 +33,7 @@ export type ExchangeOhlcvSnapshot = {
 };
 
 export type ExchangeMarketSnapshot = {
-  exchangeId: SupportedExchangeId;
+  exchangeId: ExchangeId;
   symbol: string;
   base: string;
   quote: string;
@@ -46,29 +45,32 @@ export type ExchangeMarketSnapshot = {
 };
 
 export type ExchangeNetworkSnapshot = {
-  exchangeId: SupportedExchangeId;
+  exchangeId: ExchangeId;
   networkId: string;
   networkName: string;
   chainIdentifier: number | null;
 };
 
-export function isSupportedExchangeId(value: string): value is SupportedExchangeId {
-  return SUPPORTED_EXCHANGE_IDS.includes(value as SupportedExchangeId);
+const VALID_EXCHANGE_IDS = new Set(Object.keys(ccxt.exchanges));
+
+export function isValidExchangeId(value: string): value is ExchangeId {
+  return VALID_EXCHANGE_IDS.has(value);
 }
 
-function createExchange(exchangeId: SupportedExchangeId): Exchange {
-  const options = {
-    enableRateLimit: true,
-  };
+export function getValidExchangeIds(): string[] {
+  return Object.keys(ccxt.exchanges);
+}
 
-  switch (exchangeId) {
-    case 'binance':
-      return new ccxt.binance(options);
-    case 'coinbase':
-      return new ccxt.coinbase(options);
-    case 'kraken':
-      return new ccxt.kraken(options);
+function createExchange(exchangeId: ExchangeId): Exchange {
+  const ExchangeClass = ccxt.exchanges[exchangeId];
+
+  if (!ExchangeClass) {
+    throw new Error(`Unknown exchange: ${exchangeId}`);
   }
+
+  return new ExchangeClass({
+    enableRateLimit: true,
+  });
 }
 
 function deriveBaseQuote(symbol: string) {
@@ -88,7 +90,7 @@ function getSupportedSymbols(exchange: Exchange, symbols?: string[]) {
   return symbols.filter((symbol) => symbol in exchange.markets);
 }
 
-function toTickerSnapshot(exchangeId: SupportedExchangeId, ticker: Ticker): ExchangeTickerSnapshot {
+function toTickerSnapshot(exchangeId: ExchangeId, ticker: Ticker): ExchangeTickerSnapshot {
   const { base, quote } = deriveBaseQuote(ticker.symbol);
 
   return {
@@ -110,7 +112,7 @@ function toTickerSnapshot(exchangeId: SupportedExchangeId, ticker: Ticker): Exch
 }
 
 function toMarketSnapshot(
-  exchangeId: SupportedExchangeId,
+  exchangeId: ExchangeId,
   market: Exchange['markets'][string],
   currencyName: string | null,
   baseNetworks: string[],
@@ -186,7 +188,7 @@ function collectCurrencyNetworkIds(exchange: Exchange, code: string) {
 }
 
 function toNetworkSnapshot(
-  exchangeId: SupportedExchangeId,
+  exchangeId: ExchangeId,
   networkId: string,
   networkName: string,
   chainIdentifier: number | null,
@@ -199,7 +201,7 @@ function toNetworkSnapshot(
   };
 }
 
-function toRequiredNumber(value: number | undefined, fieldName: string, exchangeId: SupportedExchangeId, symbol: string) {
+function toRequiredNumber(value: number | undefined, fieldName: string, exchangeId: ExchangeId, symbol: string) {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
@@ -207,7 +209,7 @@ function toRequiredNumber(value: number | undefined, fieldName: string, exchange
   throw new Error(`Invalid ${fieldName} value from ${exchangeId} for ${symbol}`);
 }
 
-function toOhlcvSnapshot(exchangeId: SupportedExchangeId, symbol: string, timeframe: string, row: OHLCV): ExchangeOhlcvSnapshot {
+function toOhlcvSnapshot(exchangeId: ExchangeId, symbol: string, timeframe: string, row: OHLCV): ExchangeOhlcvSnapshot {
   return {
     exchangeId,
     symbol,
@@ -222,7 +224,7 @@ function toOhlcvSnapshot(exchangeId: SupportedExchangeId, symbol: string, timefr
   };
 }
 
-export async function fetchExchangeTicker(exchangeId: SupportedExchangeId, symbol: string) {
+export async function fetchExchangeTicker(exchangeId: ExchangeId, symbol: string) {
   const exchange = createExchange(exchangeId);
 
   try {
@@ -235,7 +237,7 @@ export async function fetchExchangeTicker(exchangeId: SupportedExchangeId, symbo
   }
 }
 
-export async function fetchExchangeTickers(exchangeId: SupportedExchangeId, symbols?: string[]) {
+export async function fetchExchangeTickers(exchangeId: ExchangeId, symbols?: string[]) {
   const exchange = createExchange(exchangeId);
 
   try {
@@ -263,7 +265,7 @@ export async function fetchExchangeTickers(exchangeId: SupportedExchangeId, symb
   }
 }
 
-export async function fetchExchangeMarkets(exchangeId: SupportedExchangeId) {
+export async function fetchExchangeMarkets(exchangeId: ExchangeId) {
   const exchange = createExchange(exchangeId);
 
   try {
@@ -282,7 +284,7 @@ export async function fetchExchangeMarkets(exchangeId: SupportedExchangeId) {
   }
 }
 
-export async function fetchExchangeNetworks(exchangeId: SupportedExchangeId) {
+export async function fetchExchangeNetworks(exchangeId: ExchangeId) {
   const exchange = createExchange(exchangeId);
 
   try {
@@ -343,7 +345,7 @@ export async function fetchExchangeNetworks(exchangeId: SupportedExchangeId) {
 }
 
 export async function fetchExchangeOHLCV(
-  exchangeId: SupportedExchangeId,
+  exchangeId: ExchangeId,
   symbol: string,
   timeframe: string,
   since?: number,

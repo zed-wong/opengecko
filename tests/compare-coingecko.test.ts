@@ -12,9 +12,8 @@ vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeTickers: vi.fn(),
   fetchExchangeOHLCV: vi.fn(),
   fetchExchangeNetworks: vi.fn().mockResolvedValue([]),
-  isSupportedExchangeId: (value: string): value is 'binance' | 'coinbase' | 'kraken' =>
-    ['binance', 'coinbase', 'kraken'].includes(value),
-  SUPPORTED_EXCHANGE_IDS: ['binance', 'coinbase', 'kraken'],
+  isValidExchangeId: (value: string): value is string =>
+    ['binance', 'coinbase', 'kraken', 'bybit', 'okx'].includes(value),
 }));
 
 import { fetchExchangeMarkets, fetchExchangeTickers, fetchExchangeOHLCV } from '../src/providers/ccxt';

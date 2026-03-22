@@ -19,9 +19,8 @@ vi.mock('../src/providers/ccxt', () => ({
   ]),
   fetchExchangeOHLCV: vi.fn().mockResolvedValue([]),
   fetchExchangeNetworks: vi.fn().mockResolvedValue([]),
-  isSupportedExchangeId: (value: string): value is 'binance' | 'coinbase' | 'kraken' =>
-    ['binance', 'coinbase', 'kraken'].includes(value),
-  SUPPORTED_EXCHANGE_IDS: ['binance', 'coinbase', 'kraken'],
+  isValidExchangeId: (value: string): value is string =>
+    ['binance', 'coinbase', 'kraken', 'bybit', 'okx'].includes(value),
 }));
 
 describe('OpenGecko invalid parameter handling', () => {

@@ -3,41 +3,40 @@ import type { AppDatabase } from '../db/client';
 import { exchanges, ohlcvCandles } from '../db/schema';
 import type { Logger } from 'pino';
 import { createLogger } from '../lib/logger';
-import { fetchExchangeMarkets, fetchExchangeOHLCV, isSupportedExchangeId, type SupportedExchangeId } from '../providers/ccxt';
+import { fetchExchangeMarkets, fetchExchangeOHLCV, isValidExchangeId, type ExchangeId } from '../providers/ccxt';
 import { syncCoinCatalogFromExchanges } from './coin-catalog-sync';
 import { syncChainCatalogFromExchanges } from './chain-catalog-sync';
 import { runMarketRefreshOnce } from './market-refresh';
 import { upsertCanonicalOhlcvCandle } from './candle-store';
 
-const BACKFILL_EXCHANGE_PRIORITY: SupportedExchangeId[] = ['binance', 'coinbase', 'kraken'];
 const USD_QUOTE_PRIORITY = ['USDT', 'USD'] as const;
 
 type BackfillTarget = {
   coinId: string;
   symbol: string;
-  exchangeId: SupportedExchangeId;
+  exchangeId: ExchangeId;
 };
 
 async function buildBackfillTargets(
   database: AppDatabase,
-  enabledExchanges: Set<SupportedExchangeId>,
+  enabledExchanges: ExchangeId[],
   logger: Logger,
 ) {
-  const marketIndex = new Map<SupportedExchangeId, Set<string>>();
+  const marketIndex = new Map<ExchangeId, Set<string>>();
+  const startTime = Date.now();
 
-  for (const exchangeId of BACKFILL_EXCHANGE_PRIORITY) {
-    if (!enabledExchanges.has(exchangeId)) {
-      continue;
+  for (const exchangeId of enabledExchanges) {
+    try {
+      const markets = await fetchExchangeMarkets(exchangeId);
+      const supportedSymbols = new Set(
+        markets
+          .filter((market) => market.active && market.spot)
+          .map((market) => market.symbol),
+      );
+      marketIndex.set(exchangeId, supportedSymbols);
+    } catch (error) {
+      logger.warn({ exchange: exchangeId, error }, 'failed to fetch markets for backfill');
     }
-
-    const markets = await fetchExchangeMarkets(exchangeId);
-    const supportedSymbols = new Set(
-      markets
-        .filter((market) => market.active && market.spot)
-        .map((market) => market.symbol),
-    );
-
-    marketIndex.set(exchangeId, supportedSymbols);
   }
 
   const { coins } = await import('../db/schema');
@@ -48,15 +47,12 @@ async function buildBackfillTargets(
     const base = row.symbol.toUpperCase();
     let selectedTarget: BackfillTarget | null = null;
 
-    for (const exchangeId of BACKFILL_EXCHANGE_PRIORITY) {
+    // Try each exchange until we find a matching market
+    for (const exchangeId of enabledExchanges) {
       const supportedSymbols = marketIndex.get(exchangeId);
-
-      if (!supportedSymbols) {
-        continue;
-      }
+      if (!supportedSymbols) continue;
 
       const matchedQuote = USD_QUOTE_PRIORITY.find((quote) => supportedSymbols.has(`${base}/${quote}`));
-
       if (matchedQuote) {
         selectedTarget = {
           coinId: row.id,
@@ -72,32 +68,16 @@ async function buildBackfillTargets(
     }
   }
 
+  logger.debug({ targetCount: targets.length, durationMs: Date.now() - startTime }, 'built backfill targets');
+
   return targets;
 }
 
 export async function syncExchangesFromCCXT(
   database: AppDatabase,
-  exchangeIds: SupportedExchangeId[],
+  exchangeIds: ExchangeId[],
   logger: Logger,
 ) {
-  const exchangeIdMap: Record<SupportedExchangeId, string> = {
-    binance: 'binance',
-    coinbase: 'coinbase_exchange',
-    kraken: 'kraken',
-  };
-
-  const exchangeNames: Record<SupportedExchangeId, string> = {
-    binance: 'Binance',
-    coinbase: 'Coinbase Exchange',
-    kraken: 'Kraken',
-  };
-
-  const exchangeUrls: Record<SupportedExchangeId, string> = {
-    binance: 'https://www.binance.com',
-    coinbase: 'https://exchange.coinbase.com',
-    kraken: 'https://www.kraken.com',
-  };
-
   for (const exchangeId of exchangeIds) {
     const exchangeLogger = logger.child({ exchange: exchangeId });
     try {
@@ -108,36 +88,43 @@ export async function syncExchangesFromCCXT(
         continue;
       }
 
+      // Use exchange ID directly - CCXT provides the canonical ID
       database.db
         .insert(exchanges)
         .values({
-          id: exchangeIdMap[exchangeId],
-          name: exchangeNames[exchangeId],
+          id: exchangeId,
+          name: exchangeId.charAt(0).toUpperCase() + exchangeId.slice(1),
           description: '',
-          url: exchangeUrls[exchangeId],
+          url: `https://www.${exchangeId}.com`,
           updatedAt: new Date(),
         })
-        .onConflictDoNothing()
+        .onConflictDoUpdate({
+          target: exchanges.id,
+          set: {
+            updatedAt: new Date(),
+          },
+        })
         .run();
     } catch (error) {
-      exchangeLogger.warn({ error }, 'exchange metadata sync failed');
+      const errorInfo = error instanceof Error ? { message: error.message } : { message: String(error) };
+      exchangeLogger.warn(errorInfo, 'exchange metadata sync failed');
     }
   }
 }
 
 export async function runOhlcvBackfill(
   database: AppDatabase,
-  exchangeIds: SupportedExchangeId[],
+  exchangeIds: ExchangeId[],
   lookbackDays: number,
   logger: Logger,
 ) {
   const backfillLogger = logger.child({ operation: 'ohlcv_backfill', lookbackDays });
   const startTime = Date.now();
-  const enabledExchanges = new Set(exchangeIds.filter(isSupportedExchangeId));
+  const validExchanges = exchangeIds.filter(isValidExchangeId);
   const since = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
-  const targets = await buildBackfillTargets(database, enabledExchanges, backfillLogger);
+  const targets = await buildBackfillTargets(database, validExchanges, backfillLogger);
 
-  backfillLogger.info({ exchangeCount: enabledExchanges.size, targetCount: targets.length }, 'starting ohlcv backfill');
+  backfillLogger.info({ exchangeCount: validExchanges.length, targetCount: targets.length }, 'starting ohlcv backfill');
 
   let candlesWritten = 0;
   let failures = 0;
@@ -164,7 +151,8 @@ export async function runOhlcvBackfill(
       }
     } catch (error) {
       failures += 1;
-      backfillLogger.warn({ coinId: target.coinId, exchange: target.exchangeId, symbol: target.symbol, error }, 'backfill failed for coin');
+      const errorInfo = error instanceof Error ? { message: error.message } : { message: String(error) };
+      backfillLogger.warn({ coinId: target.coinId, exchange: target.exchangeId, symbol: target.symbol, ...errorInfo }, 'backfill failed for coin');
     }
   }
 
@@ -188,9 +176,9 @@ export async function runInitialMarketSync(
   config: Pick<AppConfig, 'ccxtExchanges' | 'marketFreshnessThresholdSeconds'>,
   logger?: Logger,
 ): Promise<InitialSyncResult> {
-  const syncLogger = logger?.child({ operation: 'initial_sync' }) ?? createLogger('info').child({ operation: 'initial_sync' });
+  const syncLogger = logger?.child({ operation: 'initial_sync' }) ?? createLogger({ level: 'info' }).child({ operation: 'initial_sync' });
   const startTime = Date.now();
-  const exchangeIds = config.ccxtExchanges.filter(isSupportedExchangeId);
+  const exchangeIds = config.ccxtExchanges.filter(isValidExchangeId);
 
   syncLogger.info({ exchanges: exchangeIds }, 'starting initial market sync');
 

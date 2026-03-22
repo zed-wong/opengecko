@@ -2,7 +2,7 @@ import { coins } from '../db/schema';
 import type { AppDatabase } from '../db/client';
 import type { Logger } from 'pino';
 import { buildCoinId, buildCoinName } from '../lib/coin-id';
-import { fetchExchangeMarkets, type SupportedExchangeId } from '../providers/ccxt';
+import { fetchExchangeMarkets, type ExchangeId } from '../providers/ccxt';
 
 const CATALOG_BASELINE_QUOTES = new Set(['USD', 'USDT', 'EUR']);
 
@@ -81,7 +81,7 @@ function flushDiscoveredCoins(database: AppDatabase, discoveredCoins: Map<string
 
 export async function syncCoinCatalogFromExchanges(
   database: AppDatabase,
-  exchangeIds: SupportedExchangeId[],
+  exchangeIds: ExchangeId[],
   logger?: Logger,
 ) {
   const startTime = Date.now();

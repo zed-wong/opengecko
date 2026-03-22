@@ -1,7 +1,7 @@
 import { assetPlatforms } from '../db/schema';
 import type { AppDatabase } from '../db/client';
 import type { Logger } from 'pino';
-import { fetchExchangeNetworks, type SupportedExchangeId } from '../providers/ccxt';
+import { fetchExchangeNetworks, type ExchangeId } from '../providers/ccxt';
 
 type ChainCatalogSyncResult = {
   insertedOrUpdated: number;
@@ -30,7 +30,7 @@ function toPlatformName(networkId: string, networkName: string) {
 
 export async function syncChainCatalogFromExchanges(
   database: AppDatabase,
-  exchangeIds: SupportedExchangeId[],
+  exchangeIds: ExchangeId[],
   logger?: Logger,
 ): Promise<ChainCatalogSyncResult> {
   const startTime = Date.now();

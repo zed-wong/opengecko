@@ -13,6 +13,8 @@ vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn(),
   fetchExchangeTickers: vi.fn(),
   fetchExchangeNetworks: vi.fn().mockResolvedValue([]),
+  isValidExchangeId: (value: string): value is string =>
+    ['binance', 'coinbase', 'kraken', 'bybit', 'okx'].includes(value),
 }));
 
 import { fetchExchangeMarkets, fetchExchangeTickers } from '../src/providers/ccxt';
@@ -21,8 +23,9 @@ const now = new Date();
 
 const seededExchanges = [
   { id: 'binance', name: 'Binance', url: 'https://www.binance.com', trustScore: 10, updatedAt: now },
-  { id: 'coinbase_exchange', name: 'Coinbase Exchange', url: 'https://exchange.coinbase.com', trustScore: 10, updatedAt: now },
+  { id: 'coinbase', name: 'Coinbase', url: 'https://www.coinbase.com', trustScore: 10, updatedAt: now },
   { id: 'kraken', name: 'Kraken', url: 'https://www.kraken.com', trustScore: 10, updatedAt: now },
+  { id: 'bybit', name: 'Bybit', url: 'https://www.bybit.com', trustScore: 10, updatedAt: now },
 ];
 
 describe('market refresh service', () => {
@@ -157,7 +160,7 @@ describe('market refresh service', () => {
       .from(coinTickers)
       .where(and(
         eq(coinTickers.coinId, 'ethereum'),
-        eq(coinTickers.exchangeId, 'coinbase_exchange'),
+        eq(coinTickers.exchangeId, 'coinbase'),
         eq(coinTickers.base, 'ETH'),
         eq(coinTickers.target, 'USD'),
       ))
@@ -185,20 +188,20 @@ describe('market refresh service', () => {
       convertedLastUsd: 90_000,
       convertedVolumeUsd: 111_060_000,
       trustScore: 'green',
-      tradeUrl: 'https://www.binance.com/en/trade/BTC_USDT',
-      tokenInfoUrl: 'https://www.binance.com/en/price/bitcoin',
+      tradeUrl: 'https://www.binance.com/trade/BTC-USDT',
+      tokenInfoUrl: null,
     });
     expect(bitcoinBinanceTicker?.bidAskSpreadPercentage).toBeCloseTo(0.1110494169905608);
 
     expect(ethereumCoinbaseTicker).toMatchObject({
-      exchangeId: 'coinbase_exchange',
+      exchangeId: 'coinbase',
       marketName: 'ETH/USD',
       last: 2_100,
       volume: 5_000,
       convertedLastUsd: 2_100,
       convertedVolumeUsd: 10_500_000,
-      tradeUrl: 'https://exchange.coinbase.com/trade/ETH-USD',
-      tokenInfoUrl: 'https://www.coinbase.com/price/ethereum',
+      tradeUrl: 'https://www.coinbase.com/trade/ETH-USD',
+      tokenInfoUrl: null,
     });
 
     expect(bitcoinKrakenTicker).toMatchObject({
@@ -206,7 +209,7 @@ describe('market refresh service', () => {
       marketName: 'BTC/EUR',
       last: 82_000,
       convertedLastUsd: 90_000,
-      tradeUrl: 'https://pro.kraken.com/app/trade/BTC-EUR',
+      tradeUrl: 'https://www.kraken.com/trade/BTC-EUR',
       tokenInfoUrl: null,
     });
     expect(bitcoinKrakenTicker?.convertedVolumeUsd).toBeGreaterThan(8_200_000);
@@ -214,6 +217,64 @@ describe('market refresh service', () => {
       id: 'litecoin',
       symbol: 'ltc',
       name: 'Litecoin',
+    });
+  });
+
+  it('supports non-hardcoded exchanges with generic trade URLs', async () => {
+    vi.mocked(fetchExchangeMarkets).mockResolvedValue([
+      {
+        exchangeId: 'bybit',
+        symbol: 'BTC/USDT',
+        base: 'BTC',
+        quote: 'USDT',
+        active: true,
+        spot: true,
+        baseName: 'Bitcoin',
+        raw: {},
+      },
+    ]);
+    vi.mocked(fetchExchangeTickers).mockImplementation(async (exchangeId) => {
+      if (exchangeId !== 'bybit') {
+        return [];
+      }
+
+      return [{
+        exchangeId: 'bybit',
+        symbol: 'BTC/USDT',
+        base: 'BTC',
+        quote: 'USDT',
+        last: 90_000,
+        bid: 89_990,
+        ask: 90_010,
+        high: null,
+        low: null,
+        baseVolume: 1_000,
+        quoteVolume: 90_000_000,
+        percentage: 1,
+        timestamp: Date.parse('2026-03-21T00:00:00.000Z'),
+        raw: {} as never,
+      }];
+    });
+
+    await runMarketRefreshOnce(database, {
+      ccxtExchanges: ['bybit'],
+    });
+
+    const bybitTicker = database.db
+      .select()
+      .from(coinTickers)
+      .where(and(
+        eq(coinTickers.coinId, 'bitcoin'),
+        eq(coinTickers.exchangeId, 'bybit'),
+        eq(coinTickers.base, 'BTC'),
+        eq(coinTickers.target, 'USDT'),
+      ))
+      .get();
+
+    expect(bybitTicker).toMatchObject({
+      exchangeId: 'bybit',
+      tradeUrl: 'https://www.bybit.com/trade/BTC-USDT',
+      tokenInfoUrl: null,
     });
   });
 });

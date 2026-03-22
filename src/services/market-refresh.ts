@@ -5,19 +5,11 @@ import type { AppDatabase } from '../db/client';
 import { coinTickers, exchanges, exchangeVolumePoints, marketSnapshots } from '../db/schema';
 import { coins } from '../db/schema';
 import type { Logger } from 'pino';
-import { fetchExchangeTickers, type SupportedExchangeId } from '../providers/ccxt';
-import { syncCoinCatalogWithBinance } from './coin-catalog-sync';
+import { fetchExchangeTickers, isValidExchangeId, type ExchangeId } from '../providers/ccxt';
+import { syncCoinCatalogFromExchanges } from './coin-catalog-sync';
 import { recordQuoteSnapshot, toMinuteBucket, toDailyBucket, upsertCanonicalCandle } from './candle-store';
 import { getCurrencyApiSnapshot } from './currency-rates';
 import { buildLiveSnapshotValue, createMarketQuoteAccumulator, type MarketQuoteAccumulator } from './market-snapshots';
-
-const SUPPORTED_EXCHANGES: SupportedExchangeId[] = ['binance', 'coinbase', 'kraken'];
-
-const EXCHANGE_TABLE_IDS = {
-  binance: 'binance',
-  coinbase: 'coinbase_exchange',
-  kraken: 'kraken',
-} satisfies Record<SupportedExchangeId, string>;
 
 type SymbolIndexEntry = {
   coinId: string;
@@ -64,10 +56,6 @@ function buildRequestedSymbolIndex(database: AppDatabase) {
   return new Map<string, SymbolIndexEntry>(symbolEntries);
 }
 
-function isSupportedExchangeId(value: string): value is SupportedExchangeId {
-  return SUPPORTED_EXCHANGES.includes(value as SupportedExchangeId);
-}
-
 function buildBidAskSpreadPercentage(bid: number | null, ask: number | null) {
   if (bid === null || ask === null || ask <= 0) {
     return null;
@@ -76,26 +64,12 @@ function buildBidAskSpreadPercentage(bid: number | null, ask: number | null) {
   return ((ask - bid) / ask) * 100;
 }
 
-function buildTradeUrl(exchangeId: SupportedExchangeId, base: string, target: string) {
-  switch (exchangeId) {
-    case 'binance':
-      return `https://www.binance.com/en/trade/${base}_${target}`;
-    case 'coinbase':
-      return `https://exchange.coinbase.com/trade/${base}-${target}`;
-    case 'kraken':
-      return `https://pro.kraken.com/app/trade/${base}-${target}`;
-  }
+function buildTradeUrl(exchangeId: ExchangeId, base: string, target: string) {
+  return `https://www.${exchangeId}.com/trade/${base}-${target}`;
 }
 
-function buildTokenInfoUrl(exchangeId: SupportedExchangeId, coinId: string) {
-  switch (exchangeId) {
-    case 'binance':
-      return `https://www.binance.com/en/price/${coinId}`;
-    case 'coinbase':
-      return `https://www.coinbase.com/price/${coinId}`;
-    case 'kraken':
-      return null;
-  }
+function buildTokenInfoUrl(_exchangeId: ExchangeId, _coinId: string) {
+  return null;
 }
 
 function upsertLiveCoinTicker(
@@ -167,7 +141,7 @@ export async function runMarketRefreshOnce(
 ) {
   const refreshLogger = logger?.child({ operation: 'market_refresh' });
   const startTime = Date.now();
-  const exchangeIds = config.ccxtExchanges.filter(isSupportedExchangeId);
+  const exchangeIds = config.ccxtExchanges.filter(isValidExchangeId);
 
   if (exchangeIds.length === 0) {
     return;
@@ -175,7 +149,7 @@ export async function runMarketRefreshOnce(
 
   refreshLogger?.debug({ exchanges: exchangeIds }, 'starting market refresh');
 
-  await syncCoinCatalogWithBinance(database);
+  await syncCoinCatalogFromExchanges(database, exchangeIds, refreshLogger);
 
   const symbolIndex = buildRequestedSymbolIndex(database);
   const requestedSymbols = [...symbolIndex.keys()];
@@ -210,7 +184,7 @@ export async function runMarketRefreshOnce(
       }
 
       matchedCount += 1;
-      const normalizedExchangeId = EXCHANGE_TABLE_IDS[exchangeId];
+      const normalizedExchangeId = exchangeId;
       const fetchedAt = new Date(ticker.timestamp ?? Date.now());
 
       // Track per-exchange quote volume for volume snapshots

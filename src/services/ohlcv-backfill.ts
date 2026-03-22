@@ -1,30 +1,25 @@
 import type { AppConfig } from '../config/env';
 import type { AppDatabase } from '../db/client';
 import { coins } from '../db/schema';
-import { fetchExchangeMarkets, fetchExchangeOHLCV, isSupportedExchangeId, type SupportedExchangeId } from '../providers/ccxt';
+import { fetchExchangeMarkets, fetchExchangeOHLCV, isValidExchangeId, type ExchangeId } from '../providers/ccxt';
 import { upsertCanonicalOhlcvCandle } from './candle-store';
-import { syncCoinCatalogWithBinance } from './coin-catalog-sync';
+import { syncCoinCatalogFromExchanges } from './coin-catalog-sync';
 
-const BACKFILL_EXCHANGE_PRIORITY: SupportedExchangeId[] = ['binance', 'coinbase', 'kraken'];
 const USD_QUOTE_PRIORITY = ['USDT', 'USD'] as const;
 
 type BackfillTarget = {
   coinId: string;
   symbol: string;
-  exchangeId: SupportedExchangeId;
+  exchangeId: ExchangeId;
 };
 
 async function buildBackfillTargets(
   database: AppDatabase,
-  enabledExchanges: Set<SupportedExchangeId>,
+  enabledExchanges: ExchangeId[],
 ) {
-  const marketIndex = new Map<SupportedExchangeId, Set<string>>();
+  const marketIndex = new Map<ExchangeId, Set<string>>();
 
-  for (const exchangeId of BACKFILL_EXCHANGE_PRIORITY) {
-    if (!enabledExchanges.has(exchangeId)) {
-      continue;
-    }
-
+  for (const exchangeId of enabledExchanges) {
     const markets = await fetchExchangeMarkets(exchangeId);
     const supportedSymbols = new Set(
       markets
@@ -42,7 +37,7 @@ async function buildBackfillTargets(
     const base = row.symbol.toUpperCase();
     let selectedTarget: BackfillTarget | null = null;
 
-    for (const exchangeId of BACKFILL_EXCHANGE_PRIORITY) {
+    for (const exchangeId of enabledExchanges) {
       const supportedSymbols = marketIndex.get(exchangeId);
 
       if (!supportedSymbols) {
@@ -74,10 +69,10 @@ export async function runOhlcvBackfillOnce(
   config: Pick<AppConfig, 'ccxtExchanges'>,
   options: { lookbackDays?: number } = {},
 ) {
-  const enabledExchanges = new Set(config.ccxtExchanges.filter(isSupportedExchangeId));
+  const enabledExchanges = config.ccxtExchanges.filter(isValidExchangeId);
   const lookbackDays = options.lookbackDays ?? 365;
   const since = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
-  await syncCoinCatalogWithBinance(database);
+  await syncCoinCatalogFromExchanges(database, enabledExchanges);
   const targets = await buildBackfillTargets(database, enabledExchanges);
 
   for (const target of targets) {
