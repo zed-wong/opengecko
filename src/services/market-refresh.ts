@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 
 import type { AppConfig } from '../config/env';
 import type { AppDatabase } from '../db/client';
-import { coinTickers, exchanges, marketSnapshots } from '../db/schema';
+import { coinTickers, exchanges, exchangeVolumePoints, marketSnapshots } from '../db/schema';
 import { coins } from '../db/schema';
 import { fetchExchangeTickers, type SupportedExchangeId } from '../providers/ccxt';
 import { syncCoinCatalogWithBinance } from './coin-catalog-sync';
@@ -172,6 +172,7 @@ export async function runMarketRefreshOnce(database: AppDatabase, config: Pick<A
   const requestedSymbols = [...symbolIndex.keys()];
   const accumulators = new Map<string, { coinId: string; vsCurrency: string; accumulator: MarketQuoteAccumulator }>();
   const pendingCoinTickers: PendingCoinTicker[] = [];
+  const exchangeQuoteVolumes = new Map<string, number>(); // normalizedExchangeId -> total quote volume
   const exchangeTrustScoreById = new Map(
     database.db.select({ id: exchanges.id, trustScore: exchanges.trustScore }).from(exchanges).all().map((row) => [row.id, row.trustScore]),
   );
@@ -188,6 +189,14 @@ export async function runMarketRefreshOnce(database: AppDatabase, config: Pick<A
 
       const normalizedExchangeId = EXCHANGE_TABLE_IDS[exchangeId];
       const fetchedAt = new Date(ticker.timestamp ?? Date.now());
+
+      // Track per-exchange quote volume for volume snapshots
+      if (ticker.quoteVolume !== null) {
+        exchangeQuoteVolumes.set(
+          normalizedExchangeId,
+          (exchangeQuoteVolumes.get(normalizedExchangeId) ?? 0) + ticker.quoteVolume,
+        );
+      }
 
       recordQuoteSnapshot(database, {
         coinId: marketTarget.coinId,
@@ -252,6 +261,19 @@ export async function runMarketRefreshOnce(database: AppDatabase, config: Pick<A
 
   const now = new Date();
   const usdPriceByCoinId = new Map<string, number>();
+
+  // Write exchange volume snapshots
+  for (const [normalizedExchangeId, totalQuoteVolume] of exchangeQuoteVolumes) {
+    database.db
+      .insert(exchangeVolumePoints)
+      .values({
+        exchangeId: normalizedExchangeId,
+        timestamp: now,
+        volumeBtc: totalQuoteVolume,
+      })
+      .onConflictDoNothing()
+      .run();
+  }
 
   for (const { coinId, vsCurrency, accumulator } of accumulators.values()) {
     if (accumulator.priceCount === 0) {

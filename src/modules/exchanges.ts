@@ -266,9 +266,32 @@ function getExchangeVolumeChart(database: AppDatabase, exchangeId: string, days:
     throw new HttpError(400, 'invalid_parameter', `Invalid days value: ${days}`);
   }
 
-  const rows = database.db.select().from(exchangeVolumePoints).where(eq(exchangeVolumePoints.exchangeId, exchangeId)).orderBy(asc(exchangeVolumePoints.timestamp)).all();
+  const cutoffMs = Date.now() - parsedDays * 24 * 60 * 60 * 1000;
 
-  return rows.slice(-Math.ceil(parsedDays)).map((row) => [row.timestamp.getTime(), row.volumeBtc]);
+  const allRows = database.db
+    .select()
+    .from(exchangeVolumePoints)
+    .where(eq(exchangeVolumePoints.exchangeId, exchangeId))
+    .orderBy(asc(exchangeVolumePoints.timestamp))
+    .all();
+
+  const rows = allRows.filter((row) => row.timestamp.getTime() >= cutoffMs);
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  // Downsample: <= 2 days -> hourly, > 2 days -> daily
+  const bucketMs = parsedDays <= 2 ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  const buckets = new Map<number, [number, number]>();
+
+  for (const row of rows) {
+    const ts = row.timestamp.getTime();
+    const bucketKey = Math.floor(ts / bucketMs) * bucketMs;
+    buckets.set(bucketKey, [bucketKey, row.volumeBtc]);
+  }
+
+  return [...buckets.values()].sort((a, b) => a[0] - b[0]);
 }
 
 function sortDerivativesExchangeRows(rows: DerivativesExchangeRow[], order: string | undefined) {
