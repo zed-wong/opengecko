@@ -1,5 +1,6 @@
 import { assetPlatforms } from '../db/schema';
 import type { AppDatabase } from '../db/client';
+import type { Logger } from 'pino';
 import { fetchExchangeNetworks, type SupportedExchangeId } from '../providers/ccxt';
 
 type ChainCatalogSyncResult = {
@@ -27,11 +28,18 @@ function toPlatformName(networkId: string, networkName: string) {
     .join(' ');
 }
 
-export async function syncChainCatalogFromExchanges(database: AppDatabase, exchangeIds: SupportedExchangeId[]): Promise<ChainCatalogSyncResult> {
+export async function syncChainCatalogFromExchanges(
+  database: AppDatabase,
+  exchangeIds: SupportedExchangeId[],
+  logger?: Logger,
+): Promise<ChainCatalogSyncResult> {
+  const startTime = Date.now();
   const networksById = new Map<string, { name: string; chainIdentifier: number | null }>();
 
   for (const exchangeId of exchangeIds) {
+    const exchangeLogger = logger?.child({ exchange: exchangeId });
     const networks = await fetchExchangeNetworks(exchangeId);
+    exchangeLogger?.debug({ networkCount: networks.length }, 'fetched networks for chain discovery');
 
     for (const network of networks) {
       const existing = networksById.get(network.networkId);
@@ -86,6 +94,9 @@ export async function syncChainCatalogFromExchanges(database: AppDatabase, excha
 
     upserted += 1;
   }
+
+  const durationMs = Date.now() - startTime;
+  logger?.info({ chainsDiscovered: upserted, exchangeCount: exchangeIds.length, durationMs }, 'chain catalog sync complete');
 
   return { insertedOrUpdated: upserted };
 }

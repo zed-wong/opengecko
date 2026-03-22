@@ -1,5 +1,6 @@
 import { coins } from '../db/schema';
 import type { AppDatabase } from '../db/client';
+import type { Logger } from 'pino';
 import { buildCoinId, buildCoinName } from '../lib/coin-id';
 import { fetchExchangeMarkets, type SupportedExchangeId } from '../providers/ccxt';
 
@@ -66,7 +67,6 @@ function flushDiscoveredCoins(database: AppDatabase, discoveredCoins: Map<string
         target: coins.id,
         set: {
           symbol: value.symbol,
-          name: value.name,
           apiSymbol: value.apiSymbol,
           descriptionJson: value.descriptionJson,
           updatedAt: value.updatedAt,
@@ -82,12 +82,16 @@ function flushDiscoveredCoins(database: AppDatabase, discoveredCoins: Map<string
 export async function syncCoinCatalogFromExchanges(
   database: AppDatabase,
   exchangeIds: SupportedExchangeId[],
+  logger?: Logger,
 ) {
+  const startTime = Date.now();
   const existingCoinsById = new Map(database.db.select().from(coins).all().map((coin) => [coin.id, coin]));
   const discoveredCoins = new Map<string, typeof coins.$inferInsert>();
 
   for (const exchangeId of exchangeIds) {
+    const exchangeLogger = logger?.child({ exchange: exchangeId });
     const markets = await fetchExchangeMarkets(exchangeId);
+    exchangeLogger?.debug({ marketCount: markets.length }, 'fetched markets for coin discovery');
 
     for (const market of markets) {
       if (!market.active || !market.spot) {
@@ -99,6 +103,8 @@ export async function syncCoinCatalogFromExchanges(
   }
 
   const count = flushDiscoveredCoins(database, discoveredCoins);
+  const durationMs = Date.now() - startTime;
+  logger?.info({ coinsDiscovered: count, exchangeCount: exchangeIds.length, durationMs }, 'coin catalog sync complete');
 
   return { insertedOrUpdated: count };
 }

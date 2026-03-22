@@ -97,7 +97,8 @@ describe('initial market sync', () => {
     vi.mocked(fetchExchangeTickers).mockResolvedValue([]);
     vi.mocked(fetchExchangeOHLCV).mockResolvedValue([]);
 
-    await syncExchangesFromCCXT(database, ['binance', 'coinbase', 'kraken']);
+    const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), child: vi.fn().mockReturnThis() };
+    await syncExchangesFromCCXT(database, ['binance', 'coinbase', 'kraken'], mockLogger as never);
 
     const exchangeRecords = database.db.select().from(exchanges).all();
     expect(exchangeRecords.length).toBe(3);

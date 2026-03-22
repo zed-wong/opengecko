@@ -27,6 +27,8 @@ describe('market runtime', () => {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
+    debug: vi.fn(),
+    child: vi.fn().mockReturnThis(),
   };
 
   beforeEach(() => {

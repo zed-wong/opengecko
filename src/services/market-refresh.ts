@@ -4,9 +4,10 @@ import type { AppConfig } from '../config/env';
 import type { AppDatabase } from '../db/client';
 import { coinTickers, exchanges, exchangeVolumePoints, marketSnapshots } from '../db/schema';
 import { coins } from '../db/schema';
+import type { Logger } from 'pino';
 import { fetchExchangeTickers, type SupportedExchangeId } from '../providers/ccxt';
 import { syncCoinCatalogWithBinance } from './coin-catalog-sync';
-import { recordQuoteSnapshot, toDailyBucket, toMinuteBucket, upsertCanonicalCandle } from './candle-store';
+import { recordQuoteSnapshot, toMinuteBucket, toDailyBucket, upsertCanonicalCandle } from './candle-store';
 import { getCurrencyApiSnapshot } from './currency-rates';
 import { buildLiveSnapshotValue, createMarketQuoteAccumulator, type MarketQuoteAccumulator } from './market-snapshots';
 
@@ -159,12 +160,20 @@ function upsertLiveCoinTicker(
     .run();
 }
 
-export async function runMarketRefreshOnce(database: AppDatabase, config: Pick<AppConfig, 'ccxtExchanges'>) {
+export async function runMarketRefreshOnce(
+  database: AppDatabase,
+  config: Pick<AppConfig, 'ccxtExchanges'>,
+  logger?: Logger,
+) {
+  const refreshLogger = logger?.child({ operation: 'market_refresh' });
+  const startTime = Date.now();
   const exchangeIds = config.ccxtExchanges.filter(isSupportedExchangeId);
 
   if (exchangeIds.length === 0) {
     return;
   }
+
+  refreshLogger?.debug({ exchanges: exchangeIds }, 'starting market refresh');
 
   await syncCoinCatalogWithBinance(database);
 
@@ -178,8 +187,11 @@ export async function runMarketRefreshOnce(database: AppDatabase, config: Pick<A
   );
 
   for (const exchangeId of exchangeIds) {
+    const exchangeLogger = refreshLogger?.child({ exchange: exchangeId });
+    const exchangeStart = Date.now();
     const tickers = await fetchExchangeTickers(exchangeId, requestedSymbols);
 
+    let matchedCount = 0;
     for (const ticker of tickers) {
       const marketTarget = symbolIndex.get(ticker.symbol);
 
@@ -187,6 +199,7 @@ export async function runMarketRefreshOnce(database: AppDatabase, config: Pick<A
         continue;
       }
 
+      matchedCount += 1;
       const normalizedExchangeId = EXCHANGE_TABLE_IDS[exchangeId];
       const fetchedAt = new Date(ticker.timestamp ?? Date.now());
 
@@ -257,6 +270,12 @@ export async function runMarketRefreshOnce(database: AppDatabase, config: Pick<A
         accumulator,
       });
     }
+
+    exchangeLogger?.debug({
+      tickerCount: tickers.length,
+      matchedCount,
+      durationMs: Date.now() - exchangeStart,
+    }, 'exchange ticker fetch complete');
   }
 
   const now = new Date();
@@ -374,4 +393,12 @@ export async function runMarketRefreshOnce(database: AppDatabase, config: Pick<A
       btcUsdPrice,
     });
   }
+
+  const durationMs = Date.now() - startTime;
+  refreshLogger?.info({
+    snapshotCount: accumulators.size,
+    tickerCount: pendingCoinTickers.length,
+    exchangeCount: exchangeIds.length,
+    durationMs,
+  }, 'market refresh complete');
 }

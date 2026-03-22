@@ -1,4 +1,5 @@
 import type { FastifyBaseLogger } from 'fastify';
+import type { Logger } from 'pino';
 
 import type { AppConfig } from '../config/env';
 import type { AppDatabase } from '../db/client';
@@ -8,7 +9,7 @@ import { runInitialMarketSync } from './initial-sync';
 import { runMarketRefreshOnce } from './market-refresh';
 import { runSearchRebuildOnce } from './search-rebuild';
 
-type RuntimeLogger = Pick<FastifyBaseLogger, 'info' | 'warn' | 'error'>;
+type RuntimeLogger = Pick<FastifyBaseLogger, 'info' | 'warn' | 'error' | 'debug' | 'child'>;
 
 type JobRunner = () => Promise<void>;
 
@@ -49,7 +50,7 @@ export type MarketRuntime = {
 };
 
 type MarketRuntimeOverrides = {
-  runInitialMarketSync?: (database: AppDatabase, config: Pick<AppConfig, 'ccxtExchanges' | 'marketFreshnessThresholdSeconds'>) => Promise<unknown>;
+  runInitialMarketSync?: (database: AppDatabase, config: Pick<AppConfig, 'ccxtExchanges' | 'marketFreshnessThresholdSeconds'>, logger?: Logger) => Promise<unknown>;
   runCurrencyRefreshOnce?: JobRunner;
   runMarketRefreshOnce?: JobRunner;
   runSearchRebuildOnce?: JobRunner;
@@ -80,9 +81,10 @@ export function createMarketRuntime(
     async start() {
       // Run initial market sync before starting refresh loop
       try {
+        const syncLogger = 'child' in logger ? logger.child({ operation: 'initial_sync' }) as unknown as Logger : undefined;
         const initialSync = overrides.runInitialMarketSync
-          ? () => overrides.runInitialMarketSync!(database, config)
-          : () => runInitialMarketSync(database, config);
+          ? () => overrides.runInitialMarketSync!(database, config, syncLogger)
+          : () => runInitialMarketSync(database, config, syncLogger);
 
         await initialSync();
         state.initialSyncCompleted = true;
