@@ -24,8 +24,24 @@ export type BuildAppOptions = {
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const config = mergeConfig(options.config);
+  const loggerOpts = config.logLevel === 'silent'
+    ? false
+    : {
+        level: config.logLevel,
+        ...(config.logPretty ? {
+          transport: {
+            target: 'pino-pretty',
+            options: {
+              colorize: true,
+              translateTime: 'HH:MM:ss.L',
+              ignore: 'pid,hostname',
+            },
+          },
+        } : {}),
+      };
+
   const app = Fastify({
-    logger: config.logLevel === 'silent' ? false : { level: config.logLevel },
+    logger: loggerOpts,
     ...(options.pluginTimeout ? { pluginTimeout: options.pluginTimeout } : {}),
   });
   const database = createDatabase(config.databaseUrl);

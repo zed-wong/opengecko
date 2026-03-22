@@ -12,6 +12,7 @@ const envSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  LOG_PRETTY: z.boolean().default(true),
   DATABASE_URL: z.string().default('./data/opengecko.db'),
   CCXT_EXCHANGES: z.string().default(DEFAULT_CCXT_EXCHANGES.join(',')),
   MARKET_FRESHNESS_THRESHOLD_SECONDS: z.coerce.number().int().positive().default(DEFAULT_MARKET_FRESHNESS_THRESHOLD_SECONDS),
@@ -24,6 +25,7 @@ export type AppConfig = {
   host: string;
   port: number;
   logLevel: z.infer<typeof envSchema>['LOG_LEVEL'];
+  logPretty: boolean;
   databaseUrl: string;
   ccxtExchanges: string[];
   marketFreshnessThresholdSeconds: number;
@@ -39,6 +41,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
     host: env.HOST,
     port: env.PORT,
     logLevel: env.LOG_LEVEL,
+    logPretty: env.LOG_PRETTY,
     databaseUrl: env.DATABASE_URL,
     ccxtExchanges: env.CCXT_EXCHANGES.split(',').map((value) => value.trim()).filter(Boolean),
     marketFreshnessThresholdSeconds: env.MARKET_FRESHNESS_THRESHOLD_SECONDS,
