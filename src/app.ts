@@ -18,12 +18,14 @@ import { createMarketDataRuntimeState } from './services/market-runtime-state';
 export type BuildAppOptions = {
   config?: Partial<AppConfig>;
   startBackgroundJobs?: boolean;
+  pluginTimeout?: number;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const config = mergeConfig(options.config);
   const app = Fastify({
     logger: config.logLevel === 'silent' ? false : { level: config.logLevel },
+    ...(options.pluginTimeout ? { pluginTimeout: options.pluginTimeout } : {}),
   });
   const database = createDatabase(config.databaseUrl);
   const shouldStartBackgroundJobs = options.startBackgroundJobs ?? false;
