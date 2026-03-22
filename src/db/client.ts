@@ -1241,7 +1241,9 @@ export function migrateDatabase(database: AppDatabase) {
   });
 }
 
-export function seedReferenceData(database: AppDatabase) {
+export function seedStaticReferenceData(database: AppDatabase) {
+  // coins is a reference registry (id, symbol, name) — no price data.
+  // Required for FK integrity before treasuryHoldings/treasuryTransactions.
   const [{ value: coinCount }] = database.db.select({ value: count() }).from(coins).all();
 
   if (coinCount === 0) {
@@ -1252,10 +1254,6 @@ export function seedReferenceData(database: AppDatabase) {
 
   database.db.insert(assetPlatforms).values(seededAssetPlatforms).onConflictDoNothing().run();
   database.db.insert(categories).values(seededCategories).onConflictDoNothing().run();
-  database.db.insert(marketSnapshots).values(seededSnapshots).onConflictDoNothing().run();
-  database.db.insert(chartPoints).values(buildSeededChartPoints()).onConflictDoNothing().run();
-  database.db.insert(ohlcvCandles).values(buildSeededOhlcvCandles()).onConflictDoNothing().run();
-  database.db.insert(exchanges).values(seededExchanges).onConflictDoNothing().run();
   database.db.insert(derivativesExchanges).values(seededDerivativesExchanges).onConflictDoNothing().run();
   database.db.insert(derivativeTickers).values(seededDerivativeTickers).onConflictDoNothing().run();
   database.db.insert(treasuryEntities).values(seededTreasuryEntities).onConflictDoNothing().run();
@@ -1263,6 +1261,13 @@ export function seedReferenceData(database: AppDatabase) {
   database.db.insert(treasuryTransactions).values(seededTreasuryTransactions).onConflictDoNothing().run();
   database.db.insert(onchainNetworks).values(seededOnchainNetworks).onConflictDoNothing().run();
   database.db.insert(onchainDexes).values(seededOnchainDexes).onConflictDoNothing().run();
+}
+
+function seedMarketData(database: AppDatabase) {
+  database.db.insert(marketSnapshots).values(seededSnapshots).onConflictDoNothing().run();
+  database.db.insert(chartPoints).values(buildSeededChartPoints()).onConflictDoNothing().run();
+  database.db.insert(ohlcvCandles).values(buildSeededOhlcvCandles()).onConflictDoNothing().run();
+  database.db.insert(exchanges).values(seededExchanges).onConflictDoNothing().run();
   database.db.insert(exchangeVolumePoints).values(buildSeededExchangeVolumePoints()).onConflictDoNothing().run();
   database.db.insert(coinTickers).values(seededCoinTickers).onConflictDoNothing().run();
   database.db.insert(quoteSnapshots).values(
@@ -1278,6 +1283,11 @@ export function seedReferenceData(database: AppDatabase) {
       sourcePayloadJson: '{}',
     })),
   ).onConflictDoNothing().run();
+}
+
+export function seedReferenceData(database: AppDatabase) {
+  seedStaticReferenceData(database);
+  seedMarketData(database);
 }
 
 export function initializeDatabase(database: AppDatabase) {
