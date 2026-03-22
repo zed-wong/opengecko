@@ -12,6 +12,7 @@ import { runOhlcvBackfillOnce } from '../src/services/ohlcv-backfill';
 vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn(),
   fetchExchangeOHLCV: vi.fn(),
+  fetchExchangeNetworks: vi.fn().mockResolvedValue([]),
   isSupportedExchangeId: (value: string) => ['binance', 'coinbase', 'kraken'].includes(value),
 }));
 

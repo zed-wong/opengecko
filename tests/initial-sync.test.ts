@@ -6,19 +6,20 @@ import { and, eq, count } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createDatabase, migrateDatabase, seedStaticReferenceData } from '../src/db/client';
-import { coins, exchanges, marketSnapshots, coinTickers, ohlcvCandles } from '../src/db/schema';
+import { coins, exchanges, marketSnapshots, coinTickers, ohlcvCandles, assetPlatforms } from '../src/db/schema';
 import { runInitialMarketSync, syncExchangesFromCCXT } from '../src/services/initial-sync';
 
 vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn(),
   fetchExchangeTickers: vi.fn(),
   fetchExchangeOHLCV: vi.fn(),
+  fetchExchangeNetworks: vi.fn().mockResolvedValue([]),
   isSupportedExchangeId: (value: string): value is 'binance' | 'coinbase' | 'kraken' =>
     ['binance', 'coinbase', 'kraken'].includes(value),
   SUPPORTED_EXCHANGE_IDS: ['binance', 'coinbase', 'kraken'],
 }));
 
-import { fetchExchangeMarkets, fetchExchangeTickers, fetchExchangeOHLCV } from '../src/providers/ccxt';
+import { fetchExchangeMarkets, fetchExchangeTickers, fetchExchangeOHLCV, fetchExchangeNetworks } from '../src/providers/ccxt';
 
 describe('initial market sync', () => {
   let tempDir: string;
@@ -32,6 +33,8 @@ describe('initial market sync', () => {
     vi.mocked(fetchExchangeMarkets).mockReset();
     vi.mocked(fetchExchangeTickers).mockReset();
     vi.mocked(fetchExchangeOHLCV).mockReset();
+    vi.mocked(fetchExchangeNetworks).mockReset();
+    vi.mocked(fetchExchangeNetworks).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -138,5 +141,41 @@ describe('initial market sync', () => {
 
     const candleCount = database.db.select({ value: count() }).from(ohlcvCandles).all()[0].value;
     expect(candleCount).toBeGreaterThan(0);
+  });
+
+  it('discovers and upserts chain catalogs from exchange network metadata', async () => {
+    vi.mocked(fetchExchangeMarkets).mockResolvedValue([]);
+    vi.mocked(fetchExchangeTickers).mockResolvedValue([]);
+    vi.mocked(fetchExchangeOHLCV).mockResolvedValue([]);
+    vi.mocked(fetchExchangeNetworks).mockImplementation(async (exchangeId) => {
+      if (exchangeId === 'binance') {
+        return [
+          { exchangeId: 'binance', networkId: 'eth', networkName: 'Ethereum', chainIdentifier: 1 },
+          { exchangeId: 'binance', networkId: 'bsc', networkName: 'BNB Smart Chain', chainIdentifier: 56 },
+        ];
+      }
+
+      if (exchangeId === 'coinbase') {
+        return [{ exchangeId: 'coinbase', networkId: 'solana', networkName: 'Solana', chainIdentifier: 101 }];
+      }
+
+      return [];
+    });
+
+    const result = await runInitialMarketSync(database, {
+      ccxtExchanges: ['binance', 'coinbase', 'kraken'],
+      marketFreshnessThresholdSeconds: 300,
+    });
+
+    expect(result.chainsDiscovered).toBe(3);
+
+    const platformRows = database.db
+      .select({ id: assetPlatforms.id })
+      .from(assetPlatforms)
+      .all();
+
+    expect(platformRows.some((row) => row.id === 'eth')).toBe(true);
+    expect(platformRows.some((row) => row.id === 'bsc')).toBe(true);
+    expect(platformRows.some((row) => row.id === 'solana')).toBe(true);
   });
 });

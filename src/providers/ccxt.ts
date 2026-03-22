@@ -41,7 +41,15 @@ export type ExchangeMarketSnapshot = {
   active: boolean;
   spot: boolean;
   baseName: string | null;
+  baseNetworks?: string[];
   raw: unknown;
+};
+
+export type ExchangeNetworkSnapshot = {
+  exchangeId: SupportedExchangeId;
+  networkId: string;
+  networkName: string;
+  chainIdentifier: number | null;
 };
 
 export function isSupportedExchangeId(value: string): value is SupportedExchangeId {
@@ -105,6 +113,7 @@ function toMarketSnapshot(
   exchangeId: SupportedExchangeId,
   market: Exchange['markets'][string],
   currencyName: string | null,
+  baseNetworks: string[],
 ): ExchangeMarketSnapshot {
   return {
     exchangeId,
@@ -114,7 +123,79 @@ function toMarketSnapshot(
     active: market.active ?? true,
     spot: market.spot ?? false,
     baseName: currencyName,
+    baseNetworks,
     raw: market,
+  };
+}
+
+function normalizeNetworkAlias(value: string) {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+  if (normalized === 'erc20' || normalized === 'ethereum') {
+    return 'eth';
+  }
+
+  if (normalized === 'bep20' || normalized === 'binance_smart_chain') {
+    return 'bsc';
+  }
+
+  if (normalized === 'trc20' || normalized === 'trx') {
+    return 'tron';
+  }
+
+  return normalized;
+}
+
+function collectCurrencyNetworkIds(exchange: Exchange, code: string) {
+  const currency = exchange.currencies?.[code];
+
+  if (!currency) {
+    return [];
+  }
+
+  const networkIds = new Set<string>();
+
+  const directNetworkValue = (currency as { network?: unknown }).network;
+  const directNetwork = typeof directNetworkValue === 'string' ? normalizeNetworkAlias(directNetworkValue) : '';
+  if (directNetwork) {
+    networkIds.add(directNetwork);
+  }
+
+  const networkEntries = currency.networks ? Object.values(currency.networks) : [];
+
+  for (const networkEntry of networkEntries) {
+    if (!networkEntry) {
+      continue;
+    }
+
+    const aliasCandidates = [
+      typeof networkEntry.id === 'string' ? networkEntry.id : '',
+      typeof networkEntry.network === 'string' ? networkEntry.network : '',
+      typeof networkEntry.name === 'string' ? networkEntry.name : '',
+    ];
+
+    for (const candidate of aliasCandidates) {
+      const normalized = normalizeNetworkAlias(candidate);
+      if (normalized) {
+        networkIds.add(normalized);
+      }
+    }
+  }
+
+  return [...networkIds].sort();
+}
+
+function toNetworkSnapshot(
+  exchangeId: SupportedExchangeId,
+  networkId: string,
+  networkName: string,
+  chainIdentifier: number | null,
+): ExchangeNetworkSnapshot {
+  return {
+    exchangeId,
+    networkId,
+    networkName,
+    chainIdentifier,
   };
 }
 
@@ -189,8 +270,73 @@ export async function fetchExchangeMarkets(exchangeId: SupportedExchangeId) {
     await exchange.loadMarkets();
 
     return Object.values(exchange.markets).map((market) =>
-      toMarketSnapshot(exchangeId, market, exchange.currencies?.[market.base]?.name ?? null),
+      toMarketSnapshot(
+        exchangeId,
+        market,
+        exchange.currencies?.[market.base]?.name ?? null,
+        collectCurrencyNetworkIds(exchange, market.base),
+      ),
     );
+  } finally {
+    await exchange.close();
+  }
+}
+
+export async function fetchExchangeNetworks(exchangeId: SupportedExchangeId) {
+  const exchange = createExchange(exchangeId);
+
+  try {
+    await exchange.loadMarkets();
+
+    const byNetworkId = new Map<string, ExchangeNetworkSnapshot>();
+    const currencies = Object.values(exchange.currencies ?? {});
+
+    for (const currency of currencies) {
+      const networkEntries = currency.networks ? Object.values(currency.networks) : [];
+
+      for (const networkEntry of networkEntries) {
+        if (!networkEntry) {
+          continue;
+        }
+
+        const normalizedId = normalizeNetworkAlias(
+          (typeof networkEntry.id === 'string' && networkEntry.id) ||
+            (typeof networkEntry.network === 'string' && networkEntry.network) ||
+            (typeof networkEntry.name === 'string' && networkEntry.name) ||
+            '',
+        );
+
+        if (!normalizedId) {
+          continue;
+        }
+
+        const rawChainId = networkEntry.info?.chainId;
+        const numericChainId =
+          typeof rawChainId === 'number'
+            ? rawChainId
+            : typeof rawChainId === 'string' && rawChainId.trim().length > 0
+              ? Number(rawChainId)
+              : Number.NaN;
+
+        const chainIdentifier = Number.isFinite(numericChainId) ? numericChainId : null;
+        const networkName =
+          (typeof networkEntry.name === 'string' && networkEntry.name) ||
+          (typeof networkEntry.network === 'string' && networkEntry.network) ||
+          normalizedId;
+
+        if (!byNetworkId.has(normalizedId)) {
+          byNetworkId.set(normalizedId, toNetworkSnapshot(exchangeId, normalizedId, networkName, chainIdentifier));
+          continue;
+        }
+
+        const existing = byNetworkId.get(normalizedId);
+        if (existing && existing.chainIdentifier === null && chainIdentifier !== null) {
+          byNetworkId.set(normalizedId, toNetworkSnapshot(exchangeId, normalizedId, networkName, chainIdentifier));
+        }
+      }
+    }
+
+    return [...byNetworkId.values()].sort((a, b) => a.networkId.localeCompare(b.networkId));
   } finally {
     await exchange.close();
   }

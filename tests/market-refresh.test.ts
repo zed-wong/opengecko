@@ -12,6 +12,7 @@ import { runMarketRefreshOnce } from '../src/services/market-refresh';
 vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn(),
   fetchExchangeTickers: vi.fn(),
+  fetchExchangeNetworks: vi.fn().mockResolvedValue([]),
 }));
 
 import { fetchExchangeMarkets, fetchExchangeTickers } from '../src/providers/ccxt';

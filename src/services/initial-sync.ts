@@ -3,6 +3,7 @@ import type { AppDatabase } from '../db/client';
 import { exchanges, ohlcvCandles } from '../db/schema';
 import { fetchExchangeMarkets, fetchExchangeOHLCV, isSupportedExchangeId, type SupportedExchangeId } from '../providers/ccxt';
 import { syncCoinCatalogFromExchanges } from './coin-catalog-sync';
+import { syncChainCatalogFromExchanges } from './chain-catalog-sync';
 import { runMarketRefreshOnce } from './market-refresh';
 import { upsertCanonicalOhlcvCandle, toDailyBucket } from './candle-store';
 
@@ -160,6 +161,7 @@ export async function runOhlcvBackfill(
 
 export type InitialSyncResult = {
   coinsDiscovered: number;
+  chainsDiscovered: number;
   snapshotsCreated: number;
   tickersWritten: number;
   exchangesSynced: number;
@@ -177,6 +179,9 @@ export async function runInitialMarketSync(
 
   // Step 2: Discover coins from all exchanges
   const { insertedOrUpdated: coinsDiscovered } = await syncCoinCatalogFromExchanges(database, exchangeIds);
+
+  // Step 2.5: Discover chains/networks from all exchanges
+  const { insertedOrUpdated: chainsDiscovered } = await syncChainCatalogFromExchanges(database, exchangeIds);
 
   // Step 3: Fetch tickers and build market snapshots + coin tickers
   await runMarketRefreshOnce(database, { ccxtExchanges: exchangeIds });
@@ -202,6 +207,7 @@ export async function runInitialMarketSync(
 
   return {
     coinsDiscovered,
+    chainsDiscovered,
     snapshotsCreated: snapshotCount,
     tickersWritten: snapshotCount,
     exchangesSynced: exchangeIds.length,

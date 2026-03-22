@@ -11,6 +11,7 @@ vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn(),
   fetchExchangeTickers: vi.fn(),
   fetchExchangeOHLCV: vi.fn(),
+  fetchExchangeNetworks: vi.fn().mockResolvedValue([]),
   isSupportedExchangeId: (value: string): value is 'binance' | 'coinbase' | 'kraken' =>
     ['binance', 'coinbase', 'kraken'].includes(value),
   SUPPORTED_EXCHANGE_IDS: ['binance', 'coinbase', 'kraken'],
@@ -110,13 +111,13 @@ describe('CoinGecko API compatibility', () => {
       const response = await app.inject({ method: 'GET', url: '/exchange_rates' });
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      // CoinGecko: { rates: { btc: { name, type, unit, value }, ... } }
-      expect(body).toHaveProperty('rates');
-      expect(body.rates).toHaveProperty('btc');
-      expect(body.rates.btc).toHaveProperty('name');
-      expect(body.rates.btc).toHaveProperty('type');
-      expect(body.rates.btc).toHaveProperty('unit');
-      expect(body.rates.btc).toHaveProperty('value');
+      // CoinGecko: { data: { btc: { name, type, unit, value }, ... } }
+      expect(body).toHaveProperty('data');
+      expect(body.data).toHaveProperty('btc');
+      expect(body.data.btc).toHaveProperty('name');
+      expect(body.data.btc).toHaveProperty('type');
+      expect(body.data.btc).toHaveProperty('unit');
+      expect(body.data.btc).toHaveProperty('value');
     });
   });
 

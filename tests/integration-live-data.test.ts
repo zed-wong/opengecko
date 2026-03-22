@@ -11,6 +11,7 @@ vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn(),
   fetchExchangeTickers: vi.fn(),
   fetchExchangeOHLCV: vi.fn(),
+  fetchExchangeNetworks: vi.fn().mockResolvedValue([]),
   isSupportedExchangeId: (value: string): value is 'binance' | 'coinbase' | 'kraken' =>
     ['binance', 'coinbase', 'kraken'].includes(value),
   SUPPORTED_EXCHANGE_IDS: ['binance', 'coinbase', 'kraken'],
@@ -142,6 +143,6 @@ describe('live data integration', () => {
 
     expect(response.statusCode).toBe(200);
     const body = response.json();
-    expect(body.rates.usd.value).toBe(90_000);
+    expect(body.data.usd.value).toBe(90_000);
   });
 });

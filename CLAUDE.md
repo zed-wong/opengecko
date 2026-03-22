@@ -9,6 +9,7 @@ Canonical planning documents:
 - `docs/plans/2026-03-20-opengecko-coingecko-compatible-api-prd.md`
 - `docs/plans/2026-03-20-opengecko-endpoint-parity-matrix.md`
 - `docs/plans/2026-03-20-opengecko-engineering-execution-plan.md`
+- `docs/plans/2026-03-22-opengecko-compatibility-gap-closure-plan.md`
 - `docs/status/implementation-tracker.md`
 
 ## Product Principles

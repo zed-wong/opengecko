@@ -1,0 +1,91 @@
+import { assetPlatforms } from '../db/schema';
+import type { AppDatabase } from '../db/client';
+import { fetchExchangeNetworks, type SupportedExchangeId } from '../providers/ccxt';
+
+type ChainCatalogSyncResult = {
+  insertedOrUpdated: number;
+};
+
+function toPlatformId(networkId: string) {
+  return networkId.toLowerCase();
+}
+
+function toShortname(networkId: string) {
+  const shortname = networkId.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return shortname.slice(0, 12) || 'chain';
+}
+
+function toPlatformName(networkId: string, networkName: string) {
+  const trimmed = networkName.trim();
+  if (trimmed.length > 0) {
+    return trimmed;
+  }
+
+  return networkId
+    .split('_')
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+export async function syncChainCatalogFromExchanges(database: AppDatabase, exchangeIds: SupportedExchangeId[]): Promise<ChainCatalogSyncResult> {
+  const networksById = new Map<string, { name: string; chainIdentifier: number | null }>();
+
+  for (const exchangeId of exchangeIds) {
+    const networks = await fetchExchangeNetworks(exchangeId);
+
+    for (const network of networks) {
+      const existing = networksById.get(network.networkId);
+      if (!existing) {
+        networksById.set(network.networkId, {
+          name: network.networkName,
+          chainIdentifier: network.chainIdentifier,
+        });
+        continue;
+      }
+
+      if (existing.chainIdentifier === null && network.chainIdentifier !== null) {
+        networksById.set(network.networkId, {
+          name: existing.name,
+          chainIdentifier: network.chainIdentifier,
+        });
+      }
+    }
+  }
+
+  if (networksById.size === 0) {
+    return { insertedOrUpdated: 0 };
+  }
+
+  const now = new Date();
+  let upserted = 0;
+
+  for (const [networkId, network] of networksById.entries()) {
+    database.db
+      .insert(assetPlatforms)
+      .values({
+        id: toPlatformId(networkId),
+        chainIdentifier: network.chainIdentifier,
+        name: toPlatformName(networkId, network.name),
+        shortname: toShortname(networkId),
+        nativeCoinId: null,
+        imageUrl: null,
+        isNft: false,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: assetPlatforms.id,
+        set: {
+          chainIdentifier: network.chainIdentifier,
+          name: toPlatformName(networkId, network.name),
+          shortname: toShortname(networkId),
+          updatedAt: now,
+        },
+      })
+      .run();
+
+    upserted += 1;
+  }
+
+  return { insertedOrUpdated: upserted };
+}

@@ -18,6 +18,7 @@ vi.mock('../src/providers/ccxt', () => ({
     { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', last: 2000, bid: 1999, ask: 2001, high: 2050, low: 1950, baseVolume: 50000, quoteVolume: 100000000, percentage: 2.56, timestamp: Date.now(), raw: {} as never },
   ]),
   fetchExchangeOHLCV: vi.fn().mockResolvedValue([]),
+  fetchExchangeNetworks: vi.fn().mockResolvedValue([]),
   isSupportedExchangeId: (value: string): value is 'binance' | 'coinbase' | 'kraken' =>
     ['binance', 'coinbase', 'kraken'].includes(value),
   SUPPORTED_EXCHANGE_IDS: ['binance', 'coinbase', 'kraken'],
