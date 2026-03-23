@@ -1,18 +1,107 @@
-import { existsSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import type { Database as BetterSqlite3DatabaseClient } from 'better-sqlite3';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
+import type { Database as BunDatabase } from 'bun:sqlite';
 
 import { rebuildSearchIndex } from './search-index';
 export { rebuildSearchIndex } from './search-index';
-import { assetPlatforms, categories, chartPoints, coins, derivativeTickers, derivativesExchanges, ohlcvSyncTargets, onchainDexes, onchainNetworks, onchainPools, treasuryEntities, treasuryHoldings, treasuryTransactions } from './schema';
+import {
+  assetPlatforms,
+  categories,
+  chartPoints,
+  coins,
+  derivativeTickers,
+  derivativesExchanges,
+  ohlcvSyncTargets,
+  onchainDexes,
+  onchainNetworks,
+  onchainPools,
+  treasuryEntities,
+  treasuryHoldings,
+  treasuryTransactions,
+} from './schema';
 
 const MIGRATIONS_FOLDER = resolve(process.cwd(), 'drizzle');
 const MIGRATION_JOURNAL = resolve(MIGRATIONS_FOLDER, 'meta', '_journal.json');
 
-export type AppDatabase = ReturnType<typeof createDatabase>;
+const schema = {
+  assetPlatforms,
+  categories,
+  chartPoints,
+  coins,
+  derivativeTickers,
+  derivativesExchanges,
+  ohlcvSyncTargets,
+  onchainDexes,
+  onchainNetworks,
+  onchainPools,
+  treasuryEntities,
+  treasuryHoldings,
+  treasuryTransactions,
+};
+
+type AppSchema = typeof schema;
+
+type SqliteRuntime = 'node' | 'bun';
+
+type SqliteStatement<Row = unknown> = {
+  get(...params: unknown[]): Row | undefined;
+  all(...params: unknown[]): Row[];
+  run(...params: unknown[]): unknown;
+};
+
+export type SqliteClient = {
+  prepare<Row = unknown>(sql: string): SqliteStatement<Row>;
+  exec(sql: string): void;
+  pragma(sql: string): unknown;
+  close(): void;
+};
+
+type AppDrizzleDatabase = BetterSQLite3Database<AppSchema> | BunSQLiteDatabase<AppSchema>;
+
+export type AppDatabase = {
+  client: SqliteClient;
+  db: AppDrizzleDatabase;
+  runtime: SqliteRuntime;
+  url: string;
+};
+
+class BunSqliteClient implements SqliteClient {
+  constructor(private readonly database: BunDatabase) {}
+
+  prepare<Row = unknown>(sql: string): SqliteStatement<Row> {
+    const statement = this.database.query<Row>(sql);
+
+    return {
+      get: (...params) => statement.get(...params),
+      all: (...params) => statement.all(...params),
+      run: (...params) => statement.run(...params),
+    };
+  }
+
+  exec(sql: string) {
+    this.database.exec(sql);
+  }
+
+  pragma(sql: string) {
+    return this.database.query(`PRAGMA ${sql}`).get();
+  }
+
+  close() {
+    this.database.close();
+  }
+}
+
+function isBunRuntime(): boolean {
+  return typeof (globalThis as { Bun?: unknown }).Bun !== 'undefined' || Boolean(process.versions.bun);
+}
+
+export function detectSqliteRuntime(): SqliteRuntime {
+  return isBunRuntime() ? 'bun' : 'node';
+}
 
 function resolveDatabaseUrl(databaseUrl: string) {
   if (databaseUrl === ':memory:') {
@@ -22,44 +111,71 @@ function resolveDatabaseUrl(databaseUrl: string) {
   return resolve(process.cwd(), databaseUrl);
 }
 
-export function createDatabase(databaseUrl: string) {
+function createNodeDatabase(resolvedUrl: string): AppDatabase {
+  const Database = require('better-sqlite3') as new (path?: string) => BetterSqlite3DatabaseClient;
+  const { drizzle } = require('drizzle-orm/better-sqlite3') as {
+    drizzle: (client: BetterSqlite3DatabaseClient, config: { schema: AppSchema }) => BetterSQLite3Database<AppSchema>;
+  };
+
+  const client = new Database(resolvedUrl);
+  client.pragma('journal_mode = WAL');
+  client.pragma('foreign_keys = ON');
+
+  return {
+    client,
+    db: drizzle(client, { schema }),
+    runtime: 'node',
+    url: resolvedUrl,
+  };
+}
+
+function createBunDatabase(resolvedUrl: string): AppDatabase {
+  const { Database } = require('bun:sqlite') as { Database: new (filename?: string) => BunDatabase };
+  const { drizzle } = require('drizzle-orm/bun-sqlite') as {
+    drizzle: (client: BunDatabase, config: { schema: AppSchema }) => BunSQLiteDatabase<AppSchema>;
+  };
+
+  const rawClient = new Database(resolvedUrl);
+  const client = new BunSqliteClient(rawClient);
+  client.pragma('journal_mode = WAL');
+  client.pragma('foreign_keys = ON');
+
+  return {
+    client,
+    db: drizzle(rawClient, { schema }),
+    runtime: 'bun',
+    url: resolvedUrl,
+  };
+}
+
+export function createDatabase(databaseUrl: string): AppDatabase {
   const resolvedUrl = resolveDatabaseUrl(databaseUrl);
 
   if (resolvedUrl !== ':memory:') {
     mkdirSync(dirname(resolvedUrl), { recursive: true });
   }
 
-  const client = new Database(resolvedUrl);
-  client.pragma('journal_mode = WAL');
-  client.pragma('foreign_keys = ON');
-
-  const db = drizzle(client, {
-    schema: {
-      assetPlatforms,
-      categories,
-      chartPoints,
-      coins,
-      derivativeTickers,
-      derivativesExchanges,
-      ohlcvSyncTargets,
-      onchainDexes,
-      onchainNetworks,
-      onchainPools,
-      treasuryEntities,
-      treasuryHoldings,
-      treasuryTransactions,
-    },
-  });
-
-  return {
-    client,
-    db,
-    url: resolvedUrl,
-  };
+  return detectSqliteRuntime() === 'bun' ? createBunDatabase(resolvedUrl) : createNodeDatabase(resolvedUrl);
 }
 
 export function migrateDatabase(database: AppDatabase) {
-  migrate(database.db, {
+  if (database.runtime === 'bun') {
+    const { migrate } = require('drizzle-orm/bun-sqlite/migrator') as {
+      migrate: (db: BunSQLiteDatabase<AppSchema>, config: { migrationsFolder: string }) => void;
+    };
+
+    migrate(database.db as BunSQLiteDatabase<AppSchema>, {
+      migrationsFolder: MIGRATIONS_FOLDER,
+    });
+
+    return;
+  }
+
+  const { migrate } = require('drizzle-orm/better-sqlite3/migrator') as {
+    migrate: (db: BetterSQLite3Database<AppSchema>, config: { migrationsFolder: string }) => void;
+  };
+
+  migrate(database.db as BetterSQLite3Database<AppSchema>, {
     migrationsFolder: MIGRATIONS_FOLDER,
   });
 }
@@ -452,7 +568,6 @@ const seededOnchainPools = [
   },
 ];
 
-// Chart points used by treasury holding chart endpoint
 const seededChartPointValues = {
   bitcoin: {
     prices: [79_000, 80_500, 82_250, 81_750, 83_000, 84_250, 85_000],
@@ -510,10 +625,6 @@ function buildSeededChartPoints() {
     })),
   );
 }
-
-// ---------------------------------------------------------------------------
-// Public seed functions
-// ---------------------------------------------------------------------------
 
 const seededMinimalCoins = [
   { id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' },

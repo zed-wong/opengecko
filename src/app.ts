@@ -25,6 +25,14 @@ export type BuildAppOptions = {
   startupProgress?: StartupProgressReporter;
 };
 
+export function getDatabaseStartupLogContext(database: { runtime: 'bun' | 'node'; url: string }) {
+  return {
+    runtime: database.runtime,
+    driver: database.runtime === 'bun' ? 'bun:sqlite' : 'better-sqlite3',
+    databaseUrl: database.url,
+  };
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const config = mergeConfig(options.config);
   const useEmojiCompactHttpLogs = config.logPretty && config.httpLogStyle === 'emoji_compact_p';
@@ -69,6 +77,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   }
   options.startupProgress?.begin('connect_database');
   const database = createDatabase(config.databaseUrl);
+  app.log.info(getDatabaseStartupLogContext(database), 'database initialized');
   const shouldStartBackgroundJobs = options.startBackgroundJobs ?? false;
   const marketDataRuntimeState = createMarketDataRuntimeState();
   const runtime = shouldStartBackgroundJobs

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildApp } from '../src/app';
+import { buildApp, getDatabaseStartupLogContext } from '../src/app';
 import contractFixtures from './fixtures/contract-fixtures.json';
 
 vi.mock('../src/providers/ccxt', () => ({
@@ -74,6 +74,20 @@ describe('OpenGecko app scaffold', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual(contractFixtures.ping);
+  });
+
+  it('builds startup log context for the active sqlite runtime', () => {
+    expect(getDatabaseStartupLogContext({ runtime: 'bun', url: '/tmp/opengecko.db' })).toEqual({
+      runtime: 'bun',
+      driver: 'bun:sqlite',
+      databaseUrl: '/tmp/opengecko.db',
+    });
+
+    expect(getDatabaseStartupLogContext({ runtime: 'node', url: '/tmp/opengecko.db' })).toEqual({
+      runtime: 'node',
+      driver: 'better-sqlite3',
+      databaseUrl: '/tmp/opengecko.db',
+    });
   });
 
   it('returns chain coverage diagnostics', async () => {
