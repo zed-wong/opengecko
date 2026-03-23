@@ -7,12 +7,14 @@ import {
   DEFAULT_MARKET_REFRESH_INTERVAL_SECONDS,
   DEFAULT_SEARCH_REBUILD_INTERVAL_SECONDS,
 } from './runtime-policy';
+import { HTTP_LOG_STYLES } from '../http/http-log-style';
 
 const envSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   LOG_PRETTY: z.boolean().default(true),
+  LOG_HTTP_STYLE: z.enum(HTTP_LOG_STYLES).default('emoji_compact_p'),
   DATABASE_URL: z.string().default('./data/opengecko.db'),
   CCXT_EXCHANGES: z.string().default(DEFAULT_CCXT_EXCHANGES.join(',')),
   MARKET_FRESHNESS_THRESHOLD_SECONDS: z.coerce.number().int().positive().default(DEFAULT_MARKET_FRESHNESS_THRESHOLD_SECONDS),
@@ -26,6 +28,7 @@ export type AppConfig = {
   port: number;
   logLevel: z.infer<typeof envSchema>['LOG_LEVEL'];
   logPretty: boolean;
+  httpLogStyle: z.infer<typeof envSchema>['LOG_HTTP_STYLE'];
   databaseUrl: string;
   ccxtExchanges: string[];
   marketFreshnessThresholdSeconds: number;
@@ -42,6 +45,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
     port: env.PORT,
     logLevel: env.LOG_LEVEL,
     logPretty: env.LOG_PRETTY,
+    httpLogStyle: env.LOG_HTTP_STYLE,
     databaseUrl: env.DATABASE_URL,
     ccxtExchanges: env.CCXT_EXCHANGES.split(',').map((value) => value.trim()).filter(Boolean),
     marketFreshnessThresholdSeconds: env.MARKET_FRESHNESS_THRESHOLD_SECONDS,

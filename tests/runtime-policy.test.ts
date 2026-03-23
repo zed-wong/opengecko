@@ -17,6 +17,7 @@ describe('runtime policy defaults', () => {
     expect(config.marketFreshnessThresholdSeconds).toBe(DEFAULT_MARKET_FRESHNESS_THRESHOLD_SECONDS);
     expect(config.marketRefreshIntervalSeconds).toBe(DEFAULT_MARKET_REFRESH_INTERVAL_SECONDS);
     expect(config.searchRebuildIntervalSeconds).toBe(DEFAULT_SEARCH_REBUILD_INTERVAL_SECONDS);
+    expect(config.httpLogStyle).toBe('emoji_compact_p');
   });
 
   it('keeps the stale-data policy explicit in code', () => {

@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { mergeConfig, type AppConfig } from './config/env';
 import { createDatabase, migrateDatabase, seedStaticReferenceData, rebuildSearchIndex } from './db/client';
 import { registerErrorHandler } from './http/errors';
+import { formatHttpCompactPLog } from './http/http-log-style';
 import { registerAssetPlatformRoutes } from './modules/assets';
 import { registerCoinRoutes } from './modules/coins';
 import { registerDiagnosticsRoutes } from './modules/diagnostics';
@@ -26,17 +27,19 @@ export type BuildAppOptions = {
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const config = mergeConfig(options.config);
+  const useEmojiCompactHttpLogs = config.logPretty && config.httpLogStyle === 'emoji_compact_p';
   const loggerOpts = config.logLevel === 'silent'
     ? false
     : {
         level: config.logLevel,
+        ...(useEmojiCompactHttpLogs ? { timestamp: false } : {}),
         ...(config.logPretty ? {
           transport: {
             target: 'pino-pretty',
             options: {
               colorize: true,
               translateTime: 'HH:MM:ss.L',
-              ignore: 'pid,hostname',
+              ignore: useEmojiCompactHttpLogs ? 'pid,hostname,req,res,responseTime' : 'pid,hostname',
             },
           },
         } : {}),
@@ -44,8 +47,26 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   const app = Fastify({
     logger: loggerOpts,
+    ...(useEmojiCompactHttpLogs ? { disableRequestLogging: true } : {}),
     ...(options.pluginTimeout ? { pluginTimeout: options.pluginTimeout } : {}),
   });
+
+  if (useEmojiCompactHttpLogs) {
+    app.addHook('onResponse', (request, reply, done) => {
+      const message = formatHttpCompactPLog({
+        timestamp: new Date(),
+        method: request.method,
+        url: request.url,
+        statusCode: reply.statusCode,
+        durationMs: reply.elapsedTime,
+        reqId: request.id,
+        slowThresholdMs: 1000,
+      });
+
+      app.log.info(message);
+      done();
+    });
+  }
   options.startupProgress?.begin('connect_database');
   const database = createDatabase(config.databaseUrl);
   const shouldStartBackgroundJobs = options.startBackgroundJobs ?? false;
