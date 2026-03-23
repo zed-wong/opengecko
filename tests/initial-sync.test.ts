@@ -108,7 +108,7 @@ describe('initial market sync', () => {
     expect(binance!.url).toBe('https://www.binance.com');
   });
 
-  it('runs OHLCV backfill after snapshot sync', async () => {
+  it('defers OHLCV history work to the background worker after snapshot sync', async () => {
     vi.mocked(fetchExchangeMarkets).mockImplementation(async (exchangeId) => {
       if (exchangeId === 'binance') return [
         { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin', raw: {} },
@@ -137,10 +137,22 @@ describe('initial market sync', () => {
       marketFreshnessThresholdSeconds: 300,
     });
 
-    expect(result.ohlcvCandlesWritten).toBeGreaterThan(0);
+    expect(result.ohlcvCandlesWritten).toBe(0);
+    expect(fetchExchangeOHLCV).not.toHaveBeenCalled();
+  });
 
-    const candleCount = database.db.select({ value: count() }).from(ohlcvCandles).all()[0].value;
-    expect(candleCount).toBeGreaterThan(0);
+  it('starts serving without waiting for full ohlcv history backfill', async () => {
+    vi.mocked(fetchExchangeMarkets).mockResolvedValue([]);
+    vi.mocked(fetchExchangeTickers).mockResolvedValue([]);
+    vi.mocked(fetchExchangeOHLCV).mockResolvedValue([]);
+
+    const result = await runInitialMarketSync(database, {
+      ccxtExchanges: ['binance'],
+      marketFreshnessThresholdSeconds: 300,
+    });
+
+    expect(result.ohlcvCandlesWritten).toBe(0);
+    expect(fetchExchangeOHLCV).not.toHaveBeenCalled();
   });
 
   it('discovers and upserts chain catalogs from exchange network metadata', async () => {

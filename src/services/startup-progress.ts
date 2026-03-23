@@ -5,7 +5,7 @@ export const INITIAL_STARTUP_STEPS = [
   { id: 'sync_coin_catalog', label: 'Sync coin catalog' },
   { id: 'sync_chain_catalog', label: 'Sync chain catalog' },
   { id: 'build_market_snapshots', label: 'Build market snapshots' },
-  { id: 'backfill_ohlcv', label: 'Backfill OHLCV candles' },
+  { id: 'start_ohlcv_worker', label: 'Start OHLCV worker' },
   { id: 'seed_reference_data', label: 'Seed reference data' },
   { id: 'rebuild_search_index', label: 'Rebuild search index' },
   { id: 'start_http_listener', label: 'Start HTTP listener' },
@@ -58,7 +58,7 @@ export function createStartupProgressTracker(
     const lines = INITIAL_STARTUP_STEPS.map((step) => {
       const status = statuses.get(step.id);
       const marker = failure?.stepId === step.id ? '!' : status === 'done' ? 'x' : status === 'active' ? '>' : ' ';
-      const detail = step.id === 'backfill_ohlcv' && ohlcvProgress
+      const detail = step.id === 'start_ohlcv_worker' && ohlcvProgress
         ? ` (${ohlcvProgress.current}/${ohlcvProgress.total})`
         : '';
       const errorSuffix = failure?.stepId === step.id ? ` - ${failure.message}` : '';
@@ -84,7 +84,7 @@ export function createStartupProgressTracker(
 
       activeStepId = stepId;
       statuses.set(stepId, 'active');
-      ohlcvProgress = stepId === 'backfill_ohlcv' ? nextOhlcvProgress ?? ohlcvProgress : null;
+      ohlcvProgress = stepId === 'start_ohlcv_worker' ? nextOhlcvProgress ?? ohlcvProgress : null;
       render();
     },
     complete(stepId) {
@@ -94,7 +94,7 @@ export function createStartupProgressTracker(
         activeStepId = null;
       }
 
-      if (stepId === 'backfill_ohlcv') {
+      if (stepId === 'start_ohlcv_worker') {
         ohlcvProgress = null;
       }
 
@@ -117,8 +117,8 @@ export function createStartupProgressTracker(
     updateOhlcvProgress(current, total) {
       ohlcvProgress = { current, total };
 
-      if (statuses.get('backfill_ohlcv') !== 'active') {
-        this.begin('backfill_ohlcv', ohlcvProgress);
+      if (statuses.get('start_ohlcv_worker') !== 'active') {
+        this.begin('start_ohlcv_worker', ohlcvProgress);
         return;
       }
 

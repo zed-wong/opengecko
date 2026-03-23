@@ -7,6 +7,7 @@ import { refreshCurrencyApiRatesOnce } from './currency-rates';
 import type { MarketDataRuntimeState } from './market-runtime-state';
 import { runInitialMarketSync } from './initial-sync';
 import { runMarketRefreshOnce } from './market-refresh';
+import { createOhlcvRuntime } from './ohlcv-runtime';
 import { runSearchRebuildOnce } from './search-rebuild';
 import type { StartupProgressReporter } from './startup-progress';
 
@@ -58,6 +59,8 @@ type MarketRuntimeOverrides = {
   runCurrencyRefreshOnce?: JobRunner;
   runMarketRefreshOnce?: JobRunner;
   runSearchRebuildOnce?: JobRunner;
+  startOhlcvRuntime?: JobRunner;
+  stopOhlcvRuntime?: JobRunner;
 };
 
 export function createMarketRuntime(
@@ -72,6 +75,7 @@ export function createMarketRuntime(
   let marketTimer: NodeJS.Timeout | null = null;
   let searchTimer: NodeJS.Timeout | null = null;
   let startupTask: Promise<void> | null = null;
+  const ohlcvRuntime = createOhlcvRuntime(database, { ccxtExchanges: config.ccxtExchanges }, logger);
 
   async function enableResidualStaleDataIfAvailable() {
     const queryDb = (database as Partial<AppDatabase>).db;
@@ -125,6 +129,9 @@ export function createMarketRuntime(
               });
 
           await initialSync();
+          startupProgress?.begin('start_ohlcv_worker');
+          await (overrides.startOhlcvRuntime ?? (() => ohlcvRuntime.start()))();
+          startupProgress?.complete('start_ohlcv_worker');
           state.initialSyncCompleted = true;
           state.syncFailureReason = null;
           state.allowStaleLiveService = false;
@@ -183,6 +190,7 @@ export function createMarketRuntime(
       }
 
       await Promise.all([runCurrencyJob.waitForIdle(), runMarketJob.waitForIdle(), runSearchJob.waitForIdle()]);
+      await (overrides.stopOhlcvRuntime ?? (() => ohlcvRuntime.stop()))();
     },
   };
 }

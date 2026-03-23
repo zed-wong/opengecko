@@ -68,12 +68,14 @@ describe('market runtime', () => {
     const runCurrencyRefreshOnce = vi.fn().mockResolvedValue(undefined);
     const runMarketRefreshOnce = vi.fn().mockResolvedValue(undefined);
     const runSearchRebuildOnce = vi.fn().mockResolvedValue(undefined);
+    const startOhlcvRuntime = vi.fn().mockResolvedValue(undefined);
     const state = createState();
     const runtime = createMarketRuntime({} as never, baseConfig as never, logger, state, {
       runInitialMarketSync,
       runCurrencyRefreshOnce,
       runMarketRefreshOnce,
       runSearchRebuildOnce,
+      startOhlcvRuntime,
     });
 
     await runtime.start();
@@ -83,6 +85,7 @@ describe('market runtime', () => {
     });
 
     expect(runInitialMarketSync).toHaveBeenCalledTimes(1);
+    expect(startOhlcvRuntime).toHaveBeenCalledTimes(1);
     expect(state.initialSyncCompleted).toBe(true);
     expect(state.syncFailureReason).toBeNull();
     expect(runSearchRebuildOnce).toHaveBeenCalledTimes(0);
@@ -147,6 +150,7 @@ describe('market runtime', () => {
     const runCurrencyRefreshOnce = vi.fn().mockResolvedValue(undefined);
     const runMarketRefreshOnce = vi.fn().mockResolvedValue(undefined);
     const runSearchRebuildOnce = vi.fn().mockResolvedValue(undefined);
+    const startOhlcvRuntime = vi.fn().mockResolvedValue(undefined);
     const state = createState();
     const mockDb = {
       db: {
@@ -162,6 +166,7 @@ describe('market runtime', () => {
       runCurrencyRefreshOnce,
       runMarketRefreshOnce,
       runSearchRebuildOnce,
+      startOhlcvRuntime,
     });
 
     await runtime.start();
@@ -171,6 +176,7 @@ describe('market runtime', () => {
 
     expect(state.initialSyncCompleted).toBe(false);
     expect(state.syncFailureReason).toBe('network error');
+    expect(startOhlcvRuntime).toHaveBeenCalledTimes(0);
     expect(runCurrencyRefreshOnce).toHaveBeenCalledTimes(0);
     expect(runMarketRefreshOnce).toHaveBeenCalledTimes(0);
 
@@ -199,6 +205,8 @@ describe('market runtime', () => {
       runCurrencyRefreshOnce,
       runMarketRefreshOnce: vi.fn().mockResolvedValue(undefined),
       runSearchRebuildOnce: vi.fn().mockResolvedValue(undefined),
+      startOhlcvRuntime: vi.fn().mockResolvedValue(undefined),
+      stopOhlcvRuntime: vi.fn().mockResolvedValue(undefined),
     });
 
     await runtime.start();
@@ -243,6 +251,8 @@ describe('market runtime', () => {
       runCurrencyRefreshOnce: vi.fn().mockResolvedValue(undefined),
       runMarketRefreshOnce,
       runSearchRebuildOnce: vi.fn().mockResolvedValue(undefined),
+      startOhlcvRuntime: vi.fn().mockResolvedValue(undefined),
+      stopOhlcvRuntime: vi.fn().mockResolvedValue(undefined),
     });
 
     await runtime.start();

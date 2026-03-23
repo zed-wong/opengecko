@@ -29,7 +29,7 @@ import {
 } from '../src/providers/ccxt';
 
 describe('initial sync startup progress', () => {
-  it('reports step transitions and OHLCV subprogress', async () => {
+  it('reports step transitions without blocking OHLCV backfill progress', async () => {
     const mockedFetchExchangeMarkets = fetchExchangeMarkets as ReturnType<typeof vi.fn>;
     const mockedFetchExchangeTickers = fetchExchangeTickers as ReturnType<typeof vi.fn>;
     const mockedFetchExchangeOHLCV = fetchExchangeOHLCV as ReturnType<typeof vi.fn>;
@@ -63,9 +63,7 @@ describe('initial sync startup progress', () => {
 
       return [];
     });
-    mockedFetchExchangeOHLCV.mockResolvedValue([
-      { exchangeId: 'binance', symbol: 'BTC/USDT', timeframe: '1d', timestamp: Date.parse('2026-03-01T00:00:00Z'), open: 80_000, high: 82_000, low: 79_000, close: 81_000, volume: 1_000, raw: [0, 0, 0, 0, 0, 0] },
-    ]);
+    mockedFetchExchangeOHLCV.mockResolvedValue([]);
 
     const transitions: string[] = [];
     const subprogress: Array<{ current: number; total: number }> = [];
@@ -110,9 +108,8 @@ describe('initial sync startup progress', () => {
       'sync_coin_catalog',
       'sync_chain_catalog',
       'build_market_snapshots',
-      'backfill_ohlcv',
+      'start_ohlcv_worker',
     ]);
-    expect(subprogress).toContainEqual({ current: 0, total: 1 });
-    expect(subprogress).toContainEqual({ current: 1, total: 1 });
+    expect(subprogress).toEqual([]);
   });
 });

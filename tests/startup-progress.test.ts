@@ -6,7 +6,7 @@ import {
 } from '../src/services/startup-progress';
 
 describe('startup progress tracker', () => {
-  it('renders a step list with current progress and OHLCV subprogress', () => {
+  it('renders a step list with current progress and OHLCV worker startup subprogress', () => {
     const writes: string[] = [];
     const tracker = createStartupProgressTracker({
       write: (value: string) => {
@@ -21,7 +21,7 @@ describe('startup progress tracker', () => {
     tracker.complete('sync_coin_catalog');
     tracker.complete('sync_chain_catalog');
     tracker.complete('build_market_snapshots');
-    tracker.begin('backfill_ohlcv', { current: 124, total: 386 });
+    tracker.begin('start_ohlcv_worker', { current: 124, total: 386 });
 
     const output = writes.at(-1) ?? '';
 
@@ -29,7 +29,7 @@ describe('startup progress tracker', () => {
     expect(output).toContain('[######----] 60%');
     expect(output).toContain('[x] Load config');
     expect(output).toContain('[x] Connect database');
-    expect(output).toContain('[>] Backfill OHLCV candles (124/386)');
+    expect(output).toContain('[>] Start OHLCV worker (124/386)');
     expect(output).toContain('[ ] Seed reference data');
   });
 
@@ -41,7 +41,7 @@ describe('startup progress tracker', () => {
       'sync_coin_catalog',
       'sync_chain_catalog',
       'build_market_snapshots',
-      'backfill_ohlcv',
+      'start_ohlcv_worker',
       'seed_reference_data',
       'rebuild_search_index',
       'start_http_listener',
