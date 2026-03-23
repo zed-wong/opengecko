@@ -6,7 +6,7 @@ import {
 } from '../src/services/startup-progress';
 
 describe('startup progress tracker', () => {
-  it('renders a step list with current progress and OHLCV worker subprogress', () => {
+  it('prints the banner on start() and logs steps individually', () => {
     const writes: string[] = [];
     const tracker = createStartupProgressTracker({
       write: (value: string) => {
@@ -17,18 +17,14 @@ describe('startup progress tracker', () => {
     tracker.start();
     tracker.complete('load_config');
     tracker.complete('connect_database');
-    tracker.complete('sync_exchange_metadata');
-    tracker.complete('sync_coin_catalog');
-    tracker.complete('sync_chain_catalog');
-    tracker.complete('build_market_snapshots');
     tracker.begin('start_ohlcv_worker', { current: 124, total: 386 });
 
-    const output = writes.at(-1) ?? '';
+    const banner = writes[0];
+    expect(banner).toContain('v0.2.1');
 
-    expect(output).toContain('v0.2.1');
-    expect(output).toContain('Start OHLCV worker');
-    expect(output).toContain('124/386');
-    expect(output).toContain('Seed reference data');
+    const last = writes.at(-1) ?? '';
+    expect(last).toContain('Start OHLCV worker');
+    expect(last).toContain('124/386');
   });
 
   it('exposes the canonical step order used by startup progress', () => {
@@ -59,10 +55,10 @@ describe('startup progress tracker', () => {
     tracker.begin('connect_database');
     tracker.fail('connect_database', 'sqlite busy');
 
-    const output = writes.at(-1) ?? '';
+    const last = writes.at(-1) ?? '';
 
-    expect(output).toContain('sqlite busy');
-    expect(output).toContain('Connect database');
+    expect(last).toContain('sqlite busy');
+    expect(last).toContain('Connect database');
   });
 
   it('can fail the active step without repeating the step id at call site', () => {
@@ -78,8 +74,8 @@ describe('startup progress tracker', () => {
     tracker.begin('sync_coin_catalog');
     tracker.failCurrent('catalog fetch failed');
 
-    const output = writes.at(-1) ?? '';
+    const last = writes.at(-1) ?? '';
 
-    expect(output).toContain('catalog fetch failed');
+    expect(last).toContain('catalog fetch failed');
   });
 });

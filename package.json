@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:endpoint":"bash scripts/test-endpoints.sh",
+    "test:endpoint:mr-market-frontend": "bash scripts/modules/mr-market-frontend/mr-market-frontend.sh",
     "test:endpoint:simple": "bash scripts/modules/simple/simple.sh",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",

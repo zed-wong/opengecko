@@ -64,117 +64,61 @@ export function createStartupProgressTracker(
   let activeStepId: StartupStepId | null = null;
   let ohlcvProgress: OhlcvProgress | null = null;
   let failure: StepFailure | null = null;
-  let hasRendered = false;
-  let previousLines = 0;
+  let bannerPrinted = false;
   let listeningPort: number | undefined;
-
-  function pad(str: string, len: number): string {
-    return str.length >= len ? str : str + ' '.repeat(len - str.length);
-  }
 
   function formatMs(ms: number): string {
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(1)}s`;
   }
 
-  function render(port?: number) {
-    const completedCount = INITIAL_STARTUP_STEPS.filter((step) => statuses.get(step.id) === 'done').length;
-    const totalMs = Array.from(stepDurations.values()).reduce((a, b) => a + b, 0);
-    const doneSteps = INITIAL_STARTUP_STEPS.filter((s) => statuses.get(s.id) === 'done');
-    const labelWidth = Math.max(...INITIAL_STARTUP_STEPS.map((s) => s.label.length), 18);
-
-    // ── Header ──────────────────────────────────────────────────────────
-    // Each line inside ║ ║ must be exactly 68 visible characters wide
-    const art = [
-      '░█▀█░█▀█░█▀▀░█▀█░█▀▀░█▀▀░█▀▀░█░█░█▀█',
-      '░█░█░█▀▀░█▀▀░█░█░█░█░█▀▀░█░░░█▀▄░█░█',
-      '░▀▀▀░▀░░░▀▀▀░▀░▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░▀▀▀',
-    ];
-    const artPad = 15; // left padding for art lines
-    const header = [
+  function printBanner() {
+    const banner = [
+      '',
       `${C.cyan}╔${'═'.repeat(68)}╗${C.reset}`,
       `${C.cyan}║${' '.repeat(68)}${C.cyan}║${C.reset}`,
-      ...art.map((line) => {
-        const right = 68 - artPad - line.length;
-        return `${C.cyan}║${C.reset}${C.bold}${C.cyan}${' '.repeat(artPad)}${line}${' '.repeat(right)}${C.reset}${C.cyan}║${C.reset}`;
+      ...['░█▀█░█▀█░█▀▀░█▀█░█▀▀░█▀▀░█▀▀░█░█░█▀█',
+        '░█░█░█▀▀░█▀▀░█░█░█░█░█▀▀░█░░░█▀▄░█░█',
+        '░▀▀▀░▀░░░▀▀▀░▀░▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░▀▀▀'].map((line) => {
+        const pad = 15;
+        const right = 68 - pad - line.length;
+        return `${C.cyan}║${C.reset}${C.bold}${C.cyan}${' '.repeat(pad)}${line}${' '.repeat(right)}${C.reset}${C.cyan}║${C.reset}`;
       }),
       `${C.cyan}║${' '.repeat(68)}${C.cyan}║${C.reset}`,
       `${C.cyan}║${C.reset}${C.dim}  v0.2.1 \u00b7 CoinGecko-compatible open-source API${' '.repeat(21)}${C.reset}${C.cyan}║${C.reset}`,
       `${C.cyan}║${' '.repeat(68)}${C.cyan}║${C.reset}`,
       `${C.cyan}╚${'═'.repeat(68)}╝${C.reset}`,
+      '',
     ].join('\n');
+    write(`${banner}\n`);
+  }
 
-    // ── Step rows ────────────────────────────────────────────────────────
-    const stepLines = INITIAL_STARTUP_STEPS.map((step) => {
-      const status = statuses.get(step.id);
-      const ms = stepDurations.get(step.id);
-      const failed = failure?.stepId === step.id;
+  function logStep(stepId: StartupStepId, message: string) {
+    write(`  ${message}\n`);
+  }
 
-      let marker: string;
-      let markerColor: string;
-      let labelColor: string;
-      let msColor: string;
-
-      if (failed) {
-        marker = '✗';
-        markerColor = C.red;
-        labelColor = C.red;
-        msColor = C.red;
-      } else if (status === 'done') {
-        marker = CHECK;
-        markerColor = C.green;
-        labelColor = C.reset;
-        msColor = C.yellow;
-      } else if (status === 'active') {
-        marker = BLOCK;
-        markerColor = C.cyan;
-        labelColor = C.bold + C.cyan;
-        msColor = C.cyan;
-      } else {
-        marker = '·';
-        markerColor = C.dim;
-        labelColor = C.dim;
-        msColor = C.dim;
-      }
-
-      const detail = step.id === 'start_ohlcv_worker' && ohlcvProgress
-        ? ` ${C.dim}(${ohlcvProgress.current}/${ohlcvProgress.total})${C.reset}`
-        : '';
-
-      const label = pad(step.label, labelWidth);
-      const msStr = ms !== undefined ? pad(formatMs(ms), 6) : pad('', 6);
-      const errorSuffix = failed ? ` ${C.red}${C.dim}${failure!.message}${C.reset}` : '';
-      const padding = ' '.repeat(Math.max(0, 42 - label.length - msStr.length - detail.length));
-
-      return `  ${markerColor}${marker}${C.reset}  ${labelColor}${label}${C.reset}${padding}${msColor}${msStr}${C.reset}${detail}${errorSuffix}`;
-    });
-
-    // ── Footer ───────────────────────────────────────────────────────────
-    const allDone = doneSteps.length === INITIAL_STARTUP_STEPS.length;
-    const footer = allDone && !failure
-      ? `\n  ${C.green}${CHECK}${C.reset}  ${completedCount}/${INITIAL_STARTUP_STEPS.length} systems online · ${formatMs(totalMs)} total${port ? `\n  ${C.cyan}▸${C.reset}  Listening on :${port}` : ''}`
-      : failure
-        ? `\n  ${C.red}✗${C.reset}  Failed: ${failure.message}`
-        : `\n  ${C.cyan}${BLOCK}${C.reset}  Starting... ${completedCount}/${INITIAL_STARTUP_STEPS.length}`;
-
-    const frame = `\n${header}\n${stepLines.join('\n')}${footer}\n`;
-    const lines = frame.split('\n').length;
-    const moveUp = hasRendered ? `\x1b[${previousLines}A` : '';
-    write(`${moveUp}${frame}`);
-    hasRendered = true;
-    previousLines = lines;
+  function logListening(port: number) {
+    write(`\n  ${C.cyan}▸${C.reset}  Listening on :${port}\n`);
   }
 
   return {
     start(port?: number) {
       listeningPort = port;
-      render(port);
+
+      if (!bannerPrinted) {
+        printBanner();
+        bannerPrinted = true;
+        return;
+      }
+
+      if (port !== undefined) {
+        logListening(port);
+      }
     },
     begin(stepId, nextOhlcvProgress) {
       failure = null;
 
       if (activeStepId && activeStepId !== stepId && statuses.get(activeStepId) === 'active') {
-        // Record duration for the step we just finished
         const startTime = stepStartTimes.get(activeStepId);
         if (startTime !== undefined) {
           stepDurations.set(activeStepId, Date.now() - startTime);
@@ -186,7 +130,13 @@ export function createStartupProgressTracker(
       activeStepId = stepId;
       statuses.set(stepId, 'active');
       ohlcvProgress = stepId === 'start_ohlcv_worker' ? nextOhlcvProgress ?? ohlcvProgress : null;
-      render(listeningPort);
+
+      const step = INITIAL_STARTUP_STEPS.find((s) => s.id === stepId);
+      const label = step?.label ?? stepId;
+      const detail = stepId === 'start_ohlcv_worker' && ohlcvProgress
+        ? ` (${ohlcvProgress.current}/${ohlcvProgress.total})`
+        : '';
+      logStep(stepId, `${C.cyan}${BLOCK}${C.reset}  ${C.bold}${C.cyan}${label}${detail}${C.reset}`);
     },
     complete(stepId) {
       const startTime = stepStartTimes.get(stepId);
@@ -204,13 +154,20 @@ export function createStartupProgressTracker(
         ohlcvProgress = null;
       }
 
-      render(listeningPort);
+      const step = INITIAL_STARTUP_STEPS.find((s) => s.id === stepId);
+      const label = step?.label ?? stepId;
+      const ms = stepDurations.get(stepId);
+      const duration = ms !== undefined ? ` ${C.yellow}${formatMs(ms)}${C.reset}` : '';
+      logStep(stepId, `${C.green}${CHECK}${C.reset}  ${label}${duration}`);
     },
     fail(stepId, message) {
       statuses.set(stepId, 'active');
       activeStepId = stepId;
       failure = { stepId, message };
-      render(listeningPort);
+
+      const step = INITIAL_STARTUP_STEPS.find((s) => s.id === stepId);
+      const label = step?.label ?? stepId;
+      logStep(stepId, `${C.red}✗${C.reset}  ${label} ${C.red}${C.dim}${message}${C.reset}`);
     },
     failCurrent(message) {
       if (!activeStepId) {
@@ -228,7 +185,9 @@ export function createStartupProgressTracker(
         return;
       }
 
-      render(listeningPort);
+      const step = INITIAL_STARTUP_STEPS.find((s) => s.id === 'start_ohlcv_worker');
+      const label = step?.label ?? 'start_ohlcv_worker';
+      logStep('start_ohlcv_worker', `${C.cyan}${BLOCK}${C.reset}  ${C.bold}${C.cyan}${label} (${current}/${total})${C.reset}`);
     },
   };
 }
