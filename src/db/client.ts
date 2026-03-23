@@ -7,7 +7,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
 import { rebuildSearchIndex } from './search-index';
 export { rebuildSearchIndex } from './search-index';
-import { assetPlatforms, categories, chartPoints, coins, derivativeTickers, derivativesExchanges, onchainDexes, onchainNetworks, onchainPools, treasuryEntities, treasuryHoldings, treasuryTransactions } from './schema';
+import { assetPlatforms, categories, chartPoints, coins, derivativeTickers, derivativesExchanges, ohlcvSyncTargets, onchainDexes, onchainNetworks, onchainPools, treasuryEntities, treasuryHoldings, treasuryTransactions } from './schema';
 
 const MIGRATIONS_FOLDER = resolve(process.cwd(), 'drizzle');
 const MIGRATION_JOURNAL = resolve(MIGRATIONS_FOLDER, 'meta', '_journal.json');
@@ -41,6 +41,7 @@ export function createDatabase(databaseUrl: string) {
       coins,
       derivativeTickers,
       derivativesExchanges,
+      ohlcvSyncTargets,
       onchainDexes,
       onchainNetworks,
       onchainPools,

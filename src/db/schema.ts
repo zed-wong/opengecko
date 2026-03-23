@@ -137,6 +137,37 @@ export const ohlcvCandles = sqliteTable(
   }),
 );
 
+export const ohlcvSyncTargets = sqliteTable(
+  'ohlcv_sync_targets',
+  {
+    coinId: text('coin_id')
+      .notNull()
+      .references(() => coins.id),
+    exchangeId: text('exchange_id').notNull(),
+    symbol: text('symbol').notNull(),
+    vsCurrency: text('vs_currency').notNull().default('usd'),
+    interval: text('interval').notNull().default('1d'),
+    priorityTier: text('priority_tier', { enum: ['top100', 'requested', 'long_tail'] }).notNull(),
+    latestSyncedAt: integer('latest_synced_at', { mode: 'timestamp_ms' }),
+    oldestSyncedAt: integer('oldest_synced_at', { mode: 'timestamp_ms' }),
+    targetHistoryDays: integer('target_history_days').notNull(),
+    status: text('status', { enum: ['idle', 'running', 'failed'] }).notNull().default('idle'),
+    lastAttemptAt: integer('last_attempt_at', { mode: 'timestamp_ms' }),
+    lastSuccessAt: integer('last_success_at', { mode: 'timestamp_ms' }),
+    lastError: text('last_error'),
+    failureCount: integer('failure_count').notNull().default(0),
+    nextRetryAt: integer('next_retry_at', { mode: 'timestamp_ms' }),
+    lastRequestedAt: integer('last_requested_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.coinId, table.exchangeId, table.symbol, table.interval, table.vsCurrency],
+    }),
+  }),
+);
+
 export const exchanges = sqliteTable('exchanges', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -357,6 +388,7 @@ export type CategoryRow = typeof categories.$inferSelect;
 export type ChartPointRow = typeof chartPoints.$inferSelect;
 export type QuoteSnapshotRow = typeof quoteSnapshots.$inferSelect;
 export type OhlcvCandleRow = typeof ohlcvCandles.$inferSelect;
+export type OhlcvSyncTargetRow = typeof ohlcvSyncTargets.$inferSelect;
 export type ExchangeRow = typeof exchanges.$inferSelect;
 export type ExchangeVolumePointRow = typeof exchangeVolumePoints.$inferSelect;
 export type DerivativesExchangeRow = typeof derivativesExchanges.$inferSelect;

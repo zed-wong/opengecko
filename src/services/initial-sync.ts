@@ -8,75 +8,12 @@ import { syncCoinCatalogFromExchanges } from './coin-catalog-sync';
 import { syncChainCatalogFromExchanges } from './chain-catalog-sync';
 import { runMarketRefreshOnce } from './market-refresh';
 import { upsertCanonicalOhlcvCandle } from './candle-store';
-
-const USD_QUOTE_PRIORITY = ['USDT', 'USD'] as const;
-
-type BackfillTarget = {
-  coinId: string;
-  symbol: string;
-  exchangeId: ExchangeId;
-};
+import { buildOhlcvSyncTargets } from './ohlcv-targets';
 
 export type InitialSyncProgressHandlers = {
   onStepChange?: (stepId: 'sync_exchange_metadata' | 'sync_coin_catalog' | 'sync_chain_catalog' | 'build_market_snapshots' | 'backfill_ohlcv') => void;
   onOhlcvBackfillProgress?: (current: number, total: number) => void;
 };
-
-async function buildBackfillTargets(
-  database: AppDatabase,
-  enabledExchanges: ExchangeId[],
-  logger: Logger,
-) {
-  const marketIndex = new Map<ExchangeId, Set<string>>();
-  const startTime = Date.now();
-
-  for (const exchangeId of enabledExchanges) {
-    try {
-      const markets = await fetchExchangeMarkets(exchangeId);
-      const supportedSymbols = new Set(
-        markets
-          .filter((market) => market.active && market.spot)
-          .map((market) => market.symbol),
-      );
-      marketIndex.set(exchangeId, supportedSymbols);
-    } catch (error) {
-      logger.warn({ exchange: exchangeId, error }, 'failed to fetch markets for backfill');
-    }
-  }
-
-  const { coins } = await import('../db/schema');
-  const targets: BackfillTarget[] = [];
-  const rows = database.db.select({ id: coins.id, symbol: coins.symbol }).from(coins).all();
-
-  for (const row of rows) {
-    const base = row.symbol.toUpperCase();
-    let selectedTarget: BackfillTarget | null = null;
-
-    // Try each exchange until we find a matching market
-    for (const exchangeId of enabledExchanges) {
-      const supportedSymbols = marketIndex.get(exchangeId);
-      if (!supportedSymbols) continue;
-
-      const matchedQuote = USD_QUOTE_PRIORITY.find((quote) => supportedSymbols.has(`${base}/${quote}`));
-      if (matchedQuote) {
-        selectedTarget = {
-          coinId: row.id,
-          exchangeId,
-          symbol: `${base}/${matchedQuote}`,
-        };
-        break;
-      }
-    }
-
-    if (selectedTarget) {
-      targets.push(selectedTarget);
-    }
-  }
-
-  logger.debug({ targetCount: targets.length, durationMs: Date.now() - startTime }, 'built backfill targets');
-
-  return targets;
-}
 
 export async function syncExchangesFromCCXT(
   database: AppDatabase,
@@ -128,7 +65,7 @@ export async function runOhlcvBackfill(
   const startTime = Date.now();
   const validExchanges = exchangeIds.filter(isValidExchangeId);
   const since = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
-  const targets = await buildBackfillTargets(database, validExchanges, backfillLogger);
+  const targets = await buildOhlcvSyncTargets(database, validExchanges);
   progress?.onOhlcvBackfillProgress?.(0, targets.length);
 
   backfillLogger.info({ exchangeCount: validExchanges.length, targetCount: targets.length }, 'starting ohlcv backfill');

@@ -1,0 +1,22 @@
+CREATE TABLE `ohlcv_sync_targets` (
+	`coin_id` text NOT NULL,
+	`exchange_id` text NOT NULL,
+	`symbol` text NOT NULL,
+	`vs_currency` text DEFAULT 'usd' NOT NULL,
+	`interval` text DEFAULT '1d' NOT NULL,
+	`priority_tier` text NOT NULL,
+	`latest_synced_at` integer,
+	`oldest_synced_at` integer,
+	`target_history_days` integer NOT NULL,
+	`status` text DEFAULT 'idle' NOT NULL,
+	`last_attempt_at` integer,
+	`last_success_at` integer,
+	`last_error` text,
+	`failure_count` integer DEFAULT 0 NOT NULL,
+	`next_retry_at` integer,
+	`last_requested_at` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	PRIMARY KEY(`coin_id`, `exchange_id`, `symbol`, `interval`, `vs_currency`),
+	FOREIGN KEY (`coin_id`) REFERENCES `coins`(`id`) ON UPDATE no action ON DELETE no action
+);
