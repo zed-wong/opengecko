@@ -40,10 +40,10 @@ The repository has reached R4 with the following in place:
 
 The R4 phase focuses on:
 
-1. Making hot market endpoints fresh by default via boot-time refresh and continuous internal snapshot updates
+1. Making hot market endpoints fresh by default via boot-time snapshot sync and continuous internal refresh updates
 2. Expanding the onchain DEX family beyond the initial seeded network and DEX catalogs
 3. Broadening repository-layer and fixture coverage across treasury, onchain, and remaining seeded data-fidelity edge cases
-4. Replacing seeded ticker and history slices with CCXT-backed refresh and backfill paths where practical
+4. Replacing seeded ticker and history slices with CCXT-backed refresh and continuous worker-owned history ingestion where practical
 
 ## 3. Execution Principles
 
@@ -116,11 +116,11 @@ This execution plan provides strategic framing; the tracker is the operational t
 
 **Goal:** Move from seeded confidence to fresh-by-default live-backed market behavior.
 
-**Scope:** Boot-time refresh, continuous in-process or worker-driven refresh scheduling, stale snapshot policy, CCXT exchange set.
+**Scope:** Boot-time snapshot sync, continuous in-process or worker-driven refresh scheduling, stale snapshot policy, CCXT exchange set.
 
 **Current cadence:** market refresh every `60s`, search rebuild every `900s`, live freshness threshold `300s`.
 
-**Status:** Partial — scaffold exists; boot-time and continuous scheduling not fully locked.
+**Status:** Partial — hot snapshot startup and continuous refresh are locked, but deployment guidance for separate workers and operational hardening remain open.
 
 ### WS-C: Historical chart and OHLC semantics
 
@@ -128,7 +128,7 @@ This execution plan provides strategic framing; the tracker is the operational t
 
 **Scope:** Granularity and downsampling rules, range behavior, onchain OHLCV support.
 
-**Status:** Partial — seeded routes exist; retention policy is open.
+**Status:** Partial — continuous top-100-priority OHLCV worker exists for `1d` history, but retention, repair, and wider interval policy remain open.
 
 ### WS-D: Canonical entity resolution
 
@@ -150,9 +150,9 @@ This execution plan provides strategic framing; the tracker is the operational t
 
 **Goal:** Background jobs are reliable and observable.
 
-**Scope:** Market refresh scheduling, search rebuild behavior, job failure handling, freshness reporting.
+**Scope:** Market refresh scheduling, OHLCV worker scheduling, search rebuild behavior, job failure handling, freshness reporting.
 
-**Status:** Partial — jobs exist; scheduling, failure handling, and observability need hardening.
+**Status:** Partial — jobs and diagnostics exist, but hosted-worker operating guidance, alerting, and repair workflows need hardening.
 
 ## 7. R4 Focus
 
@@ -187,8 +187,8 @@ The largest product gap is no longer HTTP shape. It is data ownership. The syste
 Recommended execution order:
 
 1. Make live snapshots the default owner for hot market reads.
-2. Replace seeded chart and OHLC reads with canonical persisted history.
-3. Add retention, gap-repair, and recovery rules so historical behavior survives missed refreshes and restarts.
+2. Replace seeded chart and OHLC reads with canonical persisted history owned by the continuous OHLCV worker.
+3. Add retention, gap-repair, and recovery rules so worker-owned historical behavior survives missed refreshes and restarts.
 
 ### Phase 1: Hot Market Read Ownership
 
@@ -233,7 +233,7 @@ Recommended execution order:
 
 - Remove seeded chart points and seeded OHLC candles from being the default historical owner once canonical candles exist.
 - Route historical reads through canonical candle storage first, with seeded fixtures reserved for bootstrap/dev-only fallback where necessary.
-- Expand backfill so the initial canonical dataset is materialized early enough for market-chart and OHLC routes to serve real persisted history.
+- Expand the continuous OHLCV worker so the canonical dataset becomes deep enough for market-chart and OHLC routes to serve real persisted history without startup blocking.
 - Align history serializers so detail/history endpoints derive their price windows from the same canonical persisted series used by chart endpoints.
 
 **Exit criteria:**
@@ -257,7 +257,7 @@ Recommended execution order:
 **Required changes:**
 
 - Define retention windows by interval, starting with `1d` and later extending to higher-frequency candles where justified.
-- Add rolling backfill and gap-detection so missed periods are repaired automatically.
+- Add rolling deepening and gap-detection so missed periods are repaired automatically by the worker.
 - Separate intraday aggregation policy from durable historical policy instead of treating both as the same candle stream.
 - Add operational visibility for last successful backfill window and detected candle gaps.
 

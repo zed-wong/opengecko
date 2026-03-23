@@ -22,26 +22,26 @@ Use this tracker for current status, active priorities, completed milestones, an
 
 - Current release focus: `R4`
 - Current architecture direction: `Bun + TypeScript + Fastify + Zod + SQLite + Drizzle + better-sqlite3 + SQLite FTS5 + CCXT + Vitest`
-- Current repository state: `the SQLite-first scaffold, expanded schema, CCXT provider abstraction, boot-time live market sync from 3 exchanges, 2D freshness model, complete R0-R3 endpoint families, and the first seeded onchain catalog endpoints are implemented with passing validation`
+- Current repository state: `the SQLite-first scaffold, expanded schema, CCXT provider abstraction, boot-time hot-snapshot sync, continuous top-100-priority OHLCV worker runtime, 2D freshness model, complete R0-R3 endpoint families, and the first seeded onchain catalog endpoints are implemented with passing validation`
 
 ## Current Priorities
 
-1. Make hot market endpoints fresh by default via boot-time refresh and continuous internal snapshot updates.
-2. Expand canonical chain coverage by ingesting and normalizing all CCXT-discoverable networks from the active exchange set.
-3. Expand the onchain DEX family beyond the initial seeded network and DEX catalogs.
-4. Broaden repository-layer and fixture coverage across treasury, onchain, and remaining seeded data-fidelity edge cases.
-5. Replace seeded ticker and history slices with CCXT-backed refresh and backfill paths where practical.
+1. Expand canonical chain coverage by ingesting and normalizing all CCXT-discoverable networks from the active exchange set.
+2. Expand the onchain DEX family beyond the initial seeded network and DEX catalogs.
+3. Harden the continuous OHLCV worker with deeper retention, repair, and hosted-worker operating guidance.
+4. Broaden repository-layer and fixture coverage across treasury, onchain, and remaining data-fidelity edge cases.
+5. Replace remaining seeded ticker and history slices with live/backfilled canonical paths where practical.
 
 ## Workstream Status
 
 | Strategic workstream | Operational scope | Status | Notes |
 | --- | --- | --- | --- |
 | WS-A Compatibility fidelity | Parameter precedence, error shapes, serializers, divergence tracking | partial | R0, R1, R2, and R3 endpoint families are implemented with passing validation; the remaining compatibility work is concentrated in the expanding R4 onchain surface |
-| WS-B Live market ingestion and freshness | CCXT provider abstraction, snapshot refresh, stale-data policy, fresh-by-default reads | done | Boot-time initial sync from 3 CCXT exchanges (binance/coinbase/kraken), continuous 60s refresh loop, 2D freshness model (initialSyncCompleted + allowStaleLiveService), seeded fallback before sync, live data owns hot reads after sync |
-| WS-C Historical chart and OHLC semantics | Chart, range, OHLC, and future onchain OHLCV behavior | partial | OHLCV backfill integrated into boot flow (365d first boot, 30d subsequent), daily + minute candles from live refresh, but retention policy still open |
+| WS-B Live market ingestion and freshness | CCXT provider abstraction, snapshot refresh, stale-data policy, fresh-by-default reads | done | Boot-time initial sync now materializes hot snapshots and continuous 60s refresh scheduling; live data owns hot reads after sync and stale fallback remains explicit |
+| WS-C Historical chart and OHLC semantics | Chart, range, OHLC, and future onchain OHLCV behavior | partial | Continuous OHLCV worker now owns restart-safe `1d` ingestion with top-100-first scheduling, recent catch-up, and backward deepening; longer retention and repair policy remain open |
 | WS-D Canonical entity resolution | Coin, platform, contract, venue, treasury, network, and DEX identity mapping | partial | Multi-exchange coin discovery via syncCoinCatalogFromExchanges(), COIN_ID_OVERRIDES shared in src/lib/coin-id.ts, exchange records from CCXT metadata |
 | WS-E Contract testing and fixtures | Endpoint fixtures, invalid-parameter coverage, repository/service-layer assertions | partial | 110 tests passing, integration tests for full live pipeline, stale-data tests adapted to 2D model |
-| WS-F Jobs, operations, and observability | Refresh scheduling, search rebuilds, job failure handling, lag visibility | partial | Initial-sync failure handling with stale fallback, serialized job execution, but observability still minimal |
+| WS-F Jobs, operations, and observability | Refresh scheduling, search rebuilds, job failure handling, lag visibility | partial | Initial-sync failure handling, serialized runtime jobs, standalone `ohlcv:worker` entrypoint, and OHLCV diagnostics are in place; hosted-worker deployment guidance and deeper alerting remain open |
 
 ## Endpoint Family Progress
 
@@ -66,10 +66,11 @@ Use this tracker for current status, active priorities, completed milestones, an
 - Use Bun as the default package manager.
 - Prefer the smallest practical dependency set.
 - Use CCXT first for exchange and market integrations; only add custom exchange support when required data is missing.
-- Use `binance`, `coinbase`, and `kraken` as the initial live CCXT exchange set.
+- Use `binance`, `coinbase`, `kraken`, and `okx` as the primary validated live CCXT exchange set in tests and worker diagnostics.
 - Treat CCXT-discoverable chains from the active exchange set as the baseline network universe for contract and platform compatibility mapping.
 - Use a default market refresh cadence of `60s`, a search rebuild cadence of `900s`, and a live freshness threshold of `300s`.
 - Treat fresh-by-default market responses as a central product value; REST reads should come from continuously updated internal snapshots.
+- Treat historical OHLCV durability as a continuous worker concern: startup only needs hot snapshots, while the worker prioritizes top-100 recent catch-up before historical deepening.
 - Keep the codebase as a modular monolith before considering service splits.
 - Prioritize HTTP contract compatibility before data fidelity.
 - Track rollout by endpoint family and release phase.
@@ -77,14 +78,14 @@ Use this tracker for current status, active priorities, completed milestones, an
 ## Open Questions / Blockers
 
 - Define fixture sources for compatibility-oriented contract tests.
-- Decide the default runtime model for fresh-by-default market ingestion: in-process scheduler, separate worker, or both.
+- Decide the long-term deployment default for the OHLCV worker: in-process sidecar for local dev, separate hosted worker, or both.
 
 ## Key Gaps
 
 1. Data sources are still the largest fidelity gap. Most market-facing endpoints continue to read from seeded static snapshots and seeded historical windows instead of a continuously refreshed live market dataset.
 2. Canonical chain and contract-address mapping coverage remains uneven; CCXT metadata is available, but normalized chain-universe ingestion and confidence reporting are not yet complete.
-3. The CCXT provider abstraction is in place, but the exchange refresh and backfill paths are not yet the default source of truth for the API surface. Live ingestion exists as a scaffold, not as the fully hardened path that owns endpoint reads.
-4. Historical chart and OHLC behavior still depends on the current seeded window. There is no durable historical storage policy yet for long-range retention, rolling backfill, or recovery after refresh gaps.
+3. The CCXT provider abstraction is in place, but live ingestion still needs more hardening around exchange breadth, repair behavior, and deployment ergonomics before it can be treated as fully finished.
+4. Historical chart and OHLC behavior now has a continuous worker path, but long-range retention, rolling repair, and explicit recovery-after-gap policies remain open.
 
 ## Known Data-Fidelity Follow-ups After Treasury/Onchain Kickoff
 
@@ -129,10 +130,11 @@ Use this tracker for current status, active priorities, completed milestones, an
 - Added passing tests for `/ping`, `/simple/*`, `/asset_platforms`, `/search`, `/global`, `/coins/list`, and the first seeded `/coins/*` market endpoints.
 - Extracted shared coin-id utilities (buildCoinId, buildCoinName, COIN_ID_OVERRIDES) into src/lib/coin-id.ts.
 - Split seedReferenceData into seedStaticReferenceData (non-market) and seedMarketData (market).
-- Created initial-sync service that boot-time syncs coins, exchanges, tickers, snapshots, and OHLCV from 3 CCXT exchanges.
+- Created initial-sync service that boot-time syncs exchanges, coins, chains, and hot market snapshots from the active CCXT exchange set.
 - Generalized coin catalog sync from Binance-only to multi-exchange via syncCoinCatalogFromExchanges().
 - Implemented boot-time exchange metadata sync from CCXT.
-- Integrated OHLCV backfill into startup flow (365d first boot, 30d subsequent).
+- Added persistent OHLCV sync-target state, deterministic leasing/cursor updates, split recent-vs-historical sync modes, and a continuous top-100-priority OHLCV worker runtime.
+- Added a standalone `ohlcv:worker` job entrypoint plus `/diagnostics/ohlcv_sync` health reporting.
 - Replaced 1D freshness model (allowSeededFallback) with 2D model (initialSyncCompleted + allowStaleLiveService).
 - Wired initial-sync into startup: runtime runs sync before refresh loop, handles failure with stale fallback.
 - Added live exchange volume snapshots during market refresh with downsampling in volume_chart endpoint.

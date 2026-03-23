@@ -27,6 +27,8 @@ Canonical planning documents:
 - Use CCXT from the beginning for exchange and market data integrations whenever it can provide the required data.
 - Prefer normalized data exposed by CCXT before implementing exchange-specific adapters.
 - Only add custom exchange support when important required data is materially missing from CCXT.
+- Keep startup focused on exchange metadata, catalogs, and hot market snapshots; treat durable OHLCV ingestion as a continuous worker responsibility.
+- Preserve the top-100-first OHLCV scheduling policy unless a planning document explicitly supersedes it.
 
 ## Versioning Rules
 
