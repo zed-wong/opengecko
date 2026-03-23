@@ -138,7 +138,13 @@ export function createOhlcvRuntime(
       }
 
       inFlight = (async () => {
-        await refreshTargets(now);
+        try {
+          await refreshTargets(now);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          logger.error({ error: message }, 'ohlcv target refresh failed');
+          return;
+        }
 
         const leased = (overrides.leaseNextOhlcvTarget ?? leaseNextOhlcvTarget)(database, now);
 

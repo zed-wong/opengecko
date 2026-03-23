@@ -134,4 +134,38 @@ describe('ohlcv targets', () => {
       targetHistoryDays: 365,
     }));
   });
+
+  it('continues building targets when one exchange market fetch fails', async () => {
+    vi.mocked(fetchExchangeMarkets).mockImplementation(async (exchangeId) => {
+      if (exchangeId === 'binance') {
+        throw new Error('timeout');
+      }
+
+      if (exchangeId === 'okx') {
+        return [
+          {
+            exchangeId: 'okx',
+            symbol: 'BTC/USDT',
+            base: 'BTC',
+            quote: 'USDT',
+            active: true,
+            spot: true,
+            baseName: 'Bitcoin',
+            raw: {},
+          },
+        ];
+      }
+
+      return [];
+    });
+
+    await expect(buildOhlcvSyncTargets(database, ['binance', 'okx'], new Set(['bitcoin']))).resolves.toContainEqual(
+      expect.objectContaining({
+        coinId: 'bitcoin',
+        exchangeId: 'okx',
+        symbol: 'BTC/USDT',
+        priorityTier: 'top100',
+      }),
+    );
+  });
 });

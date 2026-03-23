@@ -127,6 +127,26 @@ describe('ohlcv runtime', () => {
     expect(syncRecentOhlcvWindow).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ latestSyncedAt: new Date('2026-03-22T00:00:00.000Z') }), expect.any(Date));
   });
 
+  it('does not throw when target refresh fails', async () => {
+    const leaseNextOhlcvTarget = vi.fn();
+    const runtime = createOhlcvRuntime({} as never, { ccxtExchanges: ['binance'] }, logger, {
+      refreshTargets: vi.fn().mockRejectedValue(new Error('ccxt timeout')),
+      leaseNextOhlcvTarget,
+      syncRecentOhlcvWindow: vi.fn(),
+      deepenHistoricalOhlcvWindow: vi.fn(),
+      markOhlcvTargetSuccess: vi.fn(),
+      markOhlcvTargetFailure: vi.fn(),
+    });
+
+    await expect(runtime.tick(new Date('2026-03-23T00:00:00.000Z'))).resolves.toBeUndefined();
+
+    expect(leaseNextOhlcvTarget).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      { error: 'ccxt timeout' },
+      'ohlcv target refresh failed',
+    );
+  });
+
   it('summarizes ohlcv worker lag and failure metrics', () => {
     const summary = summarizeOhlcvSyncStatus({
       db: {

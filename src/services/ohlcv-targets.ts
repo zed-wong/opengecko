@@ -22,14 +22,18 @@ export async function buildOhlcvSyncTargets(
   const marketIndex = new Map<ExchangeId, Set<string>>();
 
   for (const exchangeId of enabledExchanges) {
-    const markets = await fetchExchangeMarkets(exchangeId);
-    const supportedSymbols = new Set(
-      markets
-        .filter((market) => market.active && market.spot)
-        .map((market) => market.symbol),
-    );
+    try {
+      const markets = await fetchExchangeMarkets(exchangeId);
+      const supportedSymbols = new Set(
+        markets
+          .filter((market) => market.active && market.spot)
+          .map((market) => market.symbol),
+      );
 
-    marketIndex.set(exchangeId, supportedSymbols);
+      marketIndex.set(exchangeId, supportedSymbols);
+    } catch {
+      continue;
+    }
   }
 
   const rows = database.db.select({
