@@ -15,11 +15,13 @@ import { registerSimpleRoutes } from './modules/simple';
 import { registerTreasuryRoutes } from './modules/treasury';
 import { createMarketRuntime } from './services/market-runtime';
 import { createMarketDataRuntimeState } from './services/market-runtime-state';
+import type { StartupProgressReporter } from './services/startup-progress';
 
 export type BuildAppOptions = {
   config?: Partial<AppConfig>;
   startBackgroundJobs?: boolean;
   pluginTimeout?: number;
+  startupProgress?: StartupProgressReporter;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -44,12 +46,16 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     logger: loggerOpts,
     ...(options.pluginTimeout ? { pluginTimeout: options.pluginTimeout } : {}),
   });
+  options.startupProgress?.begin('connect_database');
   const database = createDatabase(config.databaseUrl);
   const shouldStartBackgroundJobs = options.startBackgroundJobs ?? false;
   const marketDataRuntimeState = createMarketDataRuntimeState();
-  const runtime = shouldStartBackgroundJobs ? createMarketRuntime(database, config, app.log, marketDataRuntimeState) : null;
+  const runtime = shouldStartBackgroundJobs
+    ? createMarketRuntime(database, config, app.log, marketDataRuntimeState, {}, options.startupProgress)
+    : null;
 
   migrateDatabase(database);
+  options.startupProgress?.complete('connect_database');
 
   registerErrorHandler(app);
   registerHealthRoutes(app);
@@ -69,12 +75,24 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       await runtime.start();
     } else {
       const { runInitialMarketSync } = await import('./services/initial-sync');
-      await runInitialMarketSync(database, config);
+      await runInitialMarketSync(database, config, undefined, {
+        onStepChange: (stepId) => {
+          options.startupProgress?.begin(stepId);
+        },
+        onOhlcvBackfillProgress: (current, total) => {
+          options.startupProgress?.updateOhlcvProgress(current, total);
+        },
+      });
       marketDataRuntimeState.initialSyncCompleted = true;
 
       // Seed static reference data (treasury, derivatives, onchain) after coins exist
+      options.startupProgress?.begin('seed_reference_data');
       seedStaticReferenceData(database);
+      options.startupProgress?.complete('seed_reference_data');
+      options.startupProgress?.begin('rebuild_search_index');
       rebuildSearchIndex(database);
+      options.startupProgress?.complete('rebuild_search_index');
+      options.startupProgress?.begin('start_http_listener');
     }
   });
 

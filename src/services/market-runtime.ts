@@ -8,6 +8,7 @@ import type { MarketDataRuntimeState } from './market-runtime-state';
 import { runInitialMarketSync } from './initial-sync';
 import { runMarketRefreshOnce } from './market-refresh';
 import { runSearchRebuildOnce } from './search-rebuild';
+import type { StartupProgressReporter } from './startup-progress';
 
 type RuntimeLogger = Pick<FastifyBaseLogger, 'info' | 'warn' | 'error' | 'debug' | 'child'>;
 
@@ -65,6 +66,7 @@ export function createMarketRuntime(
   logger: RuntimeLogger,
   state: MarketDataRuntimeState,
   overrides: MarketRuntimeOverrides = {},
+  startupProgress?: StartupProgressReporter,
 ): MarketRuntime {
   let currencyTimer: NodeJS.Timeout | null = null;
   let marketTimer: NodeJS.Timeout | null = null;
@@ -113,7 +115,14 @@ export function createMarketRuntime(
           const syncLogger = 'child' in logger ? logger.child({ operation: 'initial_sync' }) as unknown as Logger : undefined;
           const initialSync = overrides.runInitialMarketSync
             ? () => overrides.runInitialMarketSync!(database, config, syncLogger)
-            : () => runInitialMarketSync(database, config, syncLogger);
+            : () => runInitialMarketSync(database, config, syncLogger, {
+                onStepChange: (stepId) => {
+                  startupProgress?.begin(stepId);
+                },
+                onOhlcvBackfillProgress: (current, total) => {
+                  startupProgress?.updateOhlcvProgress(current, total);
+                },
+              });
 
           await initialSync();
           state.initialSyncCompleted = true;
@@ -121,8 +130,14 @@ export function createMarketRuntime(
           state.allowStaleLiveService = false;
 
           const { seedStaticReferenceData, rebuildSearchIndex } = await import('../db/client');
+          startupProgress?.begin('seed_reference_data');
           seedStaticReferenceData(database);
+          startupProgress?.complete('seed_reference_data');
+          startupProgress?.begin('rebuild_search_index');
           rebuildSearchIndex(database);
+          startupProgress?.complete('rebuild_search_index');
+          startupProgress?.begin('start_http_listener');
+          startupProgress?.complete('start_http_listener');
 
           logger.info('initial market sync completed successfully');
         } catch (error) {

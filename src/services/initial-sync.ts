@@ -17,6 +17,11 @@ type BackfillTarget = {
   exchangeId: ExchangeId;
 };
 
+export type InitialSyncProgressHandlers = {
+  onStepChange?: (stepId: 'sync_exchange_metadata' | 'sync_coin_catalog' | 'sync_chain_catalog' | 'build_market_snapshots' | 'backfill_ohlcv') => void;
+  onOhlcvBackfillProgress?: (current: number, total: number) => void;
+};
+
 async function buildBackfillTargets(
   database: AppDatabase,
   enabledExchanges: ExchangeId[],
@@ -117,17 +122,20 @@ export async function runOhlcvBackfill(
   exchangeIds: ExchangeId[],
   lookbackDays: number,
   logger: Logger,
+  progress?: Pick<InitialSyncProgressHandlers, 'onOhlcvBackfillProgress'>,
 ) {
   const backfillLogger = logger.child({ operation: 'ohlcv_backfill', lookbackDays });
   const startTime = Date.now();
   const validExchanges = exchangeIds.filter(isValidExchangeId);
   const since = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
   const targets = await buildBackfillTargets(database, validExchanges, backfillLogger);
+  progress?.onOhlcvBackfillProgress?.(0, targets.length);
 
   backfillLogger.info({ exchangeCount: validExchanges.length, targetCount: targets.length }, 'starting ohlcv backfill');
 
   let candlesWritten = 0;
   let failures = 0;
+  let processedTargets = 0;
 
   for (const target of targets) {
     try {
@@ -153,6 +161,9 @@ export async function runOhlcvBackfill(
       failures += 1;
       const errorInfo = error instanceof Error ? { message: error.message } : { message: String(error) };
       backfillLogger.warn({ coinId: target.coinId, exchange: target.exchangeId, symbol: target.symbol, ...errorInfo }, 'backfill failed for coin');
+    } finally {
+      processedTargets += 1;
+      progress?.onOhlcvBackfillProgress?.(processedTargets, targets.length);
     }
   }
 
@@ -175,6 +186,7 @@ export async function runInitialMarketSync(
   database: AppDatabase,
   config: Pick<AppConfig, 'ccxtExchanges' | 'marketFreshnessThresholdSeconds'>,
   logger?: Logger,
+  progress?: InitialSyncProgressHandlers,
 ): Promise<InitialSyncResult> {
   const syncLogger = logger?.child({ operation: 'initial_sync' }) ?? createLogger({ level: 'info' }).child({ operation: 'initial_sync' });
   const startTime = Date.now();
@@ -183,20 +195,24 @@ export async function runInitialMarketSync(
   syncLogger.info({ exchanges: exchangeIds }, 'starting initial market sync');
 
   // Step 1: Sync exchanges first (required for coin_tickers FK)
+  progress?.onStepChange?.('sync_exchange_metadata');
   syncLogger.debug('syncing exchange metadata');
   await syncExchangesFromCCXT(database, exchangeIds, syncLogger);
 
   // Step 2: Discover coins from all exchanges
+  progress?.onStepChange?.('sync_coin_catalog');
   syncLogger.debug('discovering coins from exchanges');
   const { insertedOrUpdated: coinsDiscovered } = await syncCoinCatalogFromExchanges(database, exchangeIds, syncLogger);
   syncLogger.info({ coinsDiscovered }, 'coin catalog sync complete');
 
   // Step 2.5: Discover chains/networks from all exchanges
+  progress?.onStepChange?.('sync_chain_catalog');
   syncLogger.debug('discovering chains from exchanges');
   const { insertedOrUpdated: chainsDiscovered } = await syncChainCatalogFromExchanges(database, exchangeIds, syncLogger);
   syncLogger.info({ chainsDiscovered }, 'chain catalog sync complete');
 
   // Step 3: Fetch tickers and build market snapshots + coin tickers
+  progress?.onStepChange?.('build_market_snapshots');
   syncLogger.debug('running market refresh');
   await runMarketRefreshOnce(database, { ccxtExchanges: exchangeIds }, syncLogger);
 
@@ -209,6 +225,7 @@ export async function runInitialMarketSync(
     .all();
 
   // Step 5: OHLCV backfill
+  progress?.onStepChange?.('backfill_ohlcv');
   const hasExistingCandles = database.db
     .select({ id: ohlcvCandles.coinId })
     .from(ohlcvCandles)
@@ -217,7 +234,7 @@ export async function runInitialMarketSync(
     .length > 0;
 
   const lookbackDays = hasExistingCandles ? 30 : 365;
-  const ohlcvCandlesWritten = await runOhlcvBackfill(database, exchangeIds, lookbackDays, syncLogger);
+  const ohlcvCandlesWritten = await runOhlcvBackfill(database, exchangeIds, lookbackDays, syncLogger, progress);
 
   const durationMs = Date.now() - startTime;
   syncLogger.info({
