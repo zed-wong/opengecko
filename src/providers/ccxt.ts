@@ -51,18 +51,19 @@ export type ExchangeNetworkSnapshot = {
   chainIdentifier: number | null;
 };
 
-const VALID_EXCHANGE_IDS = new Set(Object.keys(ccxt.exchanges));
+const VALID_EXCHANGE_IDS = new Set(ccxt.exchanges);
 
 export function isValidExchangeId(value: string): value is ExchangeId {
   return VALID_EXCHANGE_IDS.has(value);
 }
 
 export function getValidExchangeIds(): string[] {
-  return Object.keys(ccxt.exchanges);
+  return [...ccxt.exchanges];
 }
 
 function createExchange(exchangeId: ExchangeId): Exchange {
-  const ExchangeClass = ccxt.exchanges[exchangeId];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ExchangeClass = (ccxt as Record<string, any>)[exchangeId];
 
   if (!ExchangeClass) {
     throw new Error(`Unknown exchange: ${exchangeId}`);

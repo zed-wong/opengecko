@@ -95,7 +95,9 @@ describe('conversion helpers', () => {
   });
 
   it('builds the exchange-rates payload from the shared conversion source', () => {
-    expect(buildExchangeRatesPayload(database, 300, seedFriendlyPolicy)).toEqual({
+    const payload = buildExchangeRatesPayload(database, 300, seedFriendlyPolicy);
+
+    expect(payload).toMatchObject({
       data: {
         btc: {
           name: 'Bitcoin',
@@ -121,7 +123,14 @@ describe('conversion helpers', () => {
           value: 73_329.50154764981,
           type: 'fiat',
         },
+        usdt: {
+          name: 'Tether',
+          unit: 'USDT',
+          type: 'fiat',
+        },
       },
     });
+    expect(payload.data.usdt.value).toBeGreaterThan(80_000);
+    expect(Object.keys(payload.data)).toContain('usdt');
   });
 });

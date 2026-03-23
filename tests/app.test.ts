@@ -107,7 +107,10 @@ describe('OpenGecko app scaffold', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual(contractFixtures.exchangeRates);
+    expect(response.json()).toMatchObject(contractFixtures.exchangeRates);
+    expect(response.json().data.usdt).toBeDefined();
+    expect(response.json().data.usdt.type).toBe('fiat');
+    expect(typeof response.json().data.usdt.value).toBe('number');
   });
 
   it('returns simple prices with optional market fields', async () => {

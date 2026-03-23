@@ -6,6 +6,14 @@ import { getCurrencyApiSnapshot } from '../services/currency-rates';
 
 export const SUPPORTED_VS_CURRENCIES = ['usd', 'eur', 'btc', 'eth'] as const;
 
+const RATE_METADATA: Record<string, { name: string; unit: string; type: 'crypto' | 'fiat' }> = {
+  btc: { name: 'Bitcoin', unit: 'BTC', type: 'crypto' },
+  eth: { name: 'Ether', unit: 'ETH', type: 'crypto' },
+  usd: { name: 'US Dollar', unit: '$', type: 'fiat' },
+  eur: { name: 'Euro', unit: '€', type: 'fiat' },
+  usdt: { name: 'Tether', unit: 'USDT', type: 'fiat' },
+};
+
 function getCoinSnapshot(
   database: AppDatabase,
   coinId: string,
@@ -69,33 +77,33 @@ export function buildExchangeRatesPayload(
 ) {
   const conversionRates = getConversionRates(database, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const bitcoinValueUsd = 1 / conversionRates.btc;
+  const sortedCodes = Object.keys(conversionRates).sort((left, right) => {
+    if (left === 'btc') return -1;
+    if (right === 'btc') return 1;
+    return left.localeCompare(right);
+  });
+
+  const data = Object.fromEntries(sortedCodes.map((code) => {
+    const normalizedCode = code.toLowerCase();
+    const metadata = RATE_METADATA[normalizedCode] ?? {
+      name: normalizedCode.toUpperCase(),
+      unit: normalizedCode.toUpperCase(),
+      type: 'fiat' as const,
+    };
+
+    const value = normalizedCode === 'btc'
+      ? 1
+      : bitcoinValueUsd * conversionRates[normalizedCode];
+
+    return [normalizedCode, {
+      name: metadata.name,
+      unit: metadata.unit,
+      value,
+      type: metadata.type,
+    }];
+  }));
 
   return {
-    data: {
-      btc: {
-        name: 'Bitcoin',
-        unit: 'BTC',
-        value: 1,
-        type: 'crypto',
-      },
-      eth: {
-        name: 'Ether',
-        unit: 'ETH',
-        value: bitcoinValueUsd * conversionRates.eth,
-        type: 'crypto',
-      },
-      usd: {
-        name: 'US Dollar',
-        unit: '$',
-        value: bitcoinValueUsd,
-        type: 'fiat',
-      },
-      eur: {
-        name: 'Euro',
-        unit: '€',
-        value: bitcoinValueUsd * conversionRates.eur,
-        type: 'fiat',
-      },
-    },
+    data,
   };
 }
