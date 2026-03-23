@@ -91,6 +91,24 @@ function getSupportedSymbols(exchange: Exchange, symbols?: string[]) {
   return symbols.filter((symbol) => symbol in exchange.markets);
 }
 
+function getTickerChunkSize(exchangeId: ExchangeId) {
+  if (exchangeId === 'bigone') {
+    return 50;
+  }
+
+  return undefined;
+}
+
+function chunkSymbols(symbols: string[], size: number) {
+  const chunks: string[][] = [];
+
+  for (let index = 0; index < symbols.length; index += size) {
+    chunks.push(symbols.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
 function toTickerSnapshot(exchangeId: ExchangeId, ticker: Ticker): ExchangeTickerSnapshot {
   const { base, quote } = deriveBaseQuote(ticker.symbol);
 
@@ -250,9 +268,30 @@ export async function fetchExchangeTickers(exchangeId: ExchangeId, symbols?: str
     }
 
     if (exchange.has.fetchTickers) {
-      const tickers = await exchange.fetchTickers(supportedSymbols);
+      const targetSymbols = supportedSymbols ?? symbols;
+      const chunkSize = targetSymbols ? getTickerChunkSize(exchangeId) : undefined;
 
-      return Object.values(tickers).map((ticker) => toTickerSnapshot(exchangeId, ticker));
+      try {
+        if (chunkSize && targetSymbols && targetSymbols.length > chunkSize) {
+          const tickers = await Promise.all(chunkSymbols(targetSymbols, chunkSize).map((chunk) => exchange.fetchTickers(chunk)));
+
+          return tickers.flatMap((tickerChunk) => Object.values(tickerChunk).map((ticker) => toTickerSnapshot(exchangeId, ticker)));
+        }
+
+        const tickers = await exchange.fetchTickers(supportedSymbols);
+
+        return Object.values(tickers).map((ticker) => toTickerSnapshot(exchangeId, ticker));
+      } catch (error) {
+        if (!targetSymbols?.length) {
+          throw error;
+        }
+
+        const tickers = await Promise.all(
+          targetSymbols.map(async (symbol) => toTickerSnapshot(exchangeId, await exchange.fetchTicker(symbol))),
+        );
+
+        return tickers;
+      }
     }
 
     const targetSymbols = supportedSymbols ?? symbols ?? Object.keys(exchange.markets);
