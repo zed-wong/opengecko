@@ -42,3 +42,8 @@ Canonical planning documents:
 - Update the engineering execution plan when milestone sequencing, hardening priorities, or near-term implementation order changes.
 - Update the implementation tracker when execution status, active priorities, or current architecture decisions change.
 - Keep this file aligned with current project direction and compatibility principles.
+
+## Script Conventions
+
+- Keep endpoint-family smoke tests under `scripts/modules/<module>/<module>.sh`.
+- Put shared shell helpers for module scripts in `scripts/modules/lib/common.sh` so new module checks reuse the same curl/jq reporting pattern.

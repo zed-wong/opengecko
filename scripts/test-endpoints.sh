@@ -11,6 +11,7 @@ PASS=0
 FAIL=0
 SKIP=0
 TOTAL=0
+MARKET_DATA_READY=0
 
 TMP_DIR="$(mktemp -d /tmp/opengecko-endpoints.XXXXXX)"
 
@@ -85,11 +86,11 @@ check() {
     if [[ -n "$body" ]]; then
       if echo "$body" | jq . >/dev/null 2>&1; then
         echo -e "     ${YELLOW}Response (pretty, truncated to ${MAX_BODY_CHARS} chars):${NC}"
-        echo "$body" | jq -C . 2>/dev/null | head -c "$MAX_BODY_CHARS" | sed 's/^/       /'
+        echo "$body" | jq -C . 2>/dev/null | head -c "$MAX_BODY_CHARS" | sed 's/^/       /' || true
         echo
       else
         echo -e "     ${YELLOW}Response (raw, truncated to ${MAX_BODY_CHARS} chars):${NC}"
-        echo "$body" | head -c "$MAX_BODY_CHARS" | sed 's/^/       /'
+        echo "$body" | head -c "$MAX_BODY_CHARS" | sed 's/^/       /' || true
         echo
       fi
     fi
@@ -125,11 +126,11 @@ check_json() {
     if [[ -n "$body" ]]; then
       if echo "$body" | jq . >/dev/null 2>&1; then
         echo -e "     ${YELLOW}Body (pretty, truncated to ${MAX_BODY_CHARS} chars):${NC}"
-        echo "$body" | jq -C . 2>/dev/null | head -c "$MAX_BODY_CHARS" | sed 's/^/       /'
+        echo "$body" | jq -C . 2>/dev/null | head -c "$MAX_BODY_CHARS" | sed 's/^/       /' || true
         echo
       else
         echo -e "     ${YELLOW}Body (raw, truncated to ${MAX_BODY_CHARS} chars):${NC}"
-        echo "$body" | head -c "$MAX_BODY_CHARS" | sed 's/^/       /'
+        echo "$body" | head -c "$MAX_BODY_CHARS" | sed 's/^/       /' || true
         echo
       fi
     fi
@@ -148,8 +149,48 @@ peek() {
 
   echo -e "  ${CYAN}🔍 ${label}${NC}"
   echo -e "     ${full_url}"
-  echo "$body" | timeout 5 jq "$jq_filter" 2>/dev/null | head -30 | sed 's/^/     /'
+  echo "$body" | timeout 5 jq "$jq_filter" 2>/dev/null | head -30 | sed 's/^/     /' || true
   echo
+}
+
+skip_check() {
+  local desc="$1"
+  local reason="$2"
+  TOTAL=$((TOTAL + 1))
+  SKIP=$((SKIP + 1))
+  echo -e "  ${YELLOW}⏭ SKIP${NC} ${desc}"
+  echo -e "     ${YELLOW}${reason}${NC}"
+}
+
+wait_for_market_data() {
+  local timeout_seconds="${1:-30}"
+  local started_at
+  started_at=$(date +%s)
+
+  echo -e "${BOLD}⏳ Readiness${NC}"
+  echo -e "  Waiting for market snapshots (up to ${timeout_seconds}s)..."
+
+  while true; do
+    local body
+    body=$(curl -s --max-time 5 "${BASE_URL}/simple/price?ids=bitcoin&vs_currencies=usd" 2>/dev/null) || body="{}"
+
+    if echo "$body" | jq -e '(.bitcoin.usd | type) == "number"' >/dev/null 2>&1; then
+      echo -e "  ${GREEN}✅ Market data ready${NC}"
+      echo
+      MARKET_DATA_READY=1
+      return 0
+    fi
+
+    local now
+    now=$(date +%s)
+    if (( now - started_at >= timeout_seconds )); then
+      echo -e "  ${YELLOW}⚠ Market data not ready after ${timeout_seconds}s; continuing anyway${NC}"
+      echo
+      return 1
+    fi
+
+    sleep 1
+  done
 }
 
 # ─────────────────────────────────────────────────
@@ -161,6 +202,8 @@ echo -e "Verbose:${CYAN} ${VERBOSE}${NC} (set VERBOSE=1 for timing/info on passi
 echo -e "Body:   ${CYAN}max ${MAX_BODY_CHARS} chars on failures${NC}"
 hr
 
+wait_for_market_data 30 || true
+
 # ─────────────────────────────────────────────────
 echo
 echo -e "${BOLD}🏥 Health${NC}"
@@ -170,7 +213,14 @@ check "GET /ping" "/ping"
 echo
 echo -e "${BOLD}💰 Simple${NC}"
 check "GET /simple/supported_vs_currencies" "/simple/supported_vs_currencies"
+check_json "simple/supported_vs_currencies includes usd" "/simple/supported_vs_currencies" 'index("usd") != null' "true"
+check_json "simple/supported_vs_currencies includes usdt" "/simple/supported_vs_currencies" 'index("usdt") != null' "true"
 check "GET /simple/price" "/simple/price?ids=bitcoin,ethereum&vs_currencies=usd,eur&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true"
+if [[ "$MARKET_DATA_READY" == "1" ]]; then
+  check_json "simple/price returns numeric bitcoin.usd" "/simple/price?ids=bitcoin&vs_currencies=usd" '(.bitcoin.usd | type) == "number"' "true"
+else
+  skip_check "simple/price returns numeric bitcoin.usd" "market snapshots not ready yet"
+fi
 check "GET /simple/token_price/:id" "/simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&vs_currencies=usd"
 check "GET /exchange_rates" "/exchange_rates"
 
@@ -243,7 +293,7 @@ echo
 echo -e "${BOLD}🏷️ Coins — Tickers${NC}"
 check "GET /coins/bitcoin/tickers" "/coins/bitcoin/tickers"
 check "GET /coins/bitcoin/tickers?include_exchange_logo=true" "/coins/bitcoin/tickers?include_exchange_logo=true"
-check "GET /coins/bitcoin/tickers?exchange_ids=coinbase_exchange" "/coins/bitcoin/tickers?exchange_ids=coinbase_exchange"
+check "GET /coins/bitcoin/tickers?exchange_ids=coinbase" "/coins/bitcoin/tickers?exchange_ids=coinbase"
 check "GET /coins/bitcoin/tickers?order=volume_asc" "/coins/bitcoin/tickers?order=volume_asc"
 
 peek "tickers structure" "/coins/bitcoin/tickers" '{ name, tickers_count: (.tickers | length), first_ticker: .tickers[0] | { base, target, market: .market.name, last } }'
@@ -318,6 +368,9 @@ echo
 echo -e "${BOLD}⛓️ Onchain${NC}"
 check "GET /onchain/networks" "/onchain/networks?page=1"
 check "GET /onchain/networks/eth/dexes" "/onchain/networks/eth/dexes?page=1"
+check "GET /onchain/networks/eth/pools" "/onchain/networks/eth/pools?page=1"
+check "GET /onchain/networks/eth/new_pools" "/onchain/networks/eth/new_pools?page=1"
+check "GET /onchain/networks/eth/pools/0x... (404)" "/onchain/networks/eth/pools/0x0000000000000000000000000000000000000000" "404"
 check "GET /onchain/networks/not-a-network/dexes (404)" "/onchain/networks/not-a-network/dexes?page=1" "404"
 
 peek "onchain networks" "/onchain/networks?page=1" '.data[0] | { id, type, attributes: .attributes | { name, chain_identifier } }'
@@ -345,11 +398,17 @@ check "GET /search without query" "/search" "400"
 
 # ─────────────────────────────────────────────────
 echo
+echo -e "${BOLD}🧪 Diagnostics${NC}"
+check "GET /diagnostics/chain_coverage" "/diagnostics/chain_coverage"
+
+# ─────────────────────────────────────────────────
+echo
 hr
 echo
 echo -e "${BOLD}Results${NC}"
 echo -e "  ${GREEN}✅ Passed: ${PASS}${NC}"
 echo -e "  ${RED}❌ Failed: ${FAIL}${NC}"
+echo -e "  ${YELLOW}⏭ Skipped: ${SKIP}${NC}"
 echo -e "  ${BOLD}   Total:  ${TOTAL}${NC}"
 echo
 

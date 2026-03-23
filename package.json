@@ -9,6 +9,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
+    "test:endpoint":"bash scripts/test-endpoints.sh",
+    "test:endpoint:simple": "bash scripts/modules/simple/simple.sh",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "charts:backfill": "tsx src/jobs/backfill-ohlcv.ts",
