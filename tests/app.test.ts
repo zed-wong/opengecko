@@ -1166,6 +1166,143 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('returns pool-scoped and token-aggregated onchain trades with threshold and token filtering semantics', async () => {
+    const poolTradesResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/trades',
+    });
+    const filteredPoolTradesResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/trades?trade_volume_in_usd_greater_than=150000&token=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+    const tokenTradesResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/trades',
+    });
+    const filteredTokenTradesResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/trades?trade_volume_in_usd_greater_than=150000',
+    });
+
+    expect(poolTradesResponse.statusCode).toBe(200);
+    expect(poolTradesResponse.json().meta).toEqual({
+      network: 'eth',
+      pool_address: '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+    });
+    expect(poolTradesResponse.json().data).toMatchObject(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'trade',
+        relationships: {
+          pool: {
+            data: {
+              type: 'pool',
+              id: '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+            },
+          },
+          network: {
+            data: {
+              type: 'network',
+              id: 'eth',
+            },
+          },
+        },
+      }),
+    ]));
+    expect(poolTradesResponse.json().data.length).toBeGreaterThanOrEqual(2);
+    expect(poolTradesResponse.json().data.every((trade: { relationships: { pool: { data: { id: string } } } }) =>
+      trade.relationships.pool.data.id === '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b')).toBe(true);
+
+    expect(filteredPoolTradesResponse.statusCode).toBe(200);
+    expect(filteredPoolTradesResponse.json().data.length).toBeGreaterThan(0);
+    expect(filteredPoolTradesResponse.json().data.every((trade: {
+      attributes: { volume_in_usd: string; token_address: string };
+      relationships: { pool: { data: { id: string } } };
+    }) =>
+      Number(trade.attributes.volume_in_usd) > 150000
+      && trade.attributes.token_address === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+      && trade.relationships.pool.data.id === '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b')).toBe(true);
+
+    expect(tokenTradesResponse.statusCode).toBe(200);
+    expect(tokenTradesResponse.json().meta).toEqual({
+      network: 'eth',
+      token_address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+    expect(tokenTradesResponse.json().data).toMatchObject(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'trade',
+        relationships: {
+          token: {
+            data: {
+              type: 'token',
+              id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            },
+          },
+          network: {
+            data: {
+              type: 'network',
+              id: 'eth',
+            },
+          },
+        },
+      }),
+    ]));
+    expect(new Set(tokenTradesResponse.json().data.map((trade: { relationships: { pool: { data: { id: string } } } }) =>
+      trade.relationships.pool.data.id))).toEqual(new Set([
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+    ]));
+    expect(tokenTradesResponse.json().data.every((trade: { attributes: { token_address: string } }) =>
+      trade.attributes.token_address === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48')).toBe(true);
+
+    expect(filteredTokenTradesResponse.statusCode).toBe(200);
+    expect(filteredTokenTradesResponse.json().data.length).toBeGreaterThan(0);
+    expect(filteredTokenTradesResponse.json().data.every((trade: { attributes: { volume_in_usd: string } }) =>
+      Number(trade.attributes.volume_in_usd) > 150000)).toBe(true);
+  });
+
+  it('rejects malformed onchain trade parameters explicitly', async () => {
+    const invalidPoolTokenResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/trades?token=0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
+    });
+    const malformedPoolThresholdResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/trades?trade_volume_in_usd_greater_than=abc',
+    });
+    const malformedTokenThresholdResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/trades?trade_volume_in_usd_greater_than=abc',
+    });
+    const malformedPoolTokenResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/trades?token=not-an-address',
+    });
+
+    expect(invalidPoolTokenResponse.statusCode).toBe(400);
+    expect(invalidPoolTokenResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Token is not a constituent of pool: 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
+    });
+
+    expect(malformedPoolThresholdResponse.statusCode).toBe(400);
+    expect(malformedPoolThresholdResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid trade_volume_in_usd_greater_than value: abc',
+    });
+
+    expect(malformedTokenThresholdResponse.statusCode).toBe(400);
+    expect(malformedTokenThresholdResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid trade_volume_in_usd_greater_than value: abc',
+    });
+
+    expect(malformedPoolTokenResponse.statusCode).toBe(400);
+    expect(malformedPoolTokenResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid onchain address: not-an-address',
+    });
+  });
+
   it('returns token list data for an asset platform', async () => {
     const response = await getApp().inject({
       method: 'GET',

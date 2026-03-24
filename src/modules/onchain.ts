@@ -55,6 +55,11 @@ const recentlyUpdatedTokenInfoQuerySchema = z.object({
   page: z.string().optional(),
 });
 
+const tradesQuerySchema = z.object({
+  trade_volume_in_usd_greater_than: z.string().optional(),
+  token: z.string().optional(),
+});
+
 function normalizeAddress(address: string) {
   return address.trim().toLowerCase();
 }
@@ -371,6 +376,152 @@ function buildTokenInfoResource(networkId: string, tokenAddress: string, tokenPo
 
 function formatMetricValue(value: number | null) {
   return value === null ? null : String(value);
+}
+
+type OnchainTradeRecord = {
+  id: string;
+  networkId: string;
+  poolAddress: string;
+  tokenAddress: string;
+  side: 'buy' | 'sell';
+  volumeUsd: number;
+  priceUsd: number;
+  txHash: string;
+  blockTimestamp: number;
+};
+
+function parseTradeVolumeThreshold(value: string | undefined) {
+  if (value === undefined) {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    throw new HttpError(400, 'invalid_parameter', `Invalid trade_volume_in_usd_greater_than value: ${value}`);
+  }
+
+  return parsed;
+}
+
+function buildOnchainTradeFixtures(database: AppDatabase): OnchainTradeRecord[] {
+  const poolRows = database.db.select().from(onchainPools).all();
+  const getPool = (address: string) => {
+    const row = poolRows.find((pool) => pool.address === address);
+    if (!row) {
+      throw new Error(`Missing seeded onchain pool for trade fixtures: ${address}`);
+    }
+    return row;
+  };
+
+  const usdcWethPool = getPool('0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b');
+  const curveStablePool = getPool('0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7');
+  const wethUsdtPool = getPool('0x4e68ccd3e89f51c3074ca5072bbac773960dfa36');
+  const solUsdcPool = getPool('58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2');
+
+  return [
+    {
+      id: 'eth-usdcweth-1',
+      networkId: 'eth',
+      poolAddress: usdcWethPool.address,
+      tokenAddress: normalizeAddress(usdcWethPool.baseTokenAddress),
+      side: 'buy',
+      volumeUsd: 220000,
+      priceUsd: 1,
+      txHash: '0xtrade000000000000000000000000000000000000000000000000000000000001',
+      blockTimestamp: 1_710_000_000,
+    },
+    {
+      id: 'eth-usdcweth-2',
+      networkId: 'eth',
+      poolAddress: usdcWethPool.address,
+      tokenAddress: normalizeAddress(usdcWethPool.quoteTokenAddress),
+      side: 'sell',
+      volumeUsd: 95000,
+      priceUsd: 3500,
+      txHash: '0xtrade000000000000000000000000000000000000000000000000000000000002',
+      blockTimestamp: 1_709_999_400,
+    },
+    {
+      id: 'eth-curve-1',
+      networkId: 'eth',
+      poolAddress: curveStablePool.address,
+      tokenAddress: normalizeAddress(curveStablePool.baseTokenAddress),
+      side: 'buy',
+      volumeUsd: 180000,
+      priceUsd: 1,
+      txHash: '0xtrade000000000000000000000000000000000000000000000000000000000003',
+      blockTimestamp: 1_709_999_200,
+    },
+    {
+      id: 'eth-curve-2',
+      networkId: 'eth',
+      poolAddress: curveStablePool.address,
+      tokenAddress: normalizeAddress(curveStablePool.quoteTokenAddress),
+      side: 'sell',
+      volumeUsd: 120000,
+      priceUsd: 1,
+      txHash: '0xtrade000000000000000000000000000000000000000000000000000000000004',
+      blockTimestamp: 1_709_998_800,
+    },
+    {
+      id: 'eth-wethusdt-1',
+      networkId: 'eth',
+      poolAddress: wethUsdtPool.address,
+      tokenAddress: normalizeAddress(wethUsdtPool.baseTokenAddress),
+      side: 'buy',
+      volumeUsd: 260000,
+      priceUsd: 3500,
+      txHash: '0xtrade000000000000000000000000000000000000000000000000000000000005',
+      blockTimestamp: 1_709_998_200,
+    },
+    {
+      id: 'sol-solusdc-1',
+      networkId: 'solana',
+      poolAddress: solUsdcPool.address,
+      tokenAddress: normalizeAddress(solUsdcPool.quoteTokenAddress),
+      side: 'buy',
+      volumeUsd: 140000,
+      priceUsd: 1,
+      txHash: 'soltrade111111111111111111111111111111111111111111111111111111',
+      blockTimestamp: 1_709_997_000,
+    },
+  ];
+}
+
+function buildTradeResource(trade: OnchainTradeRecord) {
+  return {
+    id: trade.id,
+    type: 'trade',
+    attributes: {
+      tx_hash: trade.txHash,
+      side: trade.side,
+      token_address: trade.tokenAddress,
+      volume_in_usd: String(trade.volumeUsd),
+      price_in_usd: String(trade.priceUsd),
+      block_timestamp: trade.blockTimestamp,
+    },
+    relationships: {
+      network: {
+        data: {
+          type: 'network',
+          id: trade.networkId,
+        },
+      },
+      pool: {
+        data: {
+          type: 'pool',
+          id: trade.poolAddress,
+        },
+      },
+      token: {
+        data: {
+          type: 'token',
+          id: trade.tokenAddress,
+        },
+      },
+    },
+  };
 }
 
 function buildIncludedResources(
@@ -927,6 +1078,83 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       ...(included.length > 0 ? { included } : {}),
       meta: {
         page,
+      },
+    };
+  });
+
+  app.get('/onchain/networks/:network/pools/:address/trades', async (request) => {
+    const params = z.object({ network: z.string(), address: z.string() }).parse(request.params);
+    const query = tradesQuerySchema.parse(request.query);
+    const threshold = parseTradeVolumeThreshold(query.trade_volume_in_usd_greater_than);
+
+    const pool = database.db
+      .select()
+      .from(onchainPools)
+      .where(and(eq(onchainPools.networkId, params.network), eq(onchainPools.address, params.address)))
+      .limit(1)
+      .get();
+
+    if (!pool) {
+      throw new HttpError(404, 'not_found', `Onchain pool not found: ${params.address}`);
+    }
+
+    let filteredToken: string | null = null;
+    if (query.token !== undefined) {
+      if (!isValidOnchainAddress(query.token)) {
+        throw new HttpError(400, 'invalid_parameter', `Invalid onchain address: ${query.token}`);
+      }
+
+      filteredToken = normalizeAddress(query.token);
+      const poolTokens = [normalizeAddress(pool.baseTokenAddress), normalizeAddress(pool.quoteTokenAddress)];
+      if (!poolTokens.includes(filteredToken)) {
+        throw new HttpError(400, 'invalid_parameter', `Token is not a constituent of pool: ${filteredToken}`);
+      }
+    }
+
+    const trades = buildOnchainTradeFixtures(database)
+      .filter((trade) => trade.networkId === params.network && trade.poolAddress === params.address)
+      .filter((trade) => threshold === null || trade.volumeUsd > threshold)
+      .filter((trade) => filteredToken === null || trade.tokenAddress === filteredToken)
+      .sort((left, right) => right.blockTimestamp - left.blockTimestamp || left.id.localeCompare(right.id));
+
+    return {
+      data: trades.map(buildTradeResource),
+      meta: {
+        network: params.network,
+        pool_address: params.address,
+      },
+    };
+  });
+
+  app.get('/onchain/networks/:network/tokens/:address/trades', async (request) => {
+    const params = z.object({ network: z.string(), address: z.string() }).parse(request.params);
+    const query = tradesQuerySchema.parse(request.query);
+    const threshold = parseTradeVolumeThreshold(query.trade_volume_in_usd_greater_than);
+
+    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+
+    if (!network) {
+      throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
+    }
+
+    const tokenAddress = normalizeAddress(params.address);
+    const tokenPools = collectTokenPools(params.network, tokenAddress, database);
+
+    if (tokenPools.length === 0) {
+      throw new HttpError(404, 'not_found', `Onchain token not found: ${tokenAddress}`);
+    }
+
+    const poolAddresses = new Set(tokenPools.map((pool) => pool.address));
+    const trades = buildOnchainTradeFixtures(database)
+      .filter((trade) => trade.networkId === params.network && trade.tokenAddress === tokenAddress && poolAddresses.has(trade.poolAddress))
+      .filter((trade) => threshold === null || trade.volumeUsd > threshold)
+      .sort((left, right) => right.blockTimestamp - left.blockTimestamp || left.id.localeCompare(right.id));
+
+    return {
+      data: trades.map(buildTradeResource),
+      meta: {
+        network: params.network,
+        token_address: tokenAddress,
       },
     };
   });
