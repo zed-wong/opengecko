@@ -162,10 +162,10 @@ describe('ohlcv priority', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('computes a deterministic top-ranked set from market snapshots', () => {
+  it('computes a deterministic top-ranked set from market-cap-rank thresholds', () => {
     const topIds = selectTopOhlcvCoins(database, 2);
 
-    expect(topIds).toEqual(['bitcoin', 'chainlink']);
+    expect(topIds).toEqual(['bitcoin']);
   });
 
   it('promotes ranked coins into the top100 worker tier without losing cursors', () => {

@@ -8,9 +8,15 @@ vi.mock('../src/db/client', () => ({
   rebuildSearchIndex: vi.fn(),
 }));
 
+async function flushMicrotasks(iterations = 5) {
+  for (let index = 0; index < iterations; index += 1) {
+    await Promise.resolve();
+  }
+}
+
 async function advanceTimersBy(ms: number) {
   vi.advanceTimersByTime(ms);
-  await Promise.resolve();
+  await flushMicrotasks();
 }
 
 async function eventually(assertion: () => void) {
@@ -22,7 +28,7 @@ async function eventually(assertion: () => void) {
       vi.advanceTimersByTime(0);
     }
 
-    await Promise.resolve();
+    await flushMicrotasks();
   }
 
   assertion();
@@ -118,31 +124,27 @@ describe('market runtime', () => {
     }));
     const runCurrencyRefreshOnce = vi.fn().mockResolvedValue(undefined);
     const runMarketRefreshOnce = vi.fn().mockResolvedValue(undefined);
+    const stopOhlcvRuntime = vi.fn().mockResolvedValue(undefined);
     const runtime = createMarketRuntime({} as never, baseConfig as never, logger, createState(), {
       runInitialMarketSync,
       runCurrencyRefreshOnce,
       runMarketRefreshOnce,
       runSearchRebuildOnce: vi.fn().mockResolvedValue(undefined),
+      stopOhlcvRuntime,
     });
 
-    let startResolved = false;
-    const startPromise = runtime.start().then(() => {
-      startResolved = true;
-    });
-
-    await Promise.resolve();
-    await Promise.resolve();
+    const startPromise = runtime.start();
+    await flushMicrotasks();
 
     expect(runInitialMarketSync).toHaveBeenCalledTimes(1);
-    expect(startResolved).toBe(true);
     expect(runCurrencyRefreshOnce).toHaveBeenCalledTimes(0);
     expect(runMarketRefreshOnce).toHaveBeenCalledTimes(0);
 
+    await runtime.stop();
+    expect(stopOhlcvRuntime).toHaveBeenCalledTimes(1);
+
     releaseInitialSync();
     await startPromise;
-    await advanceTimersBy(0);
-
-    await runtime.stop();
   });
 
   it('handles initial sync failure gracefully', async () => {
