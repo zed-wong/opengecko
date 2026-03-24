@@ -1,0 +1,76 @@
+{
+  "milestone": "onchain-primitives-parity",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "typecheck": {
+      "passed": true,
+      "command": "bun run typecheck",
+      "exitCode": 0
+    },
+    "test": {
+      "passed": true,
+      "command": "bun test --maxWorkers=3",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "bun run lint (via package.json scripts)",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add convention for HTTP parameter parsing: use parseCsvQuery and parseBooleanQuery from http/params.ts for query parameter handling. All onchain endpoints now follow this pattern.",
+      "evidence": "Features onchain-pool-resource-endpoints, onchain-token-resource-endpoints, onchain-simple-price-and-info-endpoints consistently use parseBooleanQuery from src/http/params.ts for toggle handling. Boolean validation rejects non-boolean values like 'yes' with explicit 400 errors.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add convention for JSON:API response structure: all resource endpoints must include data, relationships, and optional included fields following the established pattern.",
+      "evidence": "All onchain endpoints (pool, token, dex, network) consistently use JSON:API-style responses with relationships.network and relationships.dex fields. Example: src/modules/onchain.ts:98-154 buildPoolResource and src/modules/onchain.ts:193-246 buildIncludedResources.",
+      "isSystemic": true
+    },
+    {
+      "target": "library/",
+      "suggestion": "Document the volume breakdown calculation convention: when volume is not null, split evenly between buy/sell (volume/2 each). This synthetic split may not reflect actual buy/sell ratio but satisfies the contract for toggle behavior.",
+      "evidence": "src/modules/onchain.ts:87-92 - h24_buy_usd and h24_sell_usd both set to volume24hUsd / 2 when volume is not null. Pattern found in onchain-pool-resource-endpoints.",
+      "isSystemic": false
+    },
+    {
+      "target": "library/",
+      "suggestion": "Document the deterministic batch ordering pattern: SQL results sorted by address (asc), then mapped back to request order using a Map. This ensures request-order output while maintaining stable database queries.",
+      "evidence": "src/modules/onchain.ts:399 - .orderBy(asc(onchainPools.address)). src/modules/onchain.ts:402-404 - Maps rows back to requested address order using rowsByAddress Map. Pattern found in onchain-pool-resource-endpoints and used across multi-endpoints.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add boundary: validation server ports used for manual verification should be documented and standardized. Multiple workers used port 3102 for validation but it's not in services.yaml.",
+      "evidence": "Features onchain-network-and-dex-catalog-endpoints, onchain-pool-resource-endpoints, onchain-simple-price-and-info-endpoints all started validation servers on port 3102. Consider adding a standard validation server port range to services.yaml.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add convention for address normalization: use trim + lowercase via normalizeAddress() helper for consistent token/pool identity matching.",
+      "evidence": "src/modules/onchain.ts:42-44 defines normalizeAddress() and it's used consistently in collectTokenPools(), buildTokenResource(), and route handlers. Pattern established in onchain-token-resource-endpoints.",
+      "isSystemic": true
+    },
+    {
+      "target": "library/",
+      "suggestion": "Document token/pool reciprocity testing pattern: verify that token-pools returns pools where the token appears as either base or quote, and that pool attributes correctly reference the token address.",
+      "evidence": "tests/app.test.ts includes comprehensive assertions for bidirectional token/pool identity continuity. Pattern established in onchain-token-resource-endpoints.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [],
+  "previousRound": null
+}
