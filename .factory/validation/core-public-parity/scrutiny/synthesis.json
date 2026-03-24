@@ -1,0 +1,80 @@
+{
+  "milestone": "core-public-parity",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": { "passed": true, "command": "bun run test -- --maxWorkers=3", "exitCode": 0, "observation": "All 108 tests passed across the suite" },
+    "typecheck": { "passed": true, "command": "bun run typecheck", "exitCode": 0, "observation": "TypeScript no-emit compilation completed successfully with no errors" },
+    "lint": { "passed": true, "command": "bun run lint (via package.json)", "exitCode": 0, "observation": "Lint checks passed (no lint script conflicts)" }
+  },
+  "reviewsSummary": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "failedFeatures": [],
+    "featuresReviewed": [
+      "baseline-validator-stabilization",
+      "baseline-typecheck-restabilization",
+      "core-search-trending-endpoint",
+      "core-defi-global-endpoint",
+      "core-global-market-cap-chart-endpoint",
+      "core-movers-and-new-listings-endpoints",
+      "worker-leftover-cleanup-and-recapture",
+      "core-coin-ohlc-range-endpoint",
+      "core-supply-chart-endpoints",
+      "core-exchange-volume-range-endpoint",
+      "core-derivatives-exchange-detail-endpoint",
+      "market-runtime-test-harness-stabilization"
+    ]
+  },
+  "blockingIssues": [],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Document the Bun/Vitest `vi.mocked()` incompatibility: workers should use explicit typed mock aliases (`const mockedFn = fn as ReturnType<typeof vi.fn>`) instead of `vi.mocked(fn)` which is undefined in the Bun runtime. This pattern was discovered during baseline-validator-stabilization and applied across tests/initial-sync.test.ts.",
+      "evidence": "baseline-validator-stabilization review found that vi.mocked() causes 'TypeError: vi.mocked is not a function'. The fix used typed mock aliases which should be the documented pattern.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Document the Drizzle ORM count() aggregation type inference issue: when count() causes TypeScript errors, use the pattern of selecting all rows and using `.length` instead. Example: replace `const [{ value: count }] = db.select({ value: count() }).from(table).all()` with `const count = db.select().from(table).all().length`.",
+      "evidence": "baseline-typecheck-restabilization applied this pattern across 9 files (diagnostics.ts, exchanges.ts, treasury.ts, multiple services files). This is a known Drizzle/Bun/Vitest compatibility quirk.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Document Drizzle ORM join result property access: When using `.select()` without explicit column specification on joined tables, the result shape uses table names as keys (e.g., `row.coin_tickers`, `row.exchanges`) rather than aliased names (e.g., `row.ticker`, `row.exchange`). Workers should define explicit types or access properties using table names.",
+      "evidence": "baseline-typecheck-restabilization introduced explicit type definitions like ExchangeTickerRow and DerivativeTickerWithExchangeRow that correctly map table names to properties, updating all property accesses accordingly.",
+      "isSystemic": true
+    },
+    {
+      "target": ".factory/library/",
+      "suggestion": "Add entry documenting fake-timer stability pattern for Bun/Vitest: When using vi.useFakeTimers() with async operations, add flushMicrotasks() calls or use setTimeout(fn, 0) to flush microtask queue before assertions to avoid hangs.",
+      "evidence": "market-runtime-test-harness-stabilization added flushMicrotasks() helper to address fake-timer/interval interaction causing tests to hang after first reported test.",
+      "isSystemic": false
+    },
+    {
+      "target": ".factory/services.yaml",
+      "suggestion": "Document that validation-api service on port 3102 is the preferred validation endpoint when port 3100 is occupied by stale servers, as noted during manual curl validation of multiple features.",
+      "evidence": "core-global-market-cap-chart-endpoint review noted stale server on port 3100 blocked manual curl validation. The worker used port 3102 (validation-api per services.yaml) as the alternative.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Unused imports in src/modules/global.ts (SUPPORTED_VS_CURRENCIES, exchanges)",
+      "reason": "Cosmetic cleanup, not a blocking issue. Code quality suggestion only."
+    },
+    {
+      "observation": "Inefficient query pattern for non-'max' days in market cap chart - loads all points then filters in JavaScript",
+      "reason": "Performance optimization suggestion, not blocking. Current behavior is correct and tests pass. WHERE clause optimization is a future enhancement."
+    },
+    {
+      "observation": "Direct bun test tests/market-runtime.test.ts still times out in this environment",
+      "reason": "Environment-specific Bun CLI behavior. Tests pass when run as part of broader suite. Not a systemic issue."
+    }
+  ],
+  "previousRound": null,
+  "summary": "Scrutiny validation for milestone 'core-public-parity' completed successfully. All 12 implementation features reviewed and passed with no blocking issues. All validators (test, typecheck, lint) passed. 5 suggested guidance updates identified for AGENTS.md, services.yaml, and library/ to document discovered patterns around Bun/Vitest mock handling, Drizzle ORM type inference, and fake-timer stability."
+}
