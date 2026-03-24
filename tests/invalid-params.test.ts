@@ -273,6 +273,23 @@ describe('OpenGecko invalid parameter handling', () => {
     });
   });
 
+  it('rejects invalid exchange volume chart ranges explicitly', async () => {
+    const badFromResponse = await app!.inject({
+      method: 'GET',
+      url: '/exchanges/binance/volume_chart/range?from=bad&to=1774310400',
+    });
+    const badBoundsResponse = await app!.inject({
+      method: 'GET',
+      url: '/exchanges/binance/volume_chart/range?from=1774310400&to=1774224000',
+    });
+
+    expect(badFromResponse.statusCode).toBe(400);
+    expect(badFromResponse.json()).toMatchObject(errorFixtures.coinChartRangeBadFrom);
+
+    expect(badBoundsResponse.statusCode).toBe(400);
+    expect(badBoundsResponse.json()).toMatchObject(errorFixtures.coinChartRangeBadBounds);
+  });
+
   it('rejects unsupported exchange ticker ordering values', async () => {
     const response = await app!.inject({
       method: 'GET',

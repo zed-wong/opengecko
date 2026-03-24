@@ -28,6 +28,11 @@ const exchangeVolumeChartQuerySchema = z.object({
   days: z.string(),
 });
 
+const exchangeVolumeRangeQuerySchema = z.object({
+  from: z.string(),
+  to: z.string(),
+});
+
 const exchangeTickersQuerySchema = z.object({
   coin_ids: z.string().optional(),
   include_exchange_logo: z.enum(['true', 'false']).optional(),
@@ -301,6 +306,41 @@ function getExchangeVolumeChart(database: AppDatabase, exchangeId: string, days:
   return [...buckets.values()].sort((a, b) => a[0] - b[0]);
 }
 
+function parseRangeBound(value: string, name: 'from' | 'to') {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    throw new HttpError(400, 'invalid_parameter', `Invalid ${name} value: ${value}`);
+  }
+
+  return parsed;
+}
+
+function getExchangeVolumeChartRange(database: AppDatabase, exchangeId: string, from: string, to: string) {
+  const fromSeconds = parseRangeBound(from, 'from');
+  const toSeconds = parseRangeBound(to, 'to');
+
+  if (fromSeconds > toSeconds) {
+    throw new HttpError(400, 'invalid_parameter', 'Invalid time range: from must be less than or equal to to.');
+  }
+
+  const fromMs = fromSeconds * 1000;
+  const toMs = toSeconds * 1000;
+
+  return database.db
+    .select()
+    .from(exchangeVolumePoints)
+    .where(eq(exchangeVolumePoints.exchangeId, exchangeId))
+    .orderBy(asc(exchangeVolumePoints.timestamp))
+    .all()
+    .filter((row) => {
+      const timestamp = row.timestamp.getTime();
+
+      return timestamp >= fromMs && timestamp <= toMs && Number.isFinite(row.volumeBtc);
+    })
+    .map((row) => [row.timestamp.getTime(), row.volumeBtc] satisfies [number, number]);
+}
+
 function sortDerivativesExchangeRows(rows: DerivativesExchangeRow[], order: string | undefined) {
   const normalizedOrder = (order ?? 'open_interest_btc_desc').toLowerCase();
   const sortableRows = [...rows];
@@ -412,6 +452,15 @@ export function registerExchangeRoutes(
     getExchangeOrThrow(database, params.id);
 
     return getExchangeVolumeChart(database, params.id, query.days);
+  });
+
+  app.get('/exchanges/:id/volume_chart/range', async (request) => {
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const query = exchangeVolumeRangeQuerySchema.parse(request.query);
+
+    getExchangeOrThrow(database, params.id);
+
+    return getExchangeVolumeChartRange(database, params.id, query.from, query.to);
   });
 
   app.get('/exchanges/:id/tickers', async (request) => {

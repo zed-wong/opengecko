@@ -278,6 +278,27 @@ describe('OpenGecko app scaffold', () => {
     }
   });
 
+  it('returns ranged exchange volume tuples in ascending chronological order with finite numerics', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/exchanges/binance/volume_chart/range?from=0&to=4102444800',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.length).toBeGreaterThan(0);
+
+    const timestamps = body.map((tuple: number[]) => tuple[0]);
+    expect(timestamps).toEqual([...timestamps].sort((left, right) => left - right));
+
+    for (const tuple of body) {
+      expect(tuple).toHaveLength(2);
+      expect(typeof tuple[0]).toBe('number');
+      expect(typeof tuple[1]).toBe('number');
+      expect(Number.isFinite(tuple[1])).toBe(true);
+    }
+  });
+
   it('returns exchange tickers and supports coin filters', async () => {
     const response = await getApp().inject({
       method: 'GET',
