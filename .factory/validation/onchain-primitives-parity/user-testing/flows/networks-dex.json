@@ -1,0 +1,159 @@
+{
+  "groupId": "networks-dex",
+  "testedAt": "2026-03-25T00:00:00Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "port": 3102,
+    "testingTool": "curl with jq for JSON parsing"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-ONCHAIN-PRIM-001",
+      "title": "Networks list endpoint with pagination",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks",
+          "expected": "Returns data[] array with network resources and pagination metadata",
+          "observed": "Response contains data[] array with 2 networks (ethereum, solana) and meta object with page=1, per_page=100, total_pages=1, total_count=2"
+        }
+      ],
+      "evidence": {
+        "responseFile": "onchain-primitives-parity/networks/VAL-ONCHAIN-PRIM-001-networks-list.json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-001A",
+      "title": "Networks list page 2 pagination",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks?page=2",
+          "expected": "Returns empty data[] array for page beyond available data",
+          "observed": "Response contains empty data[] array with meta.page=2, meta.total_pages=1 indicating no additional pages available"
+        }
+      ],
+      "evidence": {
+        "responseFile": "onchain-primitives-parity/networks/VAL-ONCHAIN-PRIM-001A-networks-page2.json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-002",
+      "title": "Network detail endpoint",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/ethereum",
+          "expected": "Returns single network resource with attributes",
+          "observed": "Response contains single network resource with id='ethereum', type='network', attributes (name, shortname, chain_identifier, native_coin_id), and relationships.dexes data"
+        }
+      ],
+      "evidence": {
+        "responseFile": "onchain-primitives-parity/networks/VAL-ONCHAIN-PRIM-002-network-detail.json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-002A",
+      "title": "Network detail with relationships",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/ethereum",
+          "expected": "Response includes relationships.dexes with array of dex identifiers",
+          "observed": "Response contains relationships.dexes.data array with 2 dexes: {id='curve', type='dex'} and {id='uniswap_v3', type='dex'}"
+        }
+      ],
+      "evidence": {
+        "responseFile": "onchain-primitives-parity/networks/VAL-ONCHAIN-PRIM-002-network-detail.json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-003",
+      "title": "Dex list endpoint for a network",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/dexes",
+          "expected": "Returns data[] array of dex resources scoped to network",
+          "observed": "Response contains data[] array with 2 dexes (curve, uniswap_v3), each with type='dex', attributes (name, url, image_url), and relationships.network pointing to eth"
+        }
+      ],
+      "evidence": {
+        "responseFile": "onchain-primitives-parity/networks/VAL-ONCHAIN-PRIM-003-dex-list.json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-003A",
+      "title": "Dex list with valid network",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/dexes",
+          "expected": "Returns dexes scoped to valid network id",
+          "observed": "Response meta.network='eth' confirms dexes are scoped to the requested network; both dexes have relationships.network.data.id='eth'"
+        }
+      ],
+      "evidence": {
+        "responseFile": "onchain-primitives-parity/networks/VAL-ONCHAIN-PRIM-003-dex-list.json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-004",
+      "title": "Invalid page handling for networks",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks?page=invalid",
+          "expected": "Returns 4xx error for invalid page parameter",
+          "observed": "Response contains error object with error='invalid_parameter', message='Invalid integer value: invalid', statusCode=400"
+        }
+      ],
+      "evidence": {
+        "responseFile": "onchain-primitives-parity/networks/VAL-ONCHAIN-PRIM-004-invalid-page.json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-014",
+      "title": "Network-to-asset-platform continuity",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Compare /asset_platforms with /onchain/networks",
+          "expected": "Asset platforms data should align with network identifiers for continuity",
+          "observed": "Asset platforms list contains entries like 'ethereum' (id='eth', chain_identifier=1, name='Ethereum', shortname='eth', native_coin_id='ethereum') which aligns with network 'ethereum' from /onchain/networks"
+        }
+      ],
+      "evidence": {
+        "responseFile": "onchain-primitives-parity/networks/VAL-CROSS-014-asset-platforms.json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-014A",
+      "title": "Asset platforms to networks continuity",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Cross-check network IDs exist in asset platforms",
+          "expected": "Network IDs (ethereum, solana) should be present in asset platforms",
+          "observed": "Asset platforms contains 'ethereum' entry (matching /onchain/networks/ethereum) and 'solana' entry (matching /onchain/networks/solana). Both have corresponding chain identifiers and native coin IDs."
+        }
+      ],
+      "evidence": {
+        "responseFile": "onchain-primitives-parity/networks/VAL-CROSS-014-asset-platforms.json"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 9 assertions: 9 passed. All network/dex endpoint assertions pass including pagination, detail resources, dex listings scoped to networks, invalid parameter handling, and network-to-asset-platform continuity."
+}

@@ -1,0 +1,47 @@
+{
+  "featureId": "onchain-pool-resource-endpoints",
+  "reviewedAt": "2026-03-25T04:12:00Z",
+  "commitId": "518f230",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation comprehensively covers all required onchain pool resource endpoints with strict adherence to the validation contract. Changes span 287 lines across src/modules/onchain.ts and test files. The code properly implements pool detail with network/dex scoping, explicit include validation for 'network' and 'dex' values, boolean toggle handling for include_volume_breakdown and include_composition, deterministic batch ordering for pool-multi endpoints, recency ordering for new_pools, and deduplicated included resources. All validation contract assertions VAL-ONCHAIN-PRIM-005 through VAL-CROSS-015A are addressed.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The worker consistently used parseBooleanQuery and parseCsvQuery from http/params.ts for query parameter handling, following existing codebase patterns. The boolean toggle validation correctly rejects non-boolean values like 'yes' with explicit 400 errors.",
+      "evidence": "src/modules/onchain.ts:44-53 - parsePoolIncludes validates against poolIncludeSchema z.enum(['network', 'dex']). src/modules/onchain.ts:56-58 - parseBooleanQuery used for include_volume_breakdown and include_composition."
+    },
+    {
+      "area": "conventions",
+      "observation": "The implementation correctly uses JSON:API-style responses with data, relationships, and optional included fields, consistent with existing onchain endpoints in the codebase.",
+      "evidence": "src/modules/onchain.ts:98-154 - buildPoolResource returns standard JSON:API structure with relationships.network and relationships.dex. src/modules/onchain.ts:193-246 - buildIncludedResources correctly deduplicates network and dex resources."
+    },
+    {
+      "area": "conventions",
+      "observation": "The worker properly utilized existing database schema (onchainNetworks, onchainDexes, onchainPools) and query patterns using drizzle-orm operators (and, eq, inArray, asc, desc).",
+      "evidence": "src/modules/onchain.ts:1-7 - Imports from drizzle-orm and db/schema. src/modules/onchain.ts:224-246 - Uses inArray for batch lookups with proper deduplication via Set."
+    },
+    {
+      "area": "skills",
+      "observation": "Worker followed the onchain-api-worker skill procedure correctly: read mission docs, ran baseline tests (noted pre-existing failures per AGENTS.md), implemented scoped changes, ran targeted tests, performed typecheck, and did manual HTTP verification.",
+      "evidence": "Transcript shows: validation-contract.md read, baseline test run with pre-existing failure acknowledgment, targeted test execution with bun test tests/app.test.ts tests/invalid-params.test.ts passing, typecheck passing, manual HTTP checks via curl on port 3102."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The volume breakdown calculation splits volume evenly between buy/sell (volume/2 each) when volume is not null. This is a synthetic split that should be noted as a contract assumption.",
+      "evidence": "src/modules/onchain.ts:87-92 - h24_buy_usd and h24_sell_usd both set to volume24hUsd / 2 when volume is not null. This synthetic split may not reflect actual buy/sell ratio but satisfies the contract for toggle behavior."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Pool-multi endpoint uses deterministic ordering by sorting SQL results by address (asc), then mapping back to request order. This ensures request-order output while maintaining stable database queries.",
+      "evidence": "src/modules/onchain.ts:399 - .orderBy(asc(onchainPools.address)). src/modules/onchain.ts:402-404 - Maps rows back to requested address order using rowsByAddress Map."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature passes review. The implementation fully satisfies the feature description for onchain pool detail, multi, network-pools, dex-pools, and new-pools endpoints. All validation contract assertions (VAL-ONCHAIN-PRIM-005 through VAL-CROSS-015A) are addressed with proper network/dex scoping, explicit include handling for 'network' and 'dex', deterministic batch semantics with request-order preservation, recency ordering by pool_created_at desc, and proper pool/dex continuity through relationships. Test coverage includes 5 new test cases in app.test.ts covering pool detail includes/toggles, dex-scoped pools with mismatched network rejection, new-pools recency ordering, pool-multi determinism with deduplicated includes, and 1 test case in invalid-params.test.ts covering unsupported include/toggle/sort parameters. All 99 targeted tests pass. No blocking issues found."
+}
+</function_results>

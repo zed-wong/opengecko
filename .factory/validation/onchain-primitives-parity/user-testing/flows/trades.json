@@ -1,0 +1,150 @@
+{
+  "groupId": "trades",
+  "testedAt": "2026-03-25T00:00:00.000Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "port": 3102,
+    "testingTool": "curl with jq"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-ONCHAIN-PRIM-028",
+      "title": "Pool trades endpoint returns recent swap events in JSON:API shape",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/pools/0x4e68...fa36/trades",
+          "expected": "Returns 200 with JSON:API structure containing trade data",
+          "observed": "Response contains data array with trade objects, relationships, and meta"
+        }
+      ],
+      "evidence": {
+        "networkRequests": "GET /onchain/networks/eth/pools/0x4e68...fa36/trades -> 200",
+        "dataFiles": ["onchain-primitives-parity/trades/VAL-ONCHAIN-PRIM-028-pool-trades.json"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-029",
+      "title": "Pool trades honors trade_volume_in_usd_greater_than filter",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET pool trades without filter",
+          "expected": "Returns all trades",
+          "observed": "Returns 1 trade with volume 260000"
+        },
+        {
+          "action": "GET pool trades with trade_volume_in_usd_greater_than=50000",
+          "expected": "Returns trades with volume > 50000",
+          "observed": "Returns 1 trade (260000 > 50000)"
+        },
+        {
+          "action": "GET pool trades with trade_volume_in_usd_greater_than=300000",
+          "expected": "Returns no trades (260000 < 300000)",
+          "observed": "Returns 0 trades - filter correctly applied"
+        }
+      ],
+      "evidence": {
+        "networkRequests": [
+          "GET /onchain/networks/eth/pools/0x4e68...fa36/trades -> 200 (unfiltered)",
+          "GET /onchain/networks/eth/pools/.../trades?trade_volume_in_usd_greater_than=50000 -> 200",
+          "GET /onchain/networks/eth/pools/.../trades?trade_volume_in_usd_greater_than=300000 -> 200 (empty)"
+        ],
+        "dataFiles": [
+          "onchain-primitives-parity/trades/VAL-ONCHAIN-PRIM-029-unfiltered.json",
+          "onchain-primitives-parity/trades/VAL-ONCHAIN-PRIM-029-filtered.json",
+          "onchain-primitives-parity/trades/VAL-ONCHAIN-PRIM-029-filtered-high.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-030",
+      "title": "Pool trades token filter changes trade view and validates addresses",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET pool trades with invalid token address",
+          "expected": "Returns 400 error for invalid address format",
+          "observed": "Returns 400 with error: 'Invalid onchain address: 0xinvalidtokenaddress00000000000000000000000'"
+        }
+      ],
+      "evidence": {
+        "networkRequests": [
+          "GET /onchain/networks/eth/pools/.../trades?token=0xinvalidtokenaddress... -> 400"
+        ],
+        "dataFiles": [
+          "onchain-primitives-parity/trades/VAL-ONCHAIN-PRIM-030-invalid-token.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-031",
+      "title": "Token trades aggregates swap events across pools",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/tokens/0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2/trades",
+          "expected": "Returns trades from multiple pools for the token",
+          "observed": "Returns 2 trades from 2 different pools (0x88e6...2b4b and 0x4e68...fa36)"
+        }
+      ],
+      "evidence": {
+        "networkRequests": "GET /onchain/networks/eth/tokens/0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2/trades -> 200",
+        "dataFiles": ["onchain-primitives-parity/trades/VAL-ONCHAIN-PRIM-031-token-trades.json"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-032",
+      "title": "Token trades honors trade_volume_in_usd_greater_than filter",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET token trades with trade_volume_in_usd_greater_than=50000",
+          "expected": "Returns trades with volume > 50000",
+          "observed": "Returns 2 trades with volumes 95000 and 260000 (both > 50000)"
+        }
+      ],
+      "evidence": {
+        "networkRequests": "GET /onchain/networks/eth/tokens/.../trades?trade_volume_in_usd_greater_than=50000 -> 200",
+        "dataFiles": ["onchain-primitives-parity/trades/VAL-ONCHAIN-PRIM-032-token-filtered.json"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-032A",
+      "title": "Trade endpoints validate bad thresholds and malformed params",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET pool trades with trade_volume_in_usd_greater_than=invalid",
+          "expected": "Returns 400 error for invalid threshold value",
+          "observed": "Returns 400 with error: 'Invalid trade_volume_in_usd_greater_than value: invalid'"
+        },
+        {
+          "action": "GET token trades with trade_volume_in_usd_greater_than=-100",
+          "expected": "Either reject negative or handle gracefully",
+          "observed": "Returns all trades (negative treated as no-op filter)"
+        }
+      ],
+      "evidence": {
+        "networkRequests": [
+          "GET /onchain/networks/eth/pools/.../trades?trade_volume_in_usd_greater_than=invalid -> 400",
+          "GET /onchain/networks/eth/tokens/.../trades?trade_volume_in_usd_greater_than=-100 -> 200"
+        ],
+        "dataFiles": [
+          "onchain-primitives-parity/trades/VAL-ONCHAIN-PRIM-032A-pool-invalid.json",
+          "onchain-primitives-parity/trades/VAL-ONCHAIN-PRIM-032A-token-negative.json"
+        ]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 6 assertions for trades endpoints: 6 passed, 0 failed, 0 blocked. Pool trades returns JSON:API-formatted swap events with proper volume filtering. Token trades correctly aggregates across multiple pools. Invalid parameters (non-numeric threshold) are rejected with 400 errors."
+}

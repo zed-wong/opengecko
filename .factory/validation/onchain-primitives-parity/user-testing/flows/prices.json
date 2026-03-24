@@ -1,0 +1,244 @@
+{
+  "groupId": "prices",
+  "testedAt": "2026-03-25T00:00:00Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "port": 3102,
+    "validationApi": true
+  },
+  "toolsUsed": ["curl", "jq"],
+  "assertions": [
+    {
+      "id": "VAL-ONCHAIN-PRIM-020",
+      "title": "Simple onchain price returns keyed address data",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/simple/networks/eth/token_price/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "expected": "Returns price entry for single address",
+          "observed": "Response contains token_prices keyed by address with USD value"
+        },
+        {
+          "action": "GET /onchain/simple/networks/eth/token_price/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2,0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "expected": "Returns prices for multiple addresses",
+          "observed": "Response contains token_prices for both addresses"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-020-simple-price-single.json",
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-020-simple-price-multi.json"
+        ],
+        "networkCalls": "GET /onchain/simple/networks/eth/token_price/{addresses} -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-021",
+      "title": "Onchain price exposes optional fields only when requested",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/simple/networks/eth/token_price/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48?include_market_cap=true&include_24hr_vol=true&include_24hr_price_change=true&include_total_reserve_in_usd=true",
+          "expected": "Returns price with all optional fields when flags enabled",
+          "observed": "Response includes token_prices, market_cap_usd, h24_volume_usd, h24_price_change_percentage, total_reserve_in_usd"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-021-optional-flags.json"
+        ],
+        "networkCalls": "GET /onchain/simple/networks/eth/token_price/{address}?include_market_cap=true&include_24hr_vol=true&include_24hr_price_change=true&include_total_reserve_in_usd=true -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-021A",
+      "title": "Onchain price validates malformed addresses and bad include flags",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/simple/networks/eth/token_price/invalid_address_format",
+          "expected": "Returns 4xx for malformed address",
+          "observed": "HTTP 400 with error: 'Invalid onchain address: invalid_address_format'"
+        },
+        {
+          "action": "GET /onchain/simple/networks/eth/token_price/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48?include_market_cap=invalid_value",
+          "expected": "Returns 4xx for invalid boolean flag value",
+          "observed": "HTTP 400 with error: 'Invalid boolean query value: invalid_value'"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-021A-malformed-address.txt",
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-021A-invalid-flag.txt"
+        ],
+        "networkCalls": [
+          "GET /onchain/simple/networks/eth/token_price/invalid_address_format -> 400",
+          "GET /onchain/simple/networks/eth/token_price/{address}?include_market_cap=invalid_value -> 400"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-022",
+      "title": "Onchain price preserves network scoping",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "GET /onchain/simple/networks/bsc/token_price/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "expected": "Different network path should not bleed data",
+          "observed": "API returns 404 'not_found' for unknown network 'bsc' - only 'eth' network is supported in this deployment"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-022-network-scope.json"
+        ],
+        "networkCalls": "GET /onchain/simple/networks/bsc/token_price/{address} -> 404"
+      },
+      "issues": "Only 'eth' network is supported in current deployment - cannot verify cross-network isolation with multiple networks"
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-023",
+      "title": "Unresolvable token prices do not fabricate entries",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/simple/networks/eth/token_price/0x0000000000000000000000000000000000000000,0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "expected": "Unknown token addresses are omitted without fabricated objects",
+          "observed": "Response only includes price for valid address 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48; invalid address excluded"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-023-unknown-token.json"
+        ],
+        "networkCalls": "GET /onchain/simple/networks/eth/token_price/{valid},{invalid} -> 200 with only valid token"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-024",
+      "title": "Token info returns metadata-focused resource",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/info",
+          "expected": "Returns token metadata in distinct contract shape",
+          "observed": "Response contains token info with metadata fields: name, symbol, address, decimals, total_supply"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-024-token-info.json"
+        ],
+        "networkCalls": "GET /onchain/networks/eth/tokens/{address}/info -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-025",
+      "title": "Pool info returns constituent token metadata",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36/info",
+          "expected": "Returns metadata for pool's constituent tokens",
+          "observed": "Response contains pool info with token metadata fields for constituent tokens"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-025-pool-info.json"
+        ],
+        "networkCalls": "GET /onchain/networks/eth/pools/{address}/info -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-026",
+      "title": "Pool info supports include=pool",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36/info?include=pool",
+          "expected": "Adds related pool resource without breaking info contract",
+          "observed": "Response includes pool data in 'included' array alongside info response"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-026-include-pool.json"
+        ],
+        "networkCalls": "GET /onchain/networks/eth/pools/{address}/info?include=pool -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-027",
+      "title": "Recently updated token info feed is recency-ordered",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/tokens/info_recently_updated",
+          "expected": "Returns recency-ordered collection",
+          "observed": "Response contains data[] array with 24 items, recency-ordered"
+        },
+        {
+          "action": "GET /onchain/tokens/info_recently_updated?include=network",
+          "expected": "include=network adds related network data observably",
+          "observed": "Response includes 'included' array with network resources when include=network is specified"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-027-recently-updated.json",
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-027-include-network.json"
+        ],
+        "networkCalls": [
+          "GET /onchain/tokens/info_recently_updated -> 200",
+          "GET /onchain/tokens/info_recently_updated?include=network -> 200"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-027A",
+      "title": "Recently updated token info validates include and network params",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/tokens/info_recently_updated?include=invalid_value",
+          "expected": "Returns 4xx for unsupported include value",
+          "observed": "HTTP 400 with error: 'Unsupported include value: invalid_value'"
+        },
+        {
+          "action": "GET /onchain/tokens/info_recently_updated?network=invalid_network",
+          "expected": "Returns 4xx for invalid network filter",
+          "observed": "HTTP 400 with error: 'Unknown onchain network: invalid_network'"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-027A-invalid-include.txt",
+          "onchain-primitives-parity/prices/VAL-ONCHAIN-PRIM-027A-invalid-network.txt"
+        ],
+        "networkCalls": [
+          "GET /onchain/tokens/info_recently_updated?include=invalid_value -> 400",
+          "GET /onchain/tokens/info_recently_updated?network=invalid_network -> 400"
+        ]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [
+    {
+      "assertionId": "VAL-ONCHAIN-PRIM-022",
+      "description": "Only 'eth' network is supported in current deployment - cannot verify cross-network isolation with multiple networks. API correctly returns 404 for unknown network 'bsc'.",
+      "affectedAssertions": ["VAL-ONCHAIN-PRIM-022"]
+    }
+  ],
+  "summary": "Tested 10 assertions: 9 passed, 1 blocked (VAL-ONCHAIN-PRIM-022 due to single-network deployment). Simple token price, token info, pool info, and recently updated token info endpoints all working correctly with proper validation for malformed inputs."
+}

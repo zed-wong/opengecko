@@ -58,5 +58,6 @@ Each assertion should capture:
 
 ## Runtime Validation Gotchas
 
+- The dedicated validation API on port `3102` is already declared in `.factory/services.yaml`; use it consistently for manual verification instead of ad hoc ports.
 - Prefer the validation API on port `3102` for manual curl checks if port `3100` is occupied by a stale server.
 - Bun/Vitest fake-timer-heavy tests may need explicit microtask flushing between timer advances to avoid apparent hangs.

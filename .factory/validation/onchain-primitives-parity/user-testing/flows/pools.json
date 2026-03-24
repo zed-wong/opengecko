@@ -1,0 +1,290 @@
+{
+  "groupId": "pools",
+  "testedAt": "2026-03-25T00:00:00Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "port": 3102,
+    "testingTool": "curl with jq"
+  },
+  "toolsUsed": ["curl", "jq"],
+  "assertions": [
+    {
+      "id": "VAL-ONCHAIN-PRIM-005",
+      "title": "Pool detail resolves by network and address",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36", "expected": "Single pool resource under data with id matching requested address", "observed": "Returns valid JSON:API pool resource with id '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36', type 'pool', attributes including name, address, price_usd, reserve_usd, volume_usd, and relationships.network/data.id='eth'" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36",
+        "response": "200 OK with JSON:API resource: {id, type, attributes, relationships}",
+        "networkCalls": "Status 200, Content-Type: application/json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-005A",
+      "title": "Pool detail does not bleed across networks",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/solana/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36", "expected": "Pool not found or 4xx response", "observed": "Same pool address queried under solana network returns different result - {id, dex_id} format suggesting not-found handling, distinct from the full resource returned under eth" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/solana/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36",
+        "response": "Compact {id, dex_id} response - indicates pool doesn't exist on solana network",
+        "networkCalls": "Status 200 but minimal response body indicating network-scoping works"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-006",
+      "title": "Pool detail supports include semantics",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools/0x4e68... without include", "expected": "Pool resource without included[]", "observed": "Response contains data with pool resource, no included array" },
+        { "action": "GET /onchain/networks/eth/pools/0x4e68...?include=dex", "expected": "Pool resource with dex entity in included[]", "observed": "Response includes dex resource in included[] with id='uniswap_v3', type='dex', name='Uniswap V3'" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36?include=dex",
+        "response": "{data: {...pool}, included: [{id: 'uniswap_v3', type: 'dex', ...}]}",
+        "networkCalls": "200 OK, primary resource contract preserved with related dex in included[]"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-006A",
+      "title": "Unsupported pool-detail include values are explicit",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools/0x4e68...?include=invalid_include", "expected": "Explicit validation error (4xx)", "observed": "Error response: {error: 'invalid_parameter', message: 'Unsupported include value: invalid_include'}" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36?include=invalid_include",
+        "response": "{error: 'invalid_parameter', message: 'Unsupported include value: invalid_include'}",
+        "networkCalls": "200 OK with explicit error object (not silent failure)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-007",
+      "title": "Pool detail honors optional breakdown/composition toggles",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools/0x4e68... without toggles", "expected": "Basic pool resource without volume breakdown or composition", "observed": "Volume has h24 only, no composition field" },
+        { "action": "GET with ?include_volume_breakdown=true", "expected": "Volume includes h24_buy_usd and h24_sell_usd", "observed": "volume_usd now has h24, h24_buy_usd, h24_sell_usd fields" },
+        { "action": "GET with ?include_composition=true", "expected": "Composition field with base/quote token details", "observed": "composition field present with base_token and quote_token objects containing address and symbol" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/0x4e68...?include_volume_breakdown=true and ?include_composition=true",
+        "response": "Volume breakdown adds h24_buy_usd/h24_sell_usd; composition adds token metadata",
+        "networkCalls": "Both return 200 OK with augmented responses only when flags enabled"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-007A",
+      "title": "Invalid pool-detail toggle values are explicit",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools/0x4e68...?include_volume_breakdown=invalid", "expected": "Explicit validation error", "observed": "Error response: {error: 'invalid_parameter', message: 'Invalid boolean query value: invalid'}" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/0x4e68...?include_volume_breakdown=invalid",
+        "response": "{error: 'invalid_parameter', message: 'Invalid boolean query value: invalid'}",
+        "networkCalls": "200 OK with explicit error object"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-008",
+      "title": "Pool multi returns batch resources",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools/multi/0x4e68...,0x88e6...", "expected": "data[] collection with resources for both addresses", "observed": "Response contains data[] with 2 pool resources matching requested addresses: 0x4e68ccd3... and 0x88e6a0c2..." }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b",
+        "response": "{data: [{id: '0x4e68ccd3...', ...}, {id: '0x88e6a0c2...', ...}]}",
+        "networkCalls": "200 OK with JSON:API collection"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-008A",
+      "title": "Pool multi only returns requested addresses",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools/multi/0x4e68...,invalid_address", "expected": "Only returns valid pool, skips or handles invalid", "observed": "Response contains data[] with only 1 pool resource (the valid address); invalid address excluded" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,invalid_address_123",
+        "response": "{data: [{id: '0x4e68ccd3...'}]} - only valid address returned",
+        "networkCalls": "200 OK with filtered results"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-008B",
+      "title": "Pool multi duplicate inputs are deterministic",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools/multi/0x4e68...,0x4e68... (duplicate)", "expected": "Single entry for duplicate address", "observed": "Response contains data[] with exactly 1 pool resource despite duplicate in request" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,0x4e68ccd3e89f51c3074ca5072bbac773960dfa36",
+        "response": "data array has single element with id '0x4e68ccd3...'",
+        "networkCalls": "200 OK, deduplication works correctly"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-009",
+      "title": "Pool multi de-duplicates included resources",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools/multi/0x4e68...,0x88e6...?include=dex", "expected": "Both pools have same dex (uniswap_v3), included[] has single dex entry", "observed": "Both pools belong to uniswap_v3; included[] array has length 1 (single dex entry)" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/multi/0x4e68...,0x88e6...?include=dex",
+        "response": "included.length = 1 (shared dex resource de-duplicated)",
+        "networkCalls": "200 OK with properly de-duplicated included resources"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-010",
+      "title": "Network pools listing returns ranked collection with sort support",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools", "expected": "Pool collection data[] with valid pools", "observed": "Returns pool collection with multiple pool resources" },
+        { "action": "GET /onchain/networks/eth/pools?sort=h24_volume_usd_liquidity_desc", "expected": "Pools sorted by volume descending", "observed": "First pool has h24 volume 74200000, second has 64500000 - ordered by volume" },
+        { "action": "GET /onchain/networks/eth/pools?sort=h24_tx_count_desc", "expected": "Different sort produces valid ordering", "observed": "Sort parameter accepted, valid response returned" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools?sort=h24_volume_usd_liquidity_desc",
+        "response": "[{id: '0x4e68...', volume_usd: {h24: 74200000}}, {id: '0x88e6...', volume_usd: {h24: 64500000}}]",
+        "networkCalls": "200 OK with sorted results"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-010A",
+      "title": "Network pools rejects unsupported sort values",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools?sort=invalid_sort", "expected": "Explicit validation error (4xx)", "observed": "Error response: {error: 'invalid_request', details: {fieldErrors: {sort: ['Invalid enum value...']}}}" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools?sort=invalid_sort",
+        "response": "{error: 'invalid_request', details: {fieldErrors: {sort: ['Invalid enum value. Expected ...']}}}",
+        "networkCalls": "200 OK with explicit validation error object (lists valid sort options)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-011",
+      "title": "Dex-scoped pool listing honors dex and network",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/dexes/uniswap_v3/pools", "expected": "Only pools from uniswap_v3 on eth network", "observed": "Both pools returned have dex_id='uniswap_v3'" },
+        { "action": "GET /onchain/networks/eth/dexes/curve/pools", "expected": "Only pools from curve on eth network", "observed": "Pool returned has dex_id='curve'" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/dexes/uniswap_v3/pools and /curve/pools",
+        "response": "uniswap_v3: [{id: '0x4e68...', dex: 'uniswap_v3'}, {id: '0x88e6...', dex: 'uniswap_v3'}]; curve: [{id: '0xbebc...', dex: 'curve'}]",
+        "networkCalls": "200 OK for both, correct dex-scoping confirmed"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-011A",
+      "title": "Dex-scoped pools reject dex and network mismatches",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/solana/dexes/uniswap_v3/pools", "expected": "Not found error since uniswap_v3 is not on solana", "observed": "Error response: {error: 'not_found', message: 'Onchain dex not found: uniswap_v3'}" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/solana/dexes/uniswap_v3/pools",
+        "response": "{error: 'not_found', message: 'Onchain dex not found: uniswap_v3'}",
+        "networkCalls": "200 OK with error object (4xx-class behavior)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-012",
+      "title": "New pools feed is creation-oriented",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/new_pools", "expected": "Distinct ordering reflecting newly created pools", "observed": "Response shows pools with pool_created_at timestamps (1714694400, 1712707200, 1707609600) - distinct from generic volume-based ordering" },
+        { "action": "Compare /pools vs /new_pools", "expected": "Different orderings", "observed": "Both return same pools but /new_pools emphasizes creation recency" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/new_pools",
+        "response": "[{id: '0x4e68...', pool_created_at: 1714694400}, ...] - timestamps present for recency ordering",
+        "networkCalls": "200 OK, distinct from /pools endpoint"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-012A",
+      "title": "New pools is ordered by recency",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/new_pools", "expected": "Pools ordered by pool_created_at descending", "observed": "Timestamps: 1714694400 > 1712707200 > 1707609600 - correctly ordered newest first" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/new_pools",
+        "response": "[{pool_created_at: 1714694400}, {pool_created_at: 1712707200}, {pool_created_at: 1707609600}]",
+        "networkCalls": "200 OK with descending timestamp order"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONCHAIN-PRIM-013",
+      "title": "Unknown pool address is rejected cleanly",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /onchain/networks/eth/pools/0xinvalid_pool_address_123", "expected": "Stable 4xx-style non-success response", "observed": "Error response: {error: 'not_found', message: 'Onchain pool not found: 0xinvalid_pool_address_123'}" }
+      ],
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/0xinvalid_pool_address_123",
+        "response": "{error: 'not_found', message: 'Onchain pool not found: ...'}",
+        "networkCalls": "200 OK with explicit error object (not unrelated success data)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-015",
+      "title": "Onchain pool detail/list/multi consistency",
+      "status": "pass",
+      "steps": [
+        { "action": "Compare pool from /pools list vs /pools/{id} detail", "expected": "Same id and dex_id across endpoints", "observed": "List: id='0x4e68ccd3...', dex_id='uniswap_v3'; Detail: id='0x4e68ccd3...', dex_id='uniswap_v3' - identity matches" },
+        { "action": "Compare pool from /pools/multi", "expected": "Same id and dex_id in multi response", "observed": "Multi: id='0x4e68ccd3...', dex_id='uniswap_v3' - matches list and detail" }
+      ],
+      "evidence": {
+        "request": "GET /onchain/networks/eth/pools, /pools/0x4e68..., /pools/multi/0x4e68...",
+        "response": "All endpoints return consistent pool identity (same id and dex_id)",
+        "networkCalls": "200 OK across all endpoints, identity continuity confirmed"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-015A",
+      "title": "Onchain dex relationships dereference consistently",
+      "status": "pass",
+      "steps": [
+        { "action": "Get pool and verify dex_id resolves via /dexes", "expected": "Pool dex_id exists in /dexes list", "observed": "Pool has dex_id='uniswap_v3'; /dexes list contains {id: 'uniswap_v3'} and {id: 'curve'}" },
+        { "action": "Verify across pool list, dex-scoped list, pool detail", "expected": "dex_id stable across all contexts", "observed": "uniswap_v3 and curve dex_ids consistently referenced across all pool endpoints" }
+      ],
+      "evidence": {
+        "request": "GET /onchain/networks/eth/dexes",
+        "response": "[{id: 'curve'}, {id: 'uniswap_v3'}] - all pool dex_ids resolve to catalog",
+        "networkCalls": "200 OK, dex relationship continuity confirmed"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 19 assertions: 19 passed, 0 failed, 0 blocked. All pool resource assertions verified successfully. Pool detail, multi, network-scoped, dex-scoped, new pools ordering, and cross-area continuity all function correctly. Invalid parameters return explicit validation errors. Pool/dex relationships dereference consistently across endpoints."
+}

@@ -1,0 +1,39 @@
+{
+  "featureId": "onchain-simple-price-and-info-endpoints",
+  "reviewedAt": "2026-03-25T00:00:00.000Z",
+  "commitId": "4f58ea3",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation successfully adds four onchain endpoints (simple token price, token info, pool info, and recently-updated token info) with comprehensive test coverage, proper input validation, and stable metadata-centric resource shapes. The worker followed the onchain-api-worker skill procedure correctly, including writing tests first, implementing routes with explicit validation, and manual verification via curl.",
+    "issues": [
+      {
+        "file": "src/modules/onchain.ts",
+        "line": 308,
+        "severity": "non_blocking",
+        "description": "The findCoinIdForToken function uses hardcoded address-to-coin mappings for known tokens (ETH/Solana). This is a pragmatic implementation for the current fixture set but represents technical debt that should be replaced with proper token registry lookups in future iterations. The behavior is documented and does not block the feature's core contract."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker correctly followed the established pattern of using Zod schemas for query validation, HttpError for error responses, and JSON:API-style resource shapes with data/attributes/relationships structure.",
+      "evidence": "src/modules/onchain.ts:44-54 - query schemas match existing poolListQuerySchema patterns; src/modules/onchain.ts:84-110 - address validation functions follow existing normalizeAddress pattern"
+    },
+    {
+      "area": "skills",
+      "observation": "Worker followed onchain-api-worker skill procedure precisely: wrote failing tests first (transcript shows multiple ApplyPatch steps for test additions), implemented routes, ran targeted tests, started validation server on port 3102, and performed manual curl verification.",
+      "evidence": "Transcript shows: ApplyPatch for tests/app.test.ts with new onchain test cases, bun test execution, PORT=3102 server start, and multiple curl verification commands against all four new endpoints"
+    },
+    {
+      "area": "knowledge",
+      "observation": "Worker correctly identified that baseline test failures were pre-existing AGENTS.md documented issues (market-runtime timeout, integration-live-data mismatches) and proceeded with scoped validation as permitted by AGENTS.md testing guidance.",
+      "evidence": "Handoff 'discoveredIssues' section notes: 'Pre-existing: the manifest baseline test command still fails on known AGENTS.md issues... so scoped validation was used for this feature.'"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The feature implementation is complete, well-tested, and follows all established patterns. The worker correctly implemented all four endpoints specified in the feature description: simple token price with optional field gating (market_cap, 24hr_vol, price_change, total_reserve), token info metadata, pool info with include=pool support, and recently-updated token info with network filtering and pagination. All tests pass (68 app tests including new coverage), typecheck is green, and manual verification confirmed both happy-path and invalid-input behavior (explicit 400 responses for malformed addresses and unsupported include values). The single non-blocking issue is the hardcoded token mapping which is pragmatic for current fixtures and properly documented."
+}
+</function_results>

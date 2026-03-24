@@ -1,0 +1,21 @@
+{
+  "featureId": "onchain-network-and-dex-catalog-endpoints",
+  "reviewedAt": "2026-03-25T03:50:00.000Z",
+  "commitId": "dfa746d",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation successfully completes the onchain network and dex catalog contract. The worker added JSON:API resource shapes with pagination metadata to the `/onchain/networks` endpoint, implemented page validation with explicit 400 responses for invalid page values (0, -1, 'abc'), and added the `/onchain/networks/{network}/dexes` endpoint with proper network scoping and 404 handling for unknown networks. The asset-platform linkage continuity is preserved through the `relationships.network` field in dex resources.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "services",
+      "observation": "The worker started a validation server on port 3102 for manual verification, but this port is not documented in .factory/services.yaml. While this was appropriate for feature verification, consider whether validation ports should be standardized in services.yaml for consistency across onchain feature workers.",
+      "evidence": "Handoff shows: 'Started the validation API on port 3102 and curled GET /onchain/networks?page=1'"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature implementation is complete and correct. All expected behaviors from the feature description are satisfied: JSON:API resource shape with data[] and pagination metadata, invalid page value rejection (400), network-scoped dex listings, and asset-platform linkage continuity via relationships.network. Test coverage spans app.test.ts and invalid-params.test.ts with 127 new test lines. No blocking or non-blocking issues identified."
+}

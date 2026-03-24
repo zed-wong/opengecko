@@ -1,0 +1,64 @@
+{
+  "featureId": "onchain-trades-endpoints",
+  "reviewedAt": "2026-03-25T04:30:00.000Z",
+  "commitId": "827e5db",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The onchain trades endpoints implementation successfully fulfills the feature requirements. The worker implemented pool-trades (`/onchain/networks/:network/pools/:address/trades`) and token-trades (`/onchain/networks/:network/tokens/:address/trades`) with proper threshold filtering, constituent-token validation, malformed-parameter handling, and correct pool/token aggregation semantics. Tests cover happy-path, threshold filtering, token filtering, and all expected error cases with 400 responses.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "The onchain-trades-endpoints feature is fully implemented and meets all requirements. Both pool-trades and token-trades routes are functional with USD-volume threshold filtering, valid constituent-token filtering, explicit 400-class malformed-parameter handling, and proper aggregation semantics. All 70 app tests pass, typecheck succeeds, and manual curl verification confirms correct behavior."
+}
+</function_results>
+
+---
+
+## Summary
+
+I completed the code review for feature **onchain-trades-endpoints** (worker session `9d08f8ea-cddb-49a5-8b29-09373ce50d75`).
+
+### Actions Taken
+
+1. **Gathered evidence from mission directory:**
+   - Read the feature definition from `features.json`
+   - Retrieved the handoff file for the completed worker session
+   - Extracted the transcript skeleton showing the worker's approach
+   - Reviewed the skill file (`onchain-api-worker/SKILL.md`) for procedure compliance
+
+2. **Reviewed the implementation:**
+   - Examined the git diff for commit `827e5db` (228 lines added to `src/modules/onchain.ts`, 137 lines added to `tests/app.test.ts`)
+   - Verified the trade resource types, fixture generation, and route handlers
+   - Checked test coverage for happy-path, threshold filtering, token filtering, and error cases
+
+3. **Assessed compliance with expected behavior:**
+   - Pool trades remain pool-scoped ✓
+   - Token trades aggregate across token pools ✓
+   - USD-volume thresholds are enforced ✓
+   - Invalid token filters return stable 400 responses ✓
+   - Malformed thresholds return explicit 400 responses ✓
+
+### Key Findings
+
+**Status: PASS**
+
+The implementation fully satisfies the feature requirements:
+
+- **Routes implemented:** `/onchain/networks/:network/pools/:address/trades` and `/onchain/networks/:network/tokens/:address/trades`
+- **Threshold filtering:** `trade_volume_in_usd_greater_than` parameter correctly filters trades
+- **Token filtering:** Pool trades support `token` parameter with constituent validation
+- **Error handling:** All malformed inputs return 400 with `invalid_parameter` error code
+- **Response shape:** JSON:API-style resources with `data`, `relationships`, and `meta`
+- **Test coverage:** 2 comprehensive test cases covering happy-path and error scenarios
+- **Verification:** All 70 app tests pass, typecheck succeeds, manual curl checks confirm behavior
+
+### No Issues Identified
+
+No bugs, edge cases, or shared state gaps were identified. The worker followed the skill procedure correctly, wrote tests first, implemented the routes with proper validation, and verified with both automated tests and manual curl checks.
+
+### Output File
+
+Review report written to: `.factory/validation/onchain-primitives-parity/scrutiny/reviews/onchain-trades-endpoints.json`

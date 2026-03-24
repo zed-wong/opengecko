@@ -1,0 +1,36 @@
+{
+  "featureId": "onchain-token-resource-endpoints",
+  "reviewedAt": "2026-03-25T00:00:00.000Z",
+  "commitId": "c9fa5d0",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation successfully adds three onchain token resource endpoints (token detail, token multi, and token-pools) with strict address/network scoping, optional include handling (top_pools, include_inactive_source, include_composition), and bidirectional token/pool identity continuity. The code follows existing patterns in src/modules/onchain.ts, properly normalizes addresses, validates inputs, and returns JSON:API-style resources with proper relationships.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The worker followed the onchain-api-worker skill procedure correctly, writing failing tests first, implementing routes, and verifying with targeted tests. The handoff shows `skillFeedback.followedProcedure: true` with no deviations.",
+      "evidence": "Handoff at /home/whoami/.factory/missions/cd18b974-6c92-4699-a479-996ae744b901/handoffs/2026-03-24T19-26-29-049Z__onchain-token-resource-endpoints__1a261fd7-a8e5-4ca2-ab72-7b28ea2f1452.json shows skillFeedback with followedProcedure: true and empty deviations array."
+    },
+    {
+      "area": "conventions",
+      "observation": "The implementation correctly follows the existing codebase pattern for parsing CSV query parameters using `parseCsvQuery()` from src/http/params.ts and validates include values explicitly with HttpError(400, 'invalid_parameter', ...).",
+      "evidence": "src/modules/onchain.ts:parseTokenIncludes() at lines 55-66 uses parseCsvQuery and throws HttpError for unsupported include values, matching patterns in parsePoolIncludes."
+    },
+    {
+      "area": "conventions",
+      "observation": "The worker correctly implemented address normalization (trim + lowercase) via normalizeAddress() helper to ensure consistent token identity matching across the codebase.",
+      "evidence": "src/modules/onchain.ts:42-44 defines normalizeAddress() and it's used consistently in collectTokenPools(), buildTokenResource(), and route handlers."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The test coverage in tests/app.test.ts includes comprehensive assertions for token/pool reciprocity - verifying that token-pools returns pools where the token appears as either base or quote, and that pool attributes correctly reference the token address.",
+      "evidence": "tests/app.test.ts lines 774-908 include assertions checking pool.attributes.base_token_address/quote_token_address against the requested token address, and verifies token/pool continuity across endpoints."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature 'onchain-token-resource-endpoints' is approved. The implementation correctly adds token detail (GET /onchain/networks/:network/tokens/:address), token multi (GET /onchain/networks/:network/tokens/multi/:addresses), and token-pools (GET /onchain/networks/:network/tokens/:address/pools) endpoints with all required functionality: strict network/address scoping, optional include=top_pools support, include_inactive_source and include_composition flags, proper 404 handling for unknown tokens and wrong networks, and comprehensive test coverage including bidirectional token/pool identity verification. All validators passed (typecheck clean, 64 app tests passed including new token tests, 37 invalid-params tests passed with no regressions). The worker followed all skill procedures correctly and produced a clean commit."
+}

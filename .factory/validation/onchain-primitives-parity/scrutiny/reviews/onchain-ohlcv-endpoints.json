@@ -1,0 +1,36 @@
+{
+  "featureId": "onchain-ohlcv-endpoints",
+  "reviewedAt": "2026-03-25T00:00:00.000Z",
+  "commitId": "3224165",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The onchain OHLCV endpoints implementation is comprehensive and well-structured. The worker added 382 lines of production code and 207 lines of tests across `src/modules/onchain.ts`, `tests/app.test.ts`, and `tests/invalid-params.test.ts`. The implementation correctly handles both pool-level and token-level OHLCV endpoints with proper timeframe/range controls, empty-interval behavior, invalid-param handling, and token/pool aggregation lineage as specified in the feature requirements.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The implementation uses synthetic OHLCV data generation (buildSyntheticPoolOhlcvSeries) rather than querying actual historical candle data from a data store. This is consistent with the mission's 'endpoint parity only' goal (not full data-fidelity parity), but the .factory/library/onchain.md could document this synthetic data pattern for future onchain workers.",
+      "evidence": "src/modules/onchain.ts:427-483 - buildSyntheticPoolOhlcvSeries generates deterministic synthetic candles based on pool.priceUsd and pool.volume24hUsd rather than querying historical OHLCV storage."
+    },
+    {
+      "area": "conventions",
+      "observation": "The implementation introduces new parsing helpers (parseOptionalPositiveNumber, parseOptionalPositiveInteger, parseOptionalTimestamp, parseOnchainOhlcvTimeframe) that follow the established HttpError pattern for invalid parameters. These helpers could be reusable across other onchain endpoints needing similar numeric param validation.",
+      "evidence": "src/modules/onchain.ts:437-474 - New parsing functions consistently throw HttpError(400, 'invalid_parameter', ...) for malformed inputs, matching the pattern used elsewhere in the codebase."
+    },
+    {
+      "area": "conventions",
+      "observation": "Token-level OHLCV aggregation properly implements reserve-weighted price aggregation across multiple pools, with source_pools tracking for lineage verification. This demonstrates the expected token/pool reciprocity pattern documented in validation-contract.md VAL-CROSS-018.",
+      "evidence": "src/modules/onchain.ts:485-555 - aggregatePoolSeriesForToken uses reserveUsd as weight for VWAP-style aggregation and tracks sources per timestamp point."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The worker documented in the handoff that the baseline test suite still has pre-existing failures unrelated to this feature. This confirms the AGENTS.md 'Known Pre-Existing Issues' section is accurate and current.",
+      "evidence": "Handoff discoveredIssues section notes pre-existing issues in integration-live-data, compare-coingecko, and market-runtime tests that are already tracked in AGENTS.md."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The onchain-ohlcv-endpoints feature is complete and passes scrutiny. The implementation covers: (1) Pool-level OHLCV at `/onchain/networks/:network/pools/:address/ohlcv/:timeframe` with timeframe validation, aggregate/limit/before_timestamp controls, currency/token semantics, and empty-interval handling; (2) Token-level OHLCV at `/onchain/networks/:network/tokens/:address/ohlcv/:timeframe` with reserve-weighted aggregation across discoverable token pools and source pool lineage tracking; (3) Comprehensive invalid parameter handling with explicit 400 responses for unsupported timeframes, malformed numerics, invalid currencies, and non-constituent token addresses; (4) Test coverage in both app.test.ts (happy paths, aggregation lineage) and invalid-params.test.ts (negative cases). The commit is clean, typecheck passes, and the feature satisfies all validation contract requirements for VAL-ONCHAIN-PRIM-033 through VAL-ONCHAIN-PRIM-040."
+}
