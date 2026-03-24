@@ -28,12 +28,38 @@ const poolMultiQuerySchema = z.object({
   include: z.string().optional(),
 });
 
+const tokenDetailQuerySchema = z.object({
+  include: z.string().optional(),
+  include_inactive_source: z.string().optional(),
+  include_composition: z.string().optional(),
+});
+
+const tokenMultiQuerySchema = z.object({
+  include: z.string().optional(),
+});
+
+function normalizeAddress(address: string) {
+  return address.trim().toLowerCase();
+}
+
 function parsePoolIncludes(include: string | undefined) {
   const includes = parseCsvQuery(include);
 
   for (const value of includes) {
     const result = poolIncludeSchema.safeParse(value);
     if (!result.success) {
+      throw new HttpError(400, 'invalid_parameter', `Unsupported include value: ${value}`);
+    }
+  }
+
+  return includes;
+}
+
+function parseTokenIncludes(include: string | undefined) {
+  const includes = parseCsvQuery(include);
+
+  for (const value of includes) {
+    if (value !== 'top_pools') {
       throw new HttpError(400, 'invalid_parameter', `Unsupported include value: ${value}`);
     }
   }
@@ -140,6 +166,76 @@ function buildPoolResource(
         data: {
           type: 'dex',
           id: row.dexId,
+        },
+      },
+    },
+  };
+}
+
+function collectTokenPools(networkId: string, tokenAddress: string, database: AppDatabase) {
+  const normalizedAddress = normalizeAddress(tokenAddress);
+
+  return database.db
+    .select()
+    .from(onchainPools)
+    .where(eq(onchainPools.networkId, networkId))
+    .all()
+    .filter((row) => {
+      const base = normalizeAddress(row.baseTokenAddress);
+      const quote = normalizeAddress(row.quoteTokenAddress);
+      return base === normalizedAddress || quote === normalizedAddress;
+    })
+    .sort((left, right) => (right.reserveUsd ?? 0) - (left.reserveUsd ?? 0) || left.address.localeCompare(right.address));
+}
+
+function buildTokenResource(
+  networkId: string,
+  tokenAddress: string,
+  tokenPools: typeof onchainPools.$inferSelect[],
+  options?: {
+    includeInactiveSource?: boolean;
+    includeComposition?: boolean;
+  },
+) {
+  const normalizedAddress = normalizeAddress(tokenAddress);
+  const primaryPool = tokenPools[0];
+  const tokenSymbol = primaryPool
+    ? normalizeAddress(primaryPool.baseTokenAddress) === normalizedAddress
+      ? primaryPool.baseTokenSymbol
+      : primaryPool.quoteTokenSymbol
+    : null;
+  const priceUsd = primaryPool?.priceUsd ?? null;
+
+  return {
+    id: normalizedAddress,
+    type: 'token',
+    attributes: {
+      address: normalizedAddress,
+      symbol: tokenSymbol,
+      name: tokenSymbol,
+      price_usd: priceUsd,
+      top_pools: tokenPools.map((pool) => pool.address),
+      ...(options?.includeInactiveSource ? { inactive_source: false } : {}),
+      ...(options?.includeComposition
+        ? {
+            composition: {
+              pools: tokenPools.map((pool) => ({
+                pool_address: pool.address,
+                role: normalizeAddress(pool.baseTokenAddress) === normalizedAddress ? 'base' : 'quote',
+                counterpart_address:
+                  normalizeAddress(pool.baseTokenAddress) === normalizedAddress ? pool.quoteTokenAddress : pool.baseTokenAddress,
+                counterpart_symbol:
+                  normalizeAddress(pool.baseTokenAddress) === normalizedAddress ? pool.quoteTokenSymbol : pool.baseTokenSymbol,
+              })),
+            },
+          }
+        : {}),
+    },
+    relationships: {
+      network: {
+        data: {
+          type: 'network',
+          id: networkId,
         },
       },
     },
@@ -434,4 +530,105 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       ...(included.length > 0 ? { included } : {}),
     };
   });
+
+  app.get('/onchain/networks/:network/tokens/multi/:addresses', async (request) => {
+    const params = z.object({ network: z.string(), addresses: z.string() }).parse(request.params);
+    const query = tokenMultiQuerySchema.parse(request.query);
+    const includes = parseTokenIncludes(query.include);
+    const requestedAddresses = [...new Set(params.addresses
+      .split(',')
+      .map((address) => normalizeAddress(address))
+      .filter((address) => address.length > 0))];
+
+    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+
+    if (!network) {
+      throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
+    }
+
+    const tokenRows = requestedAddresses
+      .map((address) => {
+        const tokenPools = collectTokenPools(params.network, address, database);
+        return tokenPools.length > 0 ? buildTokenResource(params.network, address, tokenPools) : null;
+      })
+      .filter((row): row is ReturnType<typeof buildTokenResource> => row !== null);
+
+    const includedPoolAddresses = includes.includes('top_pools')
+      ? [...new Set(tokenRows.flatMap((row) => row.attributes.top_pools))]
+      : [];
+
+    const included = includes.includes('top_pools')
+      ? database.db
+          .select()
+          .from(onchainPools)
+          .where(and(eq(onchainPools.networkId, params.network), inArray(onchainPools.address, includedPoolAddresses)))
+          .all()
+          .map((row) => buildPoolResource(row))
+      : [];
+
+    return {
+      data: tokenRows,
+      ...(included.length > 0 ? { included } : {}),
+    };
+  });
+
+  app.get('/onchain/networks/:network/tokens/:address/pools', async (request) => {
+    const params = z.object({ network: z.string(), address: z.string() }).parse(request.params);
+    const query = paginationQuerySchema.parse(request.query);
+    const page = parsePositiveInt(query.page, 1);
+    const perPage = 100;
+
+    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+
+    if (!network) {
+      throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
+    }
+
+    const tokenPools = collectTokenPools(params.network, params.address, database);
+
+    if (tokenPools.length === 0) {
+      throw new HttpError(404, 'not_found', `Onchain token not found: ${normalizeAddress(params.address)}`);
+    }
+
+    const start = (page - 1) * perPage;
+
+    return {
+      data: tokenPools.slice(start, start + perPage).map((row) => buildPoolResource(row)),
+      meta: {
+        page,
+        token_address: normalizeAddress(params.address),
+      },
+    };
+  });
+
+  app.get('/onchain/networks/:network/tokens/:address', async (request) => {
+    const params = z.object({ network: z.string(), address: z.string() }).parse(request.params);
+    const query = tokenDetailQuerySchema.parse(request.query);
+    const includes = parseTokenIncludes(query.include);
+    const includeInactiveSource = parseBooleanQuery(query.include_inactive_source, false);
+    const includeComposition = parseBooleanQuery(query.include_composition, false);
+
+    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+
+    if (!network) {
+      throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
+    }
+
+    const tokenPools = collectTokenPools(params.network, params.address, database);
+
+    if (tokenPools.length === 0) {
+      throw new HttpError(404, 'not_found', `Onchain token not found: ${normalizeAddress(params.address)}`);
+    }
+
+    return {
+      data: buildTokenResource(params.network, params.address, tokenPools, {
+        includeInactiveSource,
+        includeComposition,
+      }),
+      ...(includes.includes('top_pools')
+        ? { included: tokenPools.map((row) => buildPoolResource(row)) }
+        : {}),
+    };
+  });
+
 }

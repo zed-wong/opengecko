@@ -774,6 +774,140 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json().included).toHaveLength(2);
   });
 
+  it('returns onchain token detail, multi, and token-pools with canonical network-scoped identity continuity', async () => {
+    const tokenDetailResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+    const tokenDetailIncludedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48?include=top_pools&include_inactive_source=true&include_composition=true',
+    });
+    const tokenMultiResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/multi/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+    const tokenPoolsResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/pools?page=1',
+    });
+
+    expect(tokenDetailResponse.statusCode).toBe(200);
+    expect(tokenDetailResponse.json()).toMatchObject({
+      data: {
+        id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        type: 'token',
+        attributes: {
+          address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          symbol: 'USDC',
+          name: 'USDC',
+          price_usd: 1,
+        },
+        relationships: {
+          network: {
+            data: {
+              type: 'network',
+              id: 'eth',
+            },
+          },
+        },
+      },
+    });
+
+    expect(tokenDetailIncludedResponse.statusCode).toBe(200);
+    expect(tokenDetailIncludedResponse.json()).toMatchObject({
+      data: {
+        id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        attributes: {
+          top_pools: [
+            '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+            '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+          ],
+          inactive_source: false,
+          composition: {
+            pools: expect.arrayContaining([
+              expect.objectContaining({
+                pool_address: '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+                role: 'base',
+              }),
+              expect.objectContaining({
+                pool_address: '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+                role: 'base',
+              }),
+            ]),
+          },
+        },
+      },
+      included: expect.arrayContaining([
+        expect.objectContaining({
+          id: '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+          type: 'pool',
+        }),
+        expect.objectContaining({
+          id: '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+          type: 'pool',
+        }),
+      ]),
+    });
+
+    expect(tokenMultiResponse.statusCode).toBe(200);
+    expect(tokenMultiResponse.json()).toMatchObject({
+      data: [
+        expect.objectContaining({
+          id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          type: 'token',
+        }),
+      ],
+    });
+    expect(tokenMultiResponse.json().data).toHaveLength(1);
+
+    expect(tokenPoolsResponse.statusCode).toBe(200);
+    expect(tokenPoolsResponse.json().meta).toMatchObject({
+      page: 1,
+      token_address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+    expect(tokenPoolsResponse.json().data.map((pool: { id: string }) => pool.id)).toEqual([
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+    ]);
+    expect(tokenPoolsResponse.json().data.every((pool: { attributes: { base_token_address: string; quote_token_address: string } }) =>
+      pool.attributes.base_token_address === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+      || pool.attributes.quote_token_address === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48')).toBe(true);
+  });
+
+  it('rejects unknown or wrong-network onchain token lookups without bleeding identities across routes', async () => {
+    const unknownTokenResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0x0000000000000000000000000000000000000001',
+    });
+    const wrongNetworkResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/solana/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+    const wrongNetworkPoolsResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/solana/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/pools',
+    });
+
+    expect(unknownTokenResponse.statusCode).toBe(404);
+    expect(unknownTokenResponse.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Onchain token not found: 0x0000000000000000000000000000000000000001',
+    });
+
+    expect(wrongNetworkResponse.statusCode).toBe(404);
+    expect(wrongNetworkResponse.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Onchain token not found: 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+
+    expect(wrongNetworkPoolsResponse.statusCode).toBe(404);
+    expect(wrongNetworkPoolsResponse.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Onchain token not found: 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+  });
+
   it('returns token list data for an asset platform', async () => {
     const response = await getApp().inject({
       method: 'GET',
