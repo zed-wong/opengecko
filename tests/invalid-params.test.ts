@@ -152,6 +152,30 @@ describe('OpenGecko invalid parameter handling', () => {
     expect(badBoundsResponse.json()).toMatchObject(errorFixtures.coinChartRangeBadBounds);
   });
 
+  it('rejects invalid ranged ohlc values', async () => {
+    const badFromResponse = await app!.inject({
+      method: 'GET',
+      url: '/coins/bitcoin/ohlc/range?vs_currency=usd&from=bad&to=1773964800',
+    });
+    const badBoundsResponse = await app!.inject({
+      method: 'GET',
+      url: '/coins/bitcoin/ohlc/range?vs_currency=usd&from=1773964800&to=1773446400',
+    });
+    const badIntervalResponse = await app!.inject({
+      method: 'GET',
+      url: '/coins/bitcoin/ohlc/range?vs_currency=usd&from=1773446400&to=1773964800&interval=monthly',
+    });
+
+    expect(badFromResponse.statusCode).toBe(400);
+    expect(badFromResponse.json()).toMatchObject(errorFixtures.coinChartRangeBadFrom);
+
+    expect(badBoundsResponse.statusCode).toBe(400);
+    expect(badBoundsResponse.json()).toMatchObject(errorFixtures.coinChartRangeBadBounds);
+
+    expect(badIntervalResponse.statusCode).toBe(400);
+    expect(badIntervalResponse.json()).toMatchObject(errorFixtures.coinChartBadInterval);
+  });
+
   it('rejects unsupported dex pair formats on coin detail routes', async () => {
     const response = await app!.inject({
       method: 'GET',

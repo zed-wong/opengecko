@@ -924,6 +924,12 @@ function getOhlcRowsForDays(database: AppDatabase, coinId: string, days: string,
   return rows.filter((row) => row.timestamp.getTime() >= cutoff);
 }
 
+function getOhlcRowsForRange(database: AppDatabase, coinId: string, range: { from: number; to: number }, interval?: string) {
+  const candleInterval = parseChartInterval(interval) === 'hourly' ? '1m' : '1d';
+
+  return getCanonicalCandles(database, coinId, 'usd', candleInterval, range);
+}
+
 function sortCategories(
   rows: ReturnType<typeof getCategories>,
   order: string | undefined,
@@ -1198,6 +1204,25 @@ export function registerCoinRoutes(
     const vsCurrency = query.vs_currency.toLowerCase();
     const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, getSnapshotAccessPolicy(runtimeState));
     const rows = getOhlcRowsForDays(database, params.id, query.days, query.interval);
+
+    return rows.map((row) => {
+      const open = toNumberOrNull(row.open * rate, precision);
+      const high = toNumberOrNull(row.high * rate, precision);
+      const low = toNumberOrNull(row.low * rate, precision);
+      const close = toNumberOrNull(row.close * rate, precision);
+
+      return [row.timestamp.getTime(), open, high, low, close];
+    });
+  });
+
+  app.get('/coins/:id/ohlc/range', async (request) => {
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const query = coinChartRangeQuerySchema.parse(request.query);
+    getRequiredCoin(database, params.id);
+    const precision = parsePrecision(query.precision);
+    const vsCurrency = query.vs_currency.toLowerCase();
+    const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, getSnapshotAccessPolicy(runtimeState));
+    const rows = getOhlcRowsForRange(database, params.id, parseChartRange(query), query.interval);
 
     return rows.map((row) => {
       const open = toNumberOrNull(row.open * rate, precision);

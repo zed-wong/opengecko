@@ -1027,6 +1027,25 @@ describe('OpenGecko app scaffold', () => {
     expect(ohlcResponse.json()[0]).toEqual([1774310400000, 85000, 85000, 85000, 85000]);
   });
 
+  it('returns ranged coin ohlc tuples in ascending chronological order', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/coins/bitcoin/ohlc/range?vs_currency=usd&from=1774310400&to=1774310400&interval=daily',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body).toEqual([
+      [1774310400000, 85000, 85000, 85000, 85000],
+    ]);
+
+    for (const tuple of body) {
+      expect(tuple).toHaveLength(5);
+      expect(typeof tuple[0]).toBe('number');
+      expect(tuple.slice(1).every((value: unknown) => typeof value === 'number' && Number.isFinite(value))).toBe(true);
+    }
+  });
+
   it('returns categories and contract-address variants', async () => {
     const categoriesListResponse = await getApp().inject({
       method: 'GET',
@@ -1082,6 +1101,19 @@ describe('OpenGecko app scaffold', () => {
 
     expect(ohlcResponse.statusCode).toBe(404);
     expect(ohlcResponse.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Coin not found: not-a-coin',
+    });
+  });
+
+  it('returns not found for unknown ranged ohlc coin routes', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/coins/not-a-coin/ohlc/range?vs_currency=usd&from=1773792000&to=1774310400',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
       error: 'not_found',
       message: 'Coin not found: not-a-coin',
     });
