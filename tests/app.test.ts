@@ -739,6 +739,175 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('returns global and network trending pools with stable ranking, duration support, and include handling', async () => {
+    const globalResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/trending_pools?page=1',
+    });
+    const globalRepeatedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/trending_pools?page=1',
+    });
+    const durationResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/trending_pools?page=1&duration=6h',
+    });
+    const includeResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/trending_pools?page=1&include=network,dex',
+    });
+    const networkResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/trending_pools?page=1',
+    });
+    const networkDurationResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/trending_pools?page=1&duration=1h',
+    });
+
+    expect(globalResponse.statusCode).toBe(200);
+    expect(globalRepeatedResponse.statusCode).toBe(200);
+    expect(durationResponse.statusCode).toBe(200);
+    expect(includeResponse.statusCode).toBe(200);
+    expect(networkResponse.statusCode).toBe(200);
+    expect(networkDurationResponse.statusCode).toBe(200);
+
+    expect(globalResponse.json()).toMatchObject({
+      meta: {
+        page: 1,
+        duration: '24h',
+      },
+    });
+    expect(globalResponse.json().data.map((pool: { id: string }) => pool.id)).toEqual([
+      '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36',
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+      '58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2',
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+    ]);
+    expect(globalRepeatedResponse.json().data.map((pool: { id: string }) => pool.id)).toEqual(
+      globalResponse.json().data.map((pool: { id: string }) => pool.id),
+    );
+    expect(durationResponse.json()).toMatchObject({
+      meta: {
+        page: 1,
+        duration: '6h',
+      },
+    });
+    expect(durationResponse.json().data.map((pool: { id: string }) => pool.id)).toEqual([
+      '58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2',
+      '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36',
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+    ]);
+    expect(includeResponse.json()).toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({ type: 'pool' }),
+      ]),
+      included: expect.arrayContaining([
+        expect.objectContaining({ id: 'eth', type: 'network' }),
+        expect.objectContaining({ id: 'solana', type: 'network' }),
+        expect.objectContaining({ id: 'uniswap_v3', type: 'dex' }),
+        expect.objectContaining({ id: 'raydium', type: 'dex' }),
+      ]),
+    });
+    expect(includeResponse.json().data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'pool' }),
+      ]),
+    );
+    expect(networkResponse.json()).toMatchObject({
+      meta: {
+        page: 1,
+        duration: '24h',
+        network: 'eth',
+      },
+    });
+    expect(networkResponse.json().data.map((pool: { id: string }) => pool.id)).toEqual([
+      '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36',
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+    ]);
+    expect(networkResponse.json().data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relationships: expect.objectContaining({
+            network: { data: { id: 'eth', type: 'network' } },
+          }),
+        }),
+      ]),
+    );
+    expect(networkDurationResponse.json().data.map((pool: { id: string }) => pool.id)).toEqual([
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+      '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36',
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+    ]);
+    expect(networkDurationResponse.json().data).toMatchObject(expect.arrayContaining([
+      expect.objectContaining({
+        relationships: {
+          network: {
+            data: {
+              id: 'eth',
+              type: 'network',
+            },
+          },
+        },
+      }),
+    ]));
+  });
+
+  it('returns global and network new pools as recency-ordered discovery feeds with include handling', async () => {
+    const globalResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/new_pools?page=1&include=network,dex',
+    });
+    const networkResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/new_pools?page=1&include=network,dex',
+    });
+
+    expect(globalResponse.statusCode).toBe(200);
+    expect(networkResponse.statusCode).toBe(200);
+
+    expect(globalResponse.json()).toMatchObject({
+      meta: {
+        page: 1,
+      },
+      included: expect.arrayContaining([
+        expect.objectContaining({ id: 'eth', type: 'network' }),
+        expect.objectContaining({ id: 'solana', type: 'network' }),
+        expect.objectContaining({ id: 'uniswap_v3', type: 'dex' }),
+        expect.objectContaining({ id: 'raydium', type: 'dex' }),
+      ]),
+    });
+    expect(globalResponse.json().data.map((pool: { id: string }) => pool.id)).toEqual([
+      '58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2',
+      '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36',
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+    ]);
+    const globalCreatedAt = globalResponse.json().data.map((pool: { attributes: { pool_created_at: number | null } }) => pool.attributes.pool_created_at ?? 0);
+    expect(globalCreatedAt).toEqual([...globalCreatedAt].sort((left, right) => (right ?? 0) - (left ?? 0)));
+
+    expect(networkResponse.json()).toMatchObject({
+      meta: {
+        page: 1,
+      },
+      included: expect.arrayContaining([
+        expect.objectContaining({ id: 'eth', type: 'network' }),
+        expect.objectContaining({ id: 'uniswap_v3', type: 'dex' }),
+      ]),
+    });
+    expect(networkResponse.json().data.map((pool: { id: string }) => pool.id)).toEqual([
+      '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36',
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+    ]);
+    expect(networkResponse.json().data.every((pool: { relationships: { network: { data: { id: string } } } }) =>
+      pool.relationships.network.data.id === 'eth')).toBe(true);
+    const networkCreatedAt = networkResponse.json().data.map((pool: { attributes: { pool_created_at: number | null } }) => pool.attributes.pool_created_at ?? 0);
+    expect(networkCreatedAt).toEqual([...networkCreatedAt].sort((left, right) => (right ?? 0) - (left ?? 0)));
+  });
+
   it('returns onchain pools by multi-address lookup', async () => {
     const response = await getApp().inject({
       method: 'GET',

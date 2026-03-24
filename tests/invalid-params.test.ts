@@ -260,6 +260,39 @@ describe('OpenGecko invalid parameter handling', () => {
     });
   });
 
+  it('rejects unsupported include and duration values on onchain discovery routes explicitly', async () => {
+    const badTrendingIncludeResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/trending_pools?include=tokens',
+    });
+    const badTrendingDurationResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/trending_pools?duration=2h',
+    });
+    const badNewPoolsIncludeResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/new_pools?include=tokens',
+    });
+
+    expect(badTrendingIncludeResponse.statusCode).toBe(400);
+    expect(badTrendingIncludeResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported include value: tokens',
+    });
+
+    expect(badTrendingDurationResponse.statusCode).toBe(400);
+    expect(badTrendingDurationResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported duration value: 2h',
+    });
+
+    expect(badNewPoolsIncludeResponse.statusCode).toBe(400);
+    expect(badNewPoolsIncludeResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported include value: tokens',
+    });
+  });
+
   it('rejects invalid exchange volume chart day values', async () => {
     const response = await app!.inject({
       method: 'GET',

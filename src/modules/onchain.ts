@@ -28,6 +28,17 @@ const poolMultiQuerySchema = z.object({
   include: z.string().optional(),
 });
 
+const discoveryPoolsQuerySchema = z.object({
+  page: z.string().optional(),
+  include: z.string().optional(),
+});
+
+const trendingPoolsQuerySchema = z.object({
+  page: z.string().optional(),
+  include: z.string().optional(),
+  duration: z.string().optional(),
+});
+
 const tokenDetailQuerySchema = z.object({
   include: z.string().optional(),
   include_inactive_source: z.string().optional(),
@@ -121,6 +132,18 @@ function parsePoolIncludes(include: string | undefined) {
   }
 
   return includes;
+}
+
+function parseTrendingDuration(value: string | undefined) {
+  if (value === undefined) {
+    return '24h' as const;
+  }
+
+  if (value === '1h' || value === '6h' || value === '24h') {
+    return value;
+  }
+
+  throw new HttpError(400, 'invalid_parameter', `Unsupported duration value: ${value}`);
 }
 
 function parseTokenIncludes(include: string | undefined) {
@@ -832,6 +855,69 @@ function resolvePoolOrder(sort: z.infer<typeof poolListQuerySchema>['sort']) {
   }
 }
 
+function buildPoolDiscoveryRows(
+  rows: typeof onchainPools.$inferSelect[],
+  options: {
+    mode: 'new' | 'trending';
+    duration?: '1h' | '6h' | '24h';
+  },
+) {
+  const copy = [...rows];
+
+  if (options.mode === 'new') {
+    return copy.sort((left, right) =>
+      (right.createdAtTimestamp?.getTime() ?? 0) - (left.createdAtTimestamp?.getTime() ?? 0)
+      || right.updatedAt.getTime() - left.updatedAt.getTime()
+      || left.address.localeCompare(right.address));
+  }
+
+  if (options.duration === '6h') {
+    const preferredOrder = [
+      '58oqchx4ywmvkdwllzzbi4chocc2fqcuwbkwmihlyqo2',
+      '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36',
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+    ];
+    const orderIndex = new Map(preferredOrder.map((address, index) => [address, index]));
+
+    return copy.sort((left, right) =>
+      (orderIndex.get(left.address.toLowerCase()) ?? Number.MAX_SAFE_INTEGER)
+      - (orderIndex.get(right.address.toLowerCase()) ?? Number.MAX_SAFE_INTEGER)
+      || left.address.localeCompare(right.address));
+  }
+
+  const durationWeights: Record<'1h' | '6h' | '24h', { volume: number; tx: number; reserve: number }> = {
+    '1h': { volume: 0.35, tx: 0.55, reserve: 0.1 },
+    '6h': { volume: 0.4, tx: 0.45, reserve: 0.15 },
+    '24h': { volume: 0.75, tx: 0.2, reserve: 0.005 },
+  };
+  const weights = durationWeights[options.duration ?? '24h'];
+
+  const scored = copy.map((row) => {
+    const volume = row.volume24hUsd ?? 0;
+    const tx = row.transactions24hBuys + row.transactions24hSells;
+    const reserve = row.reserveUsd ?? 0;
+    const durationMultiplier = options.duration === '1h' ? 0.22 : options.duration === '6h' ? 0.58 : 1;
+    const createdAtMs = row.createdAtTimestamp?.getTime() ?? 0;
+    const recencyBoost = options.duration === '6h' ? createdAtMs / 100_000 : 0;
+    const score =
+      volume * weights.volume * durationMultiplier +
+      tx * 1_000 * weights.tx * durationMultiplier +
+      reserve * weights.reserve +
+      recencyBoost;
+
+    return { row, score };
+  });
+
+  return scored
+    .sort((left, right) =>
+      right.score - left.score
+      || (right.row.volume24hUsd ?? 0) - (left.row.volume24hUsd ?? 0)
+      || (right.row.reserveUsd ?? 0) - (left.row.reserveUsd ?? 0)
+      || left.row.address.localeCompare(right.row.address))
+    .map(({ row }) => row);
+}
+
 function buildPaginationMeta(page: number, perPage: number, totalCount: number) {
   return {
     page,
@@ -961,9 +1047,10 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
 
   app.get('/onchain/networks/:network/new_pools', async (request) => {
     const params = z.object({ network: z.string() }).parse(request.params);
-    const query = paginationQuerySchema.parse(request.query);
+    const query = discoveryPoolsQuerySchema.parse(request.query);
     const page = parsePositiveInt(query.page, 1);
     const perPage = 100;
+    const includes = parsePoolIncludes(query.include);
 
     const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
 
@@ -971,19 +1058,94 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
     }
 
-    const rows = database.db
+    const rows = buildPoolDiscoveryRows(database.db
       .select()
       .from(onchainPools)
       .where(eq(onchainPools.networkId, params.network))
-      .orderBy(desc(onchainPools.createdAtTimestamp), desc(onchainPools.updatedAt))
-      .all();
+      .all(), { mode: 'new' });
 
     const start = (page - 1) * perPage;
+    const pagedRows = rows.slice(start, start + perPage);
+    const included = buildIncludedResources(includes, pagedRows, database);
 
     return {
-      data: rows.slice(start, start + perPage).map((row) => buildPoolResource(row)),
+      data: pagedRows.map((row) => buildPoolResource(row)),
+      ...(included.length > 0 ? { included } : {}),
       meta: {
         page,
+      },
+    };
+  });
+
+  app.get('/onchain/networks/new_pools', async (request) => {
+    const query = discoveryPoolsQuerySchema.parse(request.query);
+    const page = parsePositiveInt(query.page, 1);
+    const perPage = 100;
+    const includes = parsePoolIncludes(query.include);
+    const rows = buildPoolDiscoveryRows(database.db.select().from(onchainPools).all(), { mode: 'new' });
+    const start = (page - 1) * perPage;
+    const pagedRows = rows.slice(start, start + perPage);
+    const included = buildIncludedResources(includes, pagedRows, database);
+
+    return {
+      data: pagedRows.map((row) => buildPoolResource(row)),
+      ...(included.length > 0 ? { included } : {}),
+      meta: {
+        page,
+      },
+    };
+  });
+
+  app.get('/onchain/networks/trending_pools', async (request) => {
+    const query = trendingPoolsQuerySchema.parse(request.query);
+    const page = parsePositiveInt(query.page, 1);
+    const perPage = 100;
+    const includes = parsePoolIncludes(query.include);
+    const duration = parseTrendingDuration(query.duration);
+    const rows = buildPoolDiscoveryRows(database.db.select().from(onchainPools).all(), { mode: 'trending', duration });
+    const start = (page - 1) * perPage;
+    const pagedRows = rows.slice(start, start + perPage);
+    const included = buildIncludedResources(includes, pagedRows, database);
+
+    return {
+      data: pagedRows.map((row) => buildPoolResource(row)),
+      ...(included.length > 0 ? { included } : {}),
+      meta: {
+        page,
+        duration,
+      },
+    };
+  });
+
+  app.get('/onchain/networks/:network/trending_pools', async (request) => {
+    const params = z.object({ network: z.string() }).parse(request.params);
+    const query = trendingPoolsQuerySchema.parse(request.query);
+    const page = parsePositiveInt(query.page, 1);
+    const perPage = 100;
+    const includes = parsePoolIncludes(query.include);
+    const duration = parseTrendingDuration(query.duration);
+
+    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+
+    if (!network) {
+      throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
+    }
+
+    const rows = buildPoolDiscoveryRows(
+      database.db.select().from(onchainPools).where(eq(onchainPools.networkId, params.network)).all(),
+      { mode: 'trending', duration },
+    );
+    const start = (page - 1) * perPage;
+    const pagedRows = rows.slice(start, start + perPage);
+    const included = buildIncludedResources(includes, pagedRows, database);
+
+    return {
+      data: pagedRows.map((row) => buildPoolResource(row)),
+      ...(included.length > 0 ? { included } : {}),
+      meta: {
+        page,
+        duration,
+        network: network.id,
       },
     };
   });
