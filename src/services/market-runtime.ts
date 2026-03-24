@@ -75,6 +75,8 @@ export function createMarketRuntime(
   let marketTimer: NodeJS.Timeout | null = null;
   let searchTimer: NodeJS.Timeout | null = null;
   let startupTask: Promise<void> | null = null;
+  let startupSettled = true;
+  let stopRequested = false;
   const ohlcvRuntime = createOhlcvRuntime(database, { ccxtExchanges: config.ccxtExchanges }, logger);
 
   async function enableResidualStaleDataIfAvailable() {
@@ -108,6 +110,8 @@ export function createMarketRuntime(
         return;
       }
 
+      stopRequested = false;
+      startupSettled = false;
       await enableResidualStaleDataIfAvailable();
 
       startupTask = (async () => {
@@ -150,8 +154,16 @@ export function createMarketRuntime(
           await enableResidualStaleDataIfAvailable();
         }
 
+        if (stopRequested) {
+          return;
+        }
+
         await runCurrencyJob.run();
         await runMarketJob.run();
+
+        if (stopRequested) {
+          return;
+        }
 
         currencyTimer = setInterval(() => {
           void runCurrencyJob.run();
@@ -163,8 +175,14 @@ export function createMarketRuntime(
           void runSearchJob.run();
         }, config.searchRebuildIntervalSeconds * 1000);
       })();
+
+      void startupTask.finally(() => {
+        startupSettled = true;
+      });
     },
     async stop() {
+      stopRequested = true;
+
       if (currencyTimer) {
         clearInterval(currencyTimer);
         currencyTimer = null;
@@ -180,13 +198,17 @@ export function createMarketRuntime(
         searchTimer = null;
       }
 
-      if (startupTask) {
+      if (startupTask && startupSettled) {
         await startupTask;
         startupTask = null;
       }
 
       await Promise.all([runCurrencyJob.waitForIdle(), runMarketJob.waitForIdle(), runSearchJob.waitForIdle()]);
       await (overrides.stopOhlcvRuntime ?? (() => ohlcvRuntime.stop()))();
+
+      if (startupSettled) {
+        startupTask = null;
+      }
     },
   };
 }

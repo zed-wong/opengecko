@@ -124,12 +124,14 @@ describe('market runtime', () => {
     }));
     const runCurrencyRefreshOnce = vi.fn().mockResolvedValue(undefined);
     const runMarketRefreshOnce = vi.fn().mockResolvedValue(undefined);
+    const runSearchRebuildOnce = vi.fn().mockResolvedValue(undefined);
     const stopOhlcvRuntime = vi.fn().mockResolvedValue(undefined);
-    const runtime = createMarketRuntime({} as never, baseConfig as never, logger, createState(), {
+    const state = createState();
+    const runtime = createMarketRuntime({} as never, baseConfig as never, logger, state, {
       runInitialMarketSync,
       runCurrencyRefreshOnce,
       runMarketRefreshOnce,
-      runSearchRebuildOnce: vi.fn().mockResolvedValue(undefined),
+      runSearchRebuildOnce,
       stopOhlcvRuntime,
     });
 
@@ -140,11 +142,43 @@ describe('market runtime', () => {
     expect(runCurrencyRefreshOnce).toHaveBeenCalledTimes(0);
     expect(runMarketRefreshOnce).toHaveBeenCalledTimes(0);
 
-    await runtime.stop();
+    const stopPromise = runtime.stop();
+    expect(runCurrencyRefreshOnce).toHaveBeenCalledTimes(0);
+    expect(runMarketRefreshOnce).toHaveBeenCalledTimes(0);
+    expect(runSearchRebuildOnce).toHaveBeenCalledTimes(0);
+    expect(state.initialSyncCompleted).toBe(false);
+
+    releaseInitialSync();
+    await stopPromise;
+    expect(stopOhlcvRuntime).toHaveBeenCalledTimes(1);
+    await startPromise;
+  });
+
+  it('allows stop to finish before a pending initial sync settles', async () => {
+    let releaseInitialSync!: () => void;
+    const runInitialMarketSync = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+      releaseInitialSync = resolve;
+    }));
+    const stopOhlcvRuntime = vi.fn().mockResolvedValue(undefined);
+    const runtime = createMarketRuntime({} as never, baseConfig as never, logger, createState(), {
+      runInitialMarketSync,
+      runCurrencyRefreshOnce: vi.fn().mockResolvedValue(undefined),
+      runMarketRefreshOnce: vi.fn().mockResolvedValue(undefined),
+      runSearchRebuildOnce: vi.fn().mockResolvedValue(undefined),
+      stopOhlcvRuntime,
+    });
+
+    const startPromise = runtime.start();
+    await flushMicrotasks();
+
+    const stopPromise = runtime.stop();
+    await flushMicrotasks();
+
     expect(stopOhlcvRuntime).toHaveBeenCalledTimes(1);
 
     releaseInitialSync();
     await startPromise;
+    await stopPromise;
   });
 
   it('handles initial sync failure gracefully', async () => {
