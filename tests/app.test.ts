@@ -730,6 +730,79 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json()).toEqual([]);
   });
 
+  it('returns dual top movers payloads with stable polarity and explicit arrays', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/coins/top_gainers_losers?vs_currency=usd',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body).toHaveProperty('top_gainers');
+    expect(body).toHaveProperty('top_losers');
+    expect(Array.isArray(body.top_gainers)).toBe(true);
+    expect(Array.isArray(body.top_losers)).toBe(true);
+    expect(body.top_gainers.length).toBeGreaterThan(0);
+    expect(body.top_losers).toEqual([]);
+    expect(body.top_gainers[0].id).toBe('dogecoin');
+    expect(body.top_gainers[0].symbol).toBe('doge');
+    expect(body.top_gainers[0].name).toBe('Dogecoin');
+    expect(body.top_gainers[0].current_price).toBe(0.28);
+    expect(body.top_gainers[0].price_change_percentage_24h).toBe(5);
+    expect(body.top_gainers[0].market_cap_rank === null || typeof body.top_gainers[0].market_cap_rank === 'number').toBe(true);
+    expect(body.top_gainers.map((row: { price_change_percentage_24h: number | null }) => row.price_change_percentage_24h)).toEqual([5, 4, 3.5, 3, 2.56, 2, 1.8, 0.01]);
+  });
+
+  it('supports mover duration and validates invalid mover params explicitly', async () => {
+    const validResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/top_gainers_losers?vs_currency=usd&duration=24h&top_coins=300&price_change_percentage=24h',
+    });
+    const invalidDurationResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/top_gainers_losers?vs_currency=usd&duration=2h',
+    });
+    const invalidTopCoinsResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/top_gainers_losers?vs_currency=usd&top_coins=2',
+    });
+
+    expect(validResponse.statusCode).toBe(200);
+    expect(validResponse.json().top_gainers.length).toBeLessThanOrEqual(30);
+    expect(validResponse.json().top_losers).toEqual([]);
+
+    expect(invalidDurationResponse.statusCode).toBe(400);
+    expect(invalidDurationResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+    });
+
+    expect(invalidTopCoinsResponse.statusCode).toBe(400);
+    expect(invalidTopCoinsResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+    });
+  });
+
+  it('returns new listings in an object envelope ordered newest first with listing timestamps', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/coins/list/new',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body).toHaveProperty('coins');
+    expect(Array.isArray(body.coins)).toBe(true);
+    expect(body.coins.length).toBe(8);
+    expect(body.coins[0]).toEqual(expect.objectContaining({
+      id: expect.any(String),
+      symbol: expect.any(String),
+      name: expect.any(String),
+    }));
+    const activated = body.coins.map((row: { activated_at: number }) => row.activated_at);
+    expect(activated.every((value: number | null) => value === null || Number.isFinite(value))).toBe(true);
+    expect(activated).toEqual([...activated].sort((left, right) => right - left));
+  });
+
   it('supports coin market ordering and pagination defaults', async () => {
     const orderResponse = await getApp().inject({
       method: 'GET',

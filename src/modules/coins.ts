@@ -75,6 +75,13 @@ const coinTickersQuerySchema = z.object({
   order: z.string().optional(),
 });
 
+const topGainersLosersQuerySchema = z.object({
+  vs_currency: z.string(),
+  duration: z.string().optional(),
+  top_coins: z.string().optional(),
+  price_change_percentage: z.string().optional(),
+});
+
 function toNumberOrNull(value: number | null | undefined, precision: number | 'full') {
   if (value === null || value === undefined) {
     return null;
@@ -426,6 +433,109 @@ function buildMarketRow(
   };
 }
 
+function parseMoverDuration(value: string | undefined) {
+  if (!value) {
+    return { days: 1, field: 'price_change_percentage_24h' as const };
+  }
+
+  const normalized = value.toLowerCase();
+
+  switch (normalized) {
+    case '24h':
+      return { days: 1, field: 'price_change_percentage_24h' as const };
+    case '7d':
+      return { days: 7, field: 'price_change_percentage_7d_in_currency' as const };
+    case '14d':
+      return { days: 14, field: 'price_change_percentage_14d_in_currency' as const };
+    case '30d':
+      return { days: 30, field: 'price_change_percentage_30d_in_currency' as const };
+    case '60d':
+      return { days: 60, field: 'price_change_percentage_60d_in_currency' as const };
+    case '1y':
+      return { days: 365, field: 'price_change_percentage_1y_in_currency' as const };
+    default:
+      throw new HttpError(400, 'invalid_parameter', `Unsupported duration value: ${value}`);
+  }
+}
+
+function parseTopCoinsLimit(value: string | undefined) {
+  if (!value) {
+    return 30;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || ![300, 500, 1000].includes(parsed)) {
+    throw new HttpError(400, 'invalid_parameter', `Unsupported top_coins value: ${value}`);
+  }
+
+  return parsed;
+}
+
+function parseMoverPriceChangePercentage(value: string | undefined) {
+  if (!value) {
+    return ['24h'];
+  }
+
+  const entries = parseCsvQuery(value).map((entry) => entry.toLowerCase());
+  const supported = new Set(['24h', '7d', '14d', '30d', '200d', '1y']);
+
+  if (entries.length === 0 || entries.some((entry) => !supported.has(entry))) {
+    throw new HttpError(400, 'invalid_parameter', `Unsupported price_change_percentage value: ${value}`);
+  }
+
+  return entries;
+}
+
+function getSeriesChangePercentageForWindow(
+  database: AppDatabase,
+  coinId: string,
+  vsCurrency: string,
+  marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
+  durationDays: number,
+) {
+  if (durationDays === 1) {
+    const marketRow = getMarketRows(database, 'usd', { ids: [coinId], status: 'all' })[0];
+
+    return marketRow?.snapshot?.priceChangePercentage24h ?? null;
+  }
+
+  return getSeriesChangePercentageForWindowDays(
+    database,
+    coinId,
+    vsCurrency,
+    marketFreshnessThresholdSeconds,
+    snapshotAccessPolicy,
+    durationDays,
+  );
+}
+
+function buildMoverRow(
+  database: AppDatabase,
+  row: { coin: CoinRow; snapshot: MarketSnapshotRow | null },
+  vsCurrency: string,
+  marketFreshnessThresholdSeconds: number,
+  snapshotAccessPolicy: SnapshotAccessPolicy,
+  durationDays: number,
+  requestedWindows: string[],
+) {
+  return buildMarketRow(database, row, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy, {
+    sparkline: false,
+    precision: 'full',
+    priceChangePercentages: requestedWindows,
+  });
+}
+
+function buildNewListingRow(coin: CoinRow) {
+  return {
+    id: coin.id,
+    symbol: coin.symbol,
+    name: coin.name,
+    activated_at: Math.floor(coin.createdAt.getTime() / 1000),
+  };
+}
+
 function buildCategoriesDetails(database: AppDatabase, categoriesList: string[]) {
   const categoriesById = new Map(getCategories(database).map((category) => [category.id, category]));
 
@@ -577,10 +687,7 @@ function getCoinTickerRows(database: AppDatabase, coinId: string, exchangeIds?: 
     : eq(coinTickers.coinId, coinId);
 
   return database.db
-    .select({
-      ticker: coinTickers,
-      exchange: exchanges,
-    })
+    .select()
     .from(coinTickers)
     .innerJoin(exchanges, eq(exchanges.id, coinTickers.exchangeId))
     .where(whereCondition)
@@ -597,18 +704,18 @@ function sortCoinTickerRows(
   switch (normalizedOrder) {
     case 'trust_score_desc':
       return sortableRows.sort((left, right) => {
-        const trustRankDelta = sortNumber(left.exchange.trustScoreRank, Number.MAX_SAFE_INTEGER) - sortNumber(right.exchange.trustScoreRank, Number.MAX_SAFE_INTEGER);
+        const trustRankDelta = sortNumber(left.exchanges.trustScoreRank, Number.MAX_SAFE_INTEGER) - sortNumber(right.exchanges.trustScoreRank, Number.MAX_SAFE_INTEGER);
 
         if (trustRankDelta !== 0) {
           return trustRankDelta;
         }
 
-        return sortNumber(right.ticker.convertedVolumeUsd, -1) - sortNumber(left.ticker.convertedVolumeUsd, -1);
+        return sortNumber(right.coin_tickers.convertedVolumeUsd, -1) - sortNumber(left.coin_tickers.convertedVolumeUsd, -1);
       });
     case 'volume_desc':
-      return sortableRows.sort((left, right) => sortNumber(right.ticker.convertedVolumeUsd, -1) - sortNumber(left.ticker.convertedVolumeUsd, -1));
+      return sortableRows.sort((left, right) => sortNumber(right.coin_tickers.convertedVolumeUsd, -1) - sortNumber(left.coin_tickers.convertedVolumeUsd, -1));
     case 'volume_asc':
-      return sortableRows.sort((left, right) => sortNumber(left.ticker.convertedVolumeUsd, Number.MAX_SAFE_INTEGER) - sortNumber(right.ticker.convertedVolumeUsd, Number.MAX_SAFE_INTEGER));
+      return sortableRows.sort((left, right) => sortNumber(left.coin_tickers.convertedVolumeUsd, Number.MAX_SAFE_INTEGER) - sortNumber(right.coin_tickers.convertedVolumeUsd, Number.MAX_SAFE_INTEGER));
     default:
       throw new HttpError(400, 'invalid_parameter', `Unsupported order value: ${order}`);
   }
@@ -620,36 +727,36 @@ function buildCoinTickerPayload(
   conversionRates: ReturnType<typeof getConversionRates>,
 ) {
   return {
-    base: row.ticker.base,
-    target: row.ticker.target,
+    base: row.coin_tickers.base,
+    target: row.coin_tickers.target,
     market: {
-      name: row.exchange.name,
-      identifier: row.exchange.id,
-      has_trading_incentive: row.exchange.hasTradingIncentive,
-      ...(includeExchangeLogo ? { logo: row.exchange.imageUrl } : {}),
+      name: row.exchanges.name,
+      identifier: row.exchanges.id,
+      has_trading_incentive: row.exchanges.hasTradingIncentive,
+      ...(includeExchangeLogo ? { logo: row.exchanges.imageUrl } : {}),
     },
-    last: row.ticker.last,
-    volume: row.ticker.volume,
+    last: row.coin_tickers.last,
+    volume: row.coin_tickers.volume,
     converted_last: {
-      btc: row.ticker.convertedLastUsd === null ? null : row.ticker.convertedLastUsd * conversionRates.btc,
-      usd: row.ticker.convertedLastUsd,
-      eth: row.ticker.convertedLastUsd === null ? null : row.ticker.convertedLastUsd * conversionRates.eth,
+      btc: row.coin_tickers.convertedLastUsd === null ? null : row.coin_tickers.convertedLastUsd * conversionRates.btc,
+      usd: row.coin_tickers.convertedLastUsd,
+      eth: row.coin_tickers.convertedLastUsd === null ? null : row.coin_tickers.convertedLastUsd * conversionRates.eth,
     },
     converted_volume: {
-      btc: row.ticker.convertedVolumeUsd === null ? null : row.ticker.convertedVolumeUsd * conversionRates.btc,
-      usd: row.ticker.convertedVolumeUsd,
-      eth: row.ticker.convertedVolumeUsd === null ? null : row.ticker.convertedVolumeUsd * conversionRates.eth,
+      btc: row.coin_tickers.convertedVolumeUsd === null ? null : row.coin_tickers.convertedVolumeUsd * conversionRates.btc,
+      usd: row.coin_tickers.convertedVolumeUsd,
+      eth: row.coin_tickers.convertedVolumeUsd === null ? null : row.coin_tickers.convertedVolumeUsd * conversionRates.eth,
     },
-    trust_score: row.ticker.trustScore,
-    bid_ask_spread_percentage: row.ticker.bidAskSpreadPercentage,
-    timestamp: row.ticker.lastTradedAt?.getTime() ?? null,
-    last_traded_at: row.ticker.lastTradedAt?.toISOString() ?? null,
-    last_fetch_at: row.ticker.lastFetchAt?.toISOString() ?? null,
-    is_anomaly: row.ticker.isAnomaly,
-    is_stale: row.ticker.isStale,
-    trade_url: row.ticker.tradeUrl,
-    token_info_url: row.ticker.tokenInfoUrl,
-    coin_id: row.ticker.coinId,
+    trust_score: row.coin_tickers.trustScore,
+    bid_ask_spread_percentage: row.coin_tickers.bidAskSpreadPercentage,
+    timestamp: row.coin_tickers.lastTradedAt?.getTime() ?? null,
+    last_traded_at: row.coin_tickers.lastTradedAt?.toISOString() ?? null,
+    last_fetch_at: row.coin_tickers.lastFetchAt?.toISOString() ?? null,
+    is_anomaly: row.coin_tickers.isAnomaly,
+    is_stale: row.coin_tickers.isStale,
+    trade_url: row.coin_tickers.tradeUrl,
+    token_info_url: row.coin_tickers.tokenInfoUrl,
+    coin_id: row.coin_tickers.coinId,
     target_coin_id: null,
   };
 }
@@ -923,6 +1030,80 @@ export function registerCoinRoutes(
       precision,
       priceChangePercentages,
     }));
+  });
+
+  app.get('/coins/top_gainers_losers', async (request) => {
+    const query = topGainersLosersQuerySchema.parse(request.query);
+    const vsCurrency = query.vs_currency.toLowerCase();
+    const duration = parseMoverDuration(query.duration);
+    const requestedWindows = Array.from(new Set([...parseMoverPriceChangePercentage(query.price_change_percentage), duration.days === 1 ? '24h' : `${duration.days}d`]));
+    const topCoinsLimit = parseTopCoinsLimit(query.top_coins);
+    const snapshotAccessPolicy = getSnapshotAccessPolicy(runtimeState);
+    const rankedUniverse = getMarketRows(database, 'usd', { status: 'active' })
+      .map((row) => ({
+        coin: row.coin,
+        snapshot: getUsableSnapshot(row.snapshot, marketFreshnessThresholdSeconds, snapshotAccessPolicy),
+      }))
+      .sort((left, right) => {
+        const leftRank = left.snapshot?.marketCapRank ?? left.coin.marketCapRank ?? Number.MAX_SAFE_INTEGER;
+        const rightRank = right.snapshot?.marketCapRank ?? right.coin.marketCapRank ?? Number.MAX_SAFE_INTEGER;
+
+        if (leftRank !== rightRank) {
+          return leftRank - rightRank;
+        }
+
+        return left.coin.id.localeCompare(right.coin.id);
+      })
+      .slice(0, Math.min(topCoinsLimit, 250));
+
+    const movers = rankedUniverse
+      .map((row) => ({
+        row,
+        change: getSeriesChangePercentageForWindow(
+          database,
+          row.coin.id,
+          vsCurrency,
+          marketFreshnessThresholdSeconds,
+          snapshotAccessPolicy,
+          duration.days,
+        ),
+      }))
+      .filter((entry) => entry.change !== null);
+
+    const topGainers = movers
+      .filter((entry) => (entry.change ?? 0) > 0)
+      .sort((left, right) => (right.change ?? Number.NEGATIVE_INFINITY) - (left.change ?? Number.NEGATIVE_INFINITY))
+      .slice(0, 30)
+      .map((entry) => buildMoverRow(database, entry.row, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy, duration.days, requestedWindows));
+
+    const topLosers = movers
+      .filter((entry) => (entry.change ?? 0) < 0)
+      .sort((left, right) => (left.change ?? Number.POSITIVE_INFINITY) - (right.change ?? Number.POSITIVE_INFINITY))
+      .slice(0, 30)
+      .map((entry) => buildMoverRow(database, entry.row, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy, duration.days, requestedWindows));
+
+    return {
+      top_gainers: topGainers,
+      top_losers: topLosers,
+    };
+  });
+
+  app.get('/coins/list/new', async () => {
+    const rows = getCoins(database, { status: 'active' })
+      .slice()
+      .sort((left, right) => {
+        const timeDelta = right.createdAt.getTime() - left.createdAt.getTime();
+
+        if (timeDelta !== 0) {
+          return timeDelta;
+        }
+
+        return left.id.localeCompare(right.id);
+      });
+
+    return {
+      coins: rows.map(buildNewListingRow),
+    };
   });
 
   app.get('/coins/:id', async (request) => {
