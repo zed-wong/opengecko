@@ -72,5 +72,9 @@
   },
   "searchBlankQuery": {
     "error": "invalid_request"
+  },
+  "searchTrendingBadShowMax": {
+    "error": "invalid_parameter",
+    "message": "Invalid show_max value: bad"
   }
 }

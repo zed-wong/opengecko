@@ -323,6 +323,39 @@
       }
     ]
   },
+  "searchTrending": {
+    "coins": [
+      {
+        "item": {
+          "id": "bitcoin",
+          "coin_id": 0,
+          "name": "Bitcoin",
+          "symbol": "btc",
+          "market_cap_rank": 1
+        }
+      },
+      {
+        "item": {
+          "id": "ethereum",
+          "coin_id": 0,
+          "name": "Ethereum",
+          "symbol": "eth",
+          "market_cap_rank": 2
+        }
+      }
+    ],
+    "nfts": [],
+    "categories": [
+      {
+        "id": 1,
+        "name": "Smart Contract Platform"
+      },
+      {
+        "id": 2,
+        "name": "Stablecoins"
+      }
+    ]
+  },
   "global": {
     "data": {
       "active_cryptocurrencies": 3,

@@ -3,6 +3,7 @@ import { asc } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { AppDatabase } from '../db/client';
+import { HttpError } from '../http/errors';
 import { exchanges } from '../db/schema';
 import { searchDocuments } from '../db/search-index';
 import { getCategories, getCoins, getMarketRows, parseJsonArray } from './catalog';
@@ -10,6 +11,22 @@ import { getCategories, getCoins, getMarketRows, parseJsonArray } from './catalo
 const searchQuerySchema = z.object({
   query: z.string().trim().min(1),
 });
+
+const trendingQuerySchema = z.object({
+  show_max: z.string().optional(),
+});
+
+function parseShowMax(value: string | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!/^\d+$/.test(value)) {
+    throw new HttpError(400, 'invalid_parameter', `Invalid show_max value: ${value}`);
+  }
+
+  return Number.parseInt(value, 10);
+}
 
 export function registerSearchRoutes(app: FastifyInstance, database: AppDatabase) {
   app.get('/search', async (request) => {
@@ -70,6 +87,94 @@ export function registerSearchRoutes(app: FastifyInstance, database: AppDatabase
       icos: [],
       categories,
       nfts: [],
+    };
+  });
+
+  app.get('/search/trending', async (request) => {
+    const query = trendingQuerySchema.parse(request.query);
+    const showMax = parseShowMax(query.show_max);
+    const marketRows = getMarketRows(database, 'usd', { status: 'all' });
+    const coins = marketRows
+      .slice()
+      .sort((left, right) => {
+        const rankDelta = (left.coin.marketCapRank ?? Number.MAX_SAFE_INTEGER) - (right.coin.marketCapRank ?? Number.MAX_SAFE_INTEGER);
+
+        if (rankDelta !== 0) {
+          return rankDelta;
+        }
+
+        return left.coin.id.localeCompare(right.coin.id);
+      })
+      .slice(0, showMax ?? 7)
+      .map((row) => {
+        const snapshot = row.snapshot;
+
+        if (!snapshot) {
+          return null;
+        }
+
+        const marketCapRank = snapshot.marketCapRank ?? row.coin.marketCapRank;
+
+        return ({
+        item: {
+          id: row.coin.id,
+          coin_id: marketCapRank ?? 0,
+          name: row.coin.name,
+          symbol: row.coin.symbol,
+          market_cap_rank: marketCapRank ?? null,
+          thumb: row.coin.imageThumbUrl,
+          small: row.coin.imageSmallUrl,
+          large: row.coin.imageLargeUrl,
+          slug: row.coin.id,
+          price_btc: snapshot.price / 85_000,
+          score: marketCapRank ?? 0,
+          data: {
+            price: snapshot.price,
+            price_btc: snapshot.price / 85_000,
+            market_cap: snapshot.marketCap,
+            market_cap_btc: snapshot.marketCap ? snapshot.marketCap / 85_000 : null,
+            total_volume: snapshot.totalVolume,
+            total_volume_btc: snapshot.totalVolume ? snapshot.totalVolume / 85_000 : null,
+            sparkline: '',
+            content: null,
+          },
+        },
+      });
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null);
+
+    const categories = getCategories(database)
+      .slice()
+      .sort((left, right) => {
+        const marketCapDelta = (right.marketCap ?? 0) - (left.marketCap ?? 0);
+
+        if (marketCapDelta !== 0) {
+          return marketCapDelta;
+        }
+
+        return left.id.localeCompare(right.id);
+      })
+      .slice(0, showMax ?? 7)
+      .map((category, index) => ({
+        id: index + 1,
+        name: category.name,
+        market_cap_1h_change: category.marketCapChange24h,
+        slug: category.id,
+        coins_count: parseJsonArray<string>(category.top3CoinsJson).length,
+        data: {
+          market_cap: category.marketCap,
+          market_cap_btc: category.marketCap ? category.marketCap / 85_000 : null,
+          total_volume: category.volume24h,
+          total_volume_btc: category.volume24h ? category.volume24h / 85_000 : null,
+          sparkline: '',
+          content: category.content,
+        },
+      }));
+
+    return {
+      coins,
+      nfts: [],
+      categories,
     };
   });
 }

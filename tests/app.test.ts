@@ -558,6 +558,63 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json()).toMatchObject(contractFixtures.searchStable);
   });
 
+  it('returns grouped trending search results with nested coin items', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/search/trending',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body).toHaveProperty('coins');
+    expect(body).toHaveProperty('nfts');
+    expect(body).toHaveProperty('categories');
+    expect(Array.isArray(body.coins)).toBe(true);
+    expect(Array.isArray(body.nfts)).toBe(true);
+    expect(Array.isArray(body.categories)).toBe(true);
+    expect(body.coins[0].item.id).toBe('bitcoin');
+    expect(typeof body.coins[0].item.coin_id).toBe('number');
+    expect(body.coins[0].item.name).toBe('Bitcoin');
+    expect(body.coins[0].item.symbol).toBe('btc');
+    expect(typeof body.coins[0].item.market_cap_rank === 'number' || body.coins[0].item.market_cap_rank === null).toBe(true);
+    expect(body.coins.map((entry: { item: { id: string } }) => entry.item.id)).toContain('ethereum');
+    expect(body.nfts).toEqual([]);
+    expect(body.categories[0]).toMatchObject(contractFixtures.searchTrending.categories[0]);
+    expect(body.categories[1]).toMatchObject(contractFixtures.searchTrending.categories[1]);
+    expect(body.coins[0]).toHaveProperty('item');
+    expect(Array.isArray(body.nfts)).toBe(true);
+    expect(Array.isArray(body.categories)).toBe(true);
+  });
+
+  it('supports deterministic show_max truncation for trending search groups', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/search/trending?show_max=1',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.coins).toHaveLength(1);
+    expect(body.categories).toHaveLength(1);
+    expect(body.nfts).toEqual([]);
+    expect(body.coins[0].item.id).toBe('bitcoin');
+    expect(body.categories[0].name).toBe('Smart Contract Platform');
+  });
+
+  it('keeps empty trending groups as arrays when show_max is zero', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/search/trending?show_max=0',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      coins: [],
+      nfts: [],
+      categories: [],
+    });
+  });
+
   it('returns global market aggregates', async () => {
     const response = await getApp().inject({
       method: 'GET',
@@ -814,7 +871,8 @@ describe('OpenGecko app scaffold', () => {
     });
 
     expect(chartResponse.statusCode).toBe(200);
-    expect(chartResponse.json().prices[0]).toEqual([1774224000000, 85000]);
+    expect(chartResponse.json().prices).toHaveLength(1);
+    expect(chartResponse.json().prices[0]).toEqual([1774310400000, 85000]);
 
     expect(maxChartResponse.statusCode).toBe(200);
     expect(maxChartResponse.json().prices).toHaveLength(1);
@@ -825,7 +883,8 @@ describe('OpenGecko app scaffold', () => {
     });
 
     expect(ohlcResponse.statusCode).toBe(200);
-    expect(ohlcResponse.json()[0]).toEqual([1774224000000, 85000, 85000, 85000, 85000]);
+    expect(ohlcResponse.json()).toHaveLength(1);
+    expect(ohlcResponse.json()[0]).toEqual([1774310400000, 85000, 85000, 85000, 85000]);
   });
 
   it('returns categories and contract-address variants', async () => {

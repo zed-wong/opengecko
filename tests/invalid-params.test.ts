@@ -182,6 +182,16 @@ describe('OpenGecko invalid parameter handling', () => {
     expect(response.json()).toMatchObject(errorFixtures.searchBlankQuery);
   });
 
+  it('rejects invalid trending show_max values', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/search/trending?show_max=bad',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject(errorFixtures.searchTrendingBadShowMax);
+  });
+
   it('returns not found for unknown token list platforms', async () => {
     const response = await app!.inject({
       method: 'GET',
