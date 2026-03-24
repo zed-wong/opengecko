@@ -495,6 +495,110 @@ describe('OpenGecko app scaffold', () => {
     expect(dexesResponse.json()).toMatchObject(contractFixtures.onchainDexesEth);
   });
 
+  it('returns onchain networks with pagination metadata and asset-platform continuity', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks?page=1',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body).toHaveProperty('meta.page', 1);
+    expect(body).toHaveProperty('meta.per_page', 100);
+    expect(body).toHaveProperty('meta.total_pages', 1);
+    expect(body).toHaveProperty('meta.total_count', 2);
+    expect(body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'eth',
+          type: 'network',
+          attributes: expect.objectContaining({
+            coingecko_asset_platform_id: 'ethereum',
+          }),
+        }),
+        expect.objectContaining({
+          id: 'solana',
+          type: 'network',
+          attributes: expect.objectContaining({
+            coingecko_asset_platform_id: 'solana',
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('returns later onchain network pages with the same collection shape', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks?page=2',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      data: [],
+      meta: {
+        page: 2,
+        per_page: 100,
+        total_pages: 1,
+        total_count: 2,
+      },
+    });
+  });
+
+  it('returns network-scoped dexes with relationship continuity', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/dexes?page=1',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body).toMatchObject({
+      meta: {
+        page: 1,
+        per_page: 100,
+        total_pages: 1,
+        total_count: 2,
+        network: 'eth',
+      },
+    });
+    expect(body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'curve',
+          type: 'dex',
+          relationships: {
+            network: {
+              data: {
+                type: 'network',
+                id: 'eth',
+              },
+            },
+          },
+        }),
+        expect.objectContaining({
+          id: 'uniswap_v3',
+          type: 'dex',
+          relationships: {
+            network: {
+              data: {
+                type: 'network',
+                id: 'eth',
+              },
+            },
+          },
+        }),
+      ]),
+    );
+    expect(body.data).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'raydium',
+        }),
+      ]),
+    );
+  });
+
   it('returns onchain network pools and pool detail', async () => {
     const poolsResponse = await getApp().inject({
       method: 'GET',

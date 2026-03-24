@@ -427,6 +427,29 @@ describe('OpenGecko invalid parameter handling', () => {
     });
   });
 
+  it('rejects invalid onchain network page values explicitly', async () => {
+    const zeroPageResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks?page=0',
+    });
+    const negativePageResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks?page=-1',
+    });
+    const nonIntegerPageResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks?page=abc',
+    });
+
+    for (const response of [zeroPageResponse, negativePageResponse, nonIntegerPageResponse]) {
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        error: 'invalid_parameter',
+      });
+      expect(response.json().message).toMatch(/^Invalid integer value:/);
+    }
+  });
+
   it('returns not found for unknown onchain pools', async () => {
     const response = await app!.inject({
       method: 'GET',

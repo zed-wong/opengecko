@@ -103,6 +103,15 @@ function resolvePoolOrder(sort: z.infer<typeof poolListQuerySchema>['sort']) {
   }
 }
 
+function buildPaginationMeta(page: number, perPage: number, totalCount: number) {
+  return {
+    page,
+    per_page: perPage,
+    total_pages: Math.ceil(totalCount / perPage),
+    total_count: totalCount,
+  };
+}
+
 export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabase) {
   app.get('/onchain/networks', async (request) => {
     const query = paginationQuerySchema.parse(request.query);
@@ -110,12 +119,11 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     const perPage = 100;
     const rows = database.db.select().from(onchainNetworks).orderBy(asc(onchainNetworks.name)).all();
     const start = (page - 1) * perPage;
+    const totalCount = rows.length;
 
     return {
       data: rows.slice(start, start + perPage).map(buildNetworkResource),
-      meta: {
-        page,
-      },
+      meta: buildPaginationMeta(page, perPage, totalCount),
     };
   });
 
@@ -137,11 +145,12 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       .orderBy(asc(onchainDexes.name))
       .all();
     const start = (page - 1) * perPage;
+    const totalCount = rows.length;
 
     return {
       data: rows.slice(start, start + perPage).map(buildDexResource),
       meta: {
-        page,
+        ...buildPaginationMeta(page, perPage, totalCount),
         network: network.id,
       },
     };
