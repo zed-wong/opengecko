@@ -48,6 +48,10 @@ const derivativesExchangesQuerySchema = z.object({
   page: z.string().optional(),
 });
 
+const derivativesExchangeDetailQuerySchema = z.object({
+  include_tickers: z.enum(['true', 'false']).optional(),
+});
+
 function parseJsonArray<T>(value: string) {
   return JSON.parse(value) as T[];
 }
@@ -119,6 +123,16 @@ function buildDerivativesExchangeSummary(row: DerivativesExchangeRow) {
     image: row.imageUrl,
     centralized: row.centralised,
   };
+}
+
+function getDerivativesExchangeOrThrow(database: AppDatabase, exchangeId: string) {
+  const exchange = database.db.select().from(derivativesExchanges).where(eq(derivativesExchanges.id, exchangeId)).limit(1).get();
+
+  if (!exchange) {
+    throw new HttpError(404, 'not_found', `Derivatives exchange not found: ${exchangeId}`);
+  }
+
+  return exchange;
 }
 
 function sortNumber(value: number | null | undefined, fallback: number) {
@@ -395,6 +409,12 @@ function buildDerivativeTickerPayload(row: DerivativeTickerWithExchangeRow) {
   };
 }
 
+function getDerivativesExchangeTickers(database: AppDatabase, exchangeId: string) {
+  return getDerivativeRows(database)
+    .filter((row) => row.derivative_tickers.exchangeId === exchangeId)
+    .map(buildDerivativeTickerPayload);
+}
+
 export function registerExchangeRoutes(
   app: FastifyInstance,
   database: AppDatabase,
@@ -503,6 +523,17 @@ export function registerExchangeRoutes(
     const start = (page - 1) * perPage;
 
     return sortedRows.slice(start, start + perPage).map(buildDerivativesExchangeSummary);
+  });
+
+  app.get('/derivatives/exchanges/:id', async (request) => {
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const query = derivativesExchangeDetailQuerySchema.parse(request.query);
+    const exchange = getDerivativesExchangeOrThrow(database, params.id);
+
+    return {
+      ...buildDerivativesExchangeSummary(exchange),
+      ...(query.include_tickers === 'true' ? { tickers: getDerivativesExchangeTickers(database, params.id) } : {}),
+    };
   });
 
   app.get('/derivatives', async () => {

@@ -320,6 +320,18 @@ describe('OpenGecko invalid parameter handling', () => {
     expect(response.json()).toMatchObject(errorFixtures.derivativesExchangesBadOrder);
   });
 
+  it('rejects invalid derivatives exchange detail ticker flags', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/derivatives/exchanges/binance_futures?include_tickers=maybe',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: 'invalid_request',
+    });
+  });
+
   it('rejects unsupported treasury ordering values', async () => {
     const response = await app!.inject({
       method: 'GET',
@@ -373,6 +385,19 @@ describe('OpenGecko invalid parameter handling', () => {
     expect(response.json()).toMatchObject({
       error: 'not_found',
       message: 'Treasury entity not found: not-an-entity',
+    });
+  });
+
+  it('returns not found for unknown derivatives exchanges', async () => {
+    const response = await app!.inject({
+      method: 'GET',
+      url: '/derivatives/exchanges/not-a-venue',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Derivatives exchange not found: not-a-venue',
     });
   });
 

@@ -376,6 +376,50 @@ describe('OpenGecko app scaffold', () => {
     expect(exchangesResponse.json()[0]).toMatchObject(contractFixtures.derivativesExchanges[0]);
   });
 
+  it('returns derivatives exchange detail without tickers by default and includes tickers on request', async () => {
+    const detailResponse = await getApp().inject({
+      method: 'GET',
+      url: '/derivatives/exchanges/binance_futures',
+    });
+    const includeTickersResponse = await getApp().inject({
+      method: 'GET',
+      url: '/derivatives/exchanges/binance_futures?include_tickers=true',
+    });
+
+    expect(detailResponse.statusCode).toBe(200);
+    expect(detailResponse.json()).toMatchObject({
+      id: 'binance_futures',
+      name: 'Binance Futures',
+      open_interest_btc: 185000,
+      trade_volume_24h_btc: 910000,
+      number_of_perpetual_pairs: 412,
+      number_of_futures_pairs: 38,
+      year_established: 2019,
+      country: 'Cayman Islands',
+      description: "Binance Futures is Binance's derivatives venue for perpetual and dated futures markets.",
+      url: 'https://www.binance.com/en/futures',
+      image: 'https://assets.coingecko.com/markets/images/52/small/binance.jpg',
+      centralized: true,
+    });
+    expect(detailResponse.json()).not.toHaveProperty('tickers');
+
+    expect(includeTickersResponse.statusCode).toBe(200);
+    expect(includeTickersResponse.json()).toMatchObject({
+      id: 'binance_futures',
+      name: 'Binance Futures',
+    });
+    expect(includeTickersResponse.json()).toHaveProperty('tickers');
+    expect(includeTickersResponse.json().tickers).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        market: 'Binance Futures',
+        market_id: 'binance_futures',
+        symbol: 'BTCUSDT',
+        index_id: 'bitcoin',
+        contract_type: 'perpetual',
+      }),
+    ]));
+  });
+
   it('returns derivatives tickers', async () => {
     const response = await getApp().inject({
       method: 'GET',
