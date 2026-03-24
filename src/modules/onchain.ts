@@ -107,6 +107,21 @@ const onchainOhlcvQuerySchema = z.object({
   include_inactive_source: z.string().optional(),
 });
 
+const topHoldersQuerySchema = z.object({
+  holders: z.string().optional(),
+  include_pnl_details: z.string().optional(),
+});
+
+const topTradersQuerySchema = z.object({
+  traders: z.string().optional(),
+  sort: z.string().optional(),
+  include_address_label: z.string().optional(),
+});
+
+const holdersChartQuerySchema = z.object({
+  days: z.string().optional(),
+});
+
 const supportedOnchainOhlcvTimeframes = ['minute', 'hour', 'day'] as const;
 type OnchainOhlcvTimeframe = (typeof supportedOnchainOhlcvTimeframes)[number];
 type OnchainOhlcvSeriesPoint = {
@@ -460,6 +475,30 @@ type OnchainTradeRecord = {
   blockTimestamp: number;
 };
 
+type OnchainHolderRecord = {
+  address: string;
+  balance: number;
+  shareOfSupply: number;
+  pnlUsd: number;
+  avgBuyPriceUsd: number;
+  realizedPnlUsd: number;
+};
+
+type OnchainTraderRecord = {
+  address: string;
+  volumeUsd: number;
+  buyVolumeUsd: number;
+  sellVolumeUsd: number;
+  realizedPnlUsd: number;
+  tradeCount: number;
+  addressLabel: string | null;
+};
+
+type HoldersChartPoint = {
+  timestamp: number;
+  holderCount: number;
+};
+
 function parseTradeVolumeThreshold(value: string | undefined) {
   if (value === undefined) {
     return null;
@@ -469,6 +508,47 @@ function parseTradeVolumeThreshold(value: string | undefined) {
 
   if (!Number.isFinite(parsed)) {
     throw new HttpError(400, 'invalid_parameter', `Invalid trade_volume_in_usd_greater_than value: ${value}`);
+  }
+
+  return parsed;
+}
+
+function parseAnalyticsCount(value: string | undefined, parameterName: 'holders' | 'traders', defaultValue: number) {
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new HttpError(400, 'invalid_parameter', `Invalid ${parameterName} value: ${value}`);
+  }
+
+  return Math.min(parsed, 100);
+}
+
+const supportedTopTraderSorts = ['volume_usd_desc', 'realized_pnl_usd_desc'] as const;
+type TopTraderSort = (typeof supportedTopTraderSorts)[number];
+
+function parseTopTraderSort(value: string | undefined): TopTraderSort {
+  if (value === undefined) {
+    return 'volume_usd_desc';
+  }
+
+  if ((supportedTopTraderSorts as readonly string[]).includes(value)) {
+    return value as TopTraderSort;
+  }
+
+  throw new HttpError(400, 'invalid_parameter', `Unsupported sort value: ${value}`);
+}
+
+function parseHoldersChartDays(value: string | undefined) {
+  if (value === undefined) {
+    return 30;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new HttpError(400, 'invalid_parameter', `Invalid days value: ${value}`);
   }
 
   return parsed;
@@ -814,6 +894,140 @@ function buildTradeResource(trade: OnchainTradeRecord) {
           id: trade.tokenAddress,
         },
       },
+    },
+  };
+}
+
+function buildTopHolderFixtures(networkId: string, tokenAddress: string): OnchainHolderRecord[] {
+  const normalizedAddress = normalizeAddress(tokenAddress);
+
+  if (networkId === 'eth' && normalizedAddress === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48') {
+    return [
+      {
+        address: '0xholder000000000000000000000000000000000003',
+        balance: 200_000_000,
+        shareOfSupply: 0.2,
+        pnlUsd: 2_000_000,
+        avgBuyPriceUsd: 0.98,
+        realizedPnlUsd: 700_000,
+      },
+      {
+        address: '0xholder000000000000000000000000000000000002',
+        balance: 150_000_000,
+        shareOfSupply: 0.15,
+        pnlUsd: 1_000_000,
+        avgBuyPriceUsd: 0.99,
+        realizedPnlUsd: 300_000,
+      },
+      {
+        address: '0xholder000000000000000000000000000000000001',
+        balance: 100_000_000,
+        shareOfSupply: 0.1,
+        pnlUsd: 500_000,
+        avgBuyPriceUsd: 0.995,
+        realizedPnlUsd: 125_000,
+      },
+    ];
+  }
+
+  return [];
+}
+
+function buildTopTraderFixtures(networkId: string, tokenAddress: string): OnchainTraderRecord[] {
+  const normalizedAddress = normalizeAddress(tokenAddress);
+
+  if (networkId === 'eth' && normalizedAddress === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48') {
+    return [
+      {
+        address: '0xtrader000000000000000000000000000000000001',
+        volumeUsd: 9_000_000,
+        buyVolumeUsd: 5_100_000,
+        sellVolumeUsd: 3_900_000,
+        realizedPnlUsd: 450_000,
+        tradeCount: 120,
+        addressLabel: 'Whale One',
+      },
+      {
+        address: '0xtrader000000000000000000000000000000000002',
+        volumeUsd: 12_500_000,
+        buyVolumeUsd: 7_400_000,
+        sellVolumeUsd: 5_100_000,
+        realizedPnlUsd: 200_000,
+        tradeCount: 145,
+        addressLabel: 'MM Desk',
+      },
+      {
+        address: '0xtrader000000000000000000000000000000000003',
+        volumeUsd: 4_000_000,
+        buyVolumeUsd: 2_200_000,
+        sellVolumeUsd: 1_800_000,
+        realizedPnlUsd: 300_000,
+        tradeCount: 80,
+        addressLabel: 'Arb Bot',
+      },
+    ];
+  }
+
+  return [];
+}
+
+function buildHoldersChartFixtures(networkId: string, tokenAddress: string): HoldersChartPoint[] {
+  const normalizedAddress = normalizeAddress(tokenAddress);
+
+  if (networkId === 'eth' && normalizedAddress === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48') {
+    return [
+      { timestamp: 1_710_028_800, holderCount: 181_200 },
+      { timestamp: 1_710_633_600, holderCount: 184_500 },
+      { timestamp: 1_711_238_400, holderCount: 188_900 },
+      { timestamp: 1_711_843_200, holderCount: 193_400 },
+    ];
+  }
+
+  return [];
+}
+
+function buildTopHolderResource(holder: OnchainHolderRecord, includePnlDetails: boolean) {
+  return {
+    id: holder.address,
+    type: 'holder',
+    attributes: {
+      address: holder.address,
+      balance: String(holder.balance),
+      share_of_supply: String(holder.shareOfSupply),
+      ...(includePnlDetails
+        ? {
+            pnl_usd: String(holder.pnlUsd),
+            avg_buy_price_usd: String(holder.avgBuyPriceUsd),
+            realized_pnl_usd: String(holder.realizedPnlUsd),
+          }
+        : {}),
+    },
+  };
+}
+
+function buildTopTraderResource(trader: OnchainTraderRecord, includeAddressLabel: boolean) {
+  return {
+    id: trader.address,
+    type: 'trader',
+    attributes: {
+      address: trader.address,
+      volume_usd: String(trader.volumeUsd),
+      buy_volume_usd: String(trader.buyVolumeUsd),
+      sell_volume_usd: String(trader.sellVolumeUsd),
+      realized_pnl_usd: String(trader.realizedPnlUsd),
+      trade_count: trader.tradeCount,
+      ...(includeAddressLabel ? { address_label: trader.addressLabel } : {}),
+    },
+  };
+}
+
+function buildHoldersChartResource(point: HoldersChartPoint) {
+  return {
+    id: String(point.timestamp),
+    type: 'holders_chart_point',
+    attributes: {
+      timestamp: point.timestamp,
+      holder_count: point.holderCount,
     },
   };
 }
@@ -1874,6 +2088,116 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       ...(included.length > 0 ? { included } : {}),
       meta: {
         page,
+      },
+    };
+  });
+
+  app.get('/onchain/networks/:network/tokens/:address/top_holders', async (request) => {
+    const params = z.object({ network: z.string(), address: z.string() }).parse(request.params);
+    const query = topHoldersQuerySchema.parse(request.query);
+    const includePnlDetails = parseBooleanQuery(query.include_pnl_details, false);
+    const holders = parseAnalyticsCount(query.holders, 'holders', 3);
+    const tokenAddress = normalizeAddress(params.address);
+
+    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+    if (!network) {
+      throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
+    }
+
+    const tokenPools = collectTokenPools(params.network, tokenAddress, database);
+    if (tokenPools.length === 0) {
+      throw new HttpError(404, 'not_found', `Onchain token not found: ${tokenAddress}`);
+    }
+
+    const holdersRows = buildTopHolderFixtures(params.network, tokenAddress)
+      .sort((left, right) => right.balance - left.balance || right.shareOfSupply - left.shareOfSupply || left.address.localeCompare(right.address))
+      .slice(0, holders);
+
+    return {
+      data: holdersRows.map((holder) => buildTopHolderResource(holder, includePnlDetails)),
+      meta: {
+        network: params.network,
+        token_address: tokenAddress,
+        holders,
+        include_pnl_details: includePnlDetails,
+      },
+    };
+  });
+
+  app.get('/onchain/networks/:network/tokens/:address/top_traders', async (request) => {
+    const params = z.object({ network: z.string(), address: z.string() }).parse(request.params);
+    const query = topTradersQuerySchema.parse(request.query);
+    const includeAddressLabel = parseBooleanQuery(query.include_address_label, false);
+    const traders = parseAnalyticsCount(query.traders, 'traders', 3);
+    const sort = parseTopTraderSort(query.sort);
+    const tokenAddress = normalizeAddress(params.address);
+
+    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+    if (!network) {
+      throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
+    }
+
+    const tokenPools = collectTokenPools(params.network, tokenAddress, database);
+    if (tokenPools.length === 0) {
+      throw new HttpError(404, 'not_found', `Onchain token not found: ${tokenAddress}`);
+    }
+
+    const tradersRows = buildTopTraderFixtures(params.network, tokenAddress)
+      .sort((left, right) => {
+        const primary = sort === 'realized_pnl_usd_desc'
+          ? right.realizedPnlUsd - left.realizedPnlUsd
+          : right.volumeUsd - left.volumeUsd;
+
+        if (primary !== 0) {
+          return primary;
+        }
+
+        const secondary = right.volumeUsd - left.volumeUsd;
+        if (secondary !== 0) {
+          return secondary;
+        }
+
+        return left.address.localeCompare(right.address);
+      })
+      .slice(0, traders);
+
+    return {
+      data: tradersRows.map((trader) => buildTopTraderResource(trader, includeAddressLabel)),
+      meta: {
+        network: params.network,
+        token_address: tokenAddress,
+        traders,
+        sort,
+        include_address_label: includeAddressLabel,
+      },
+    };
+  });
+
+  app.get('/onchain/networks/:network/tokens/:address/holders_chart', async (request) => {
+    const params = z.object({ network: z.string(), address: z.string() }).parse(request.params);
+    const query = holdersChartQuerySchema.parse(request.query);
+    const days = parseHoldersChartDays(query.days);
+    const tokenAddress = normalizeAddress(params.address);
+
+    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+    if (!network) {
+      throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
+    }
+
+    const tokenPools = collectTokenPools(params.network, tokenAddress, database);
+    if (tokenPools.length === 0) {
+      throw new HttpError(404, 'not_found', `Onchain token not found: ${tokenAddress}`);
+    }
+
+    const fullSeries = buildHoldersChartFixtures(params.network, tokenAddress).sort((left, right) => left.timestamp - right.timestamp);
+    const data = days <= 7 ? fullSeries.slice(-2) : fullSeries;
+
+    return {
+      data: data.map(buildHoldersChartResource),
+      meta: {
+        network: params.network,
+        token_address: tokenAddress,
+        days,
       },
     };
   });

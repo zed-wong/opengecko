@@ -1407,6 +1407,146 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('returns onchain holder and trader analytics with deterministic ordering, count limits, enrichment gating, and holders chart windows', async () => {
+    const topHoldersResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/top_holders',
+    });
+    const topHoldersLimitedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/top_holders?holders=2&include_pnl_details=true',
+    });
+    const topTradersResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/top_traders',
+    });
+    const topTradersSortedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/top_traders?traders=2&sort=realized_pnl_usd_desc&include_address_label=true',
+    });
+    const holdersChartResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/holders_chart',
+    });
+    const holdersChartShortResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/holders_chart?days=7',
+    });
+
+    expect(topHoldersResponse.statusCode).toBe(200);
+    expect(topHoldersResponse.json().meta).toMatchObject({
+      network: 'eth',
+      token_address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      holders: 3,
+    });
+    expect(topHoldersResponse.json().data.map((holder: { id: string }) => holder.id)).toEqual([
+      '0xholder000000000000000000000000000000000003',
+      '0xholder000000000000000000000000000000000002',
+      '0xholder000000000000000000000000000000000001',
+    ]);
+    expect(topHoldersResponse.json().data.map((holder: { attributes: { balance: string } }) => Number(holder.attributes.balance))).toEqual([
+      200000000,
+      150000000,
+      100000000,
+    ]);
+    expect(topHoldersResponse.json().data[0].attributes).not.toHaveProperty('pnl_usd');
+
+    expect(topHoldersLimitedResponse.statusCode).toBe(200);
+    expect(topHoldersLimitedResponse.json().meta).toMatchObject({
+      holders: 2,
+      include_pnl_details: true,
+    });
+    expect(topHoldersLimitedResponse.json().data).toHaveLength(2);
+    expect(topHoldersLimitedResponse.json().data).toEqual([
+      expect.objectContaining({
+        id: '0xholder000000000000000000000000000000000003',
+        attributes: expect.objectContaining({
+          pnl_usd: '2000000',
+          avg_buy_price_usd: '0.98',
+          realized_pnl_usd: '700000',
+        }),
+      }),
+      expect.objectContaining({
+        id: '0xholder000000000000000000000000000000000002',
+        attributes: expect.objectContaining({
+          pnl_usd: '1000000',
+          avg_buy_price_usd: '0.99',
+          realized_pnl_usd: '300000',
+        }),
+      }),
+    ]);
+
+    expect(topTradersResponse.statusCode).toBe(200);
+    expect(topTradersResponse.json().meta).toMatchObject({
+      network: 'eth',
+      token_address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      traders: 3,
+      sort: 'volume_usd_desc',
+    });
+    expect(topTradersResponse.json().data.map((trader: { id: string }) => trader.id)).toEqual([
+      '0xtrader000000000000000000000000000000000002',
+      '0xtrader000000000000000000000000000000000001',
+      '0xtrader000000000000000000000000000000000003',
+    ]);
+    expect(topTradersResponse.json().data.map((trader: { attributes: { volume_usd: string } }) => Number(trader.attributes.volume_usd))).toEqual([
+      12500000,
+      9000000,
+      4000000,
+    ]);
+    expect(topTradersResponse.json().data[0].attributes).not.toHaveProperty('address_label');
+
+    expect(topTradersSortedResponse.statusCode).toBe(200);
+    expect(topTradersSortedResponse.json().meta).toMatchObject({
+      traders: 2,
+      sort: 'realized_pnl_usd_desc',
+      include_address_label: true,
+    });
+    expect(topTradersSortedResponse.json().data).toEqual([
+      expect.objectContaining({
+        id: '0xtrader000000000000000000000000000000000001',
+        attributes: expect.objectContaining({
+          realized_pnl_usd: '450000',
+          address_label: 'Whale One',
+        }),
+      }),
+      expect.objectContaining({
+        id: '0xtrader000000000000000000000000000000000003',
+        attributes: expect.objectContaining({
+          realized_pnl_usd: '300000',
+          address_label: 'Arb Bot',
+        }),
+      }),
+    ]);
+
+    expect(holdersChartResponse.statusCode).toBe(200);
+    expect(holdersChartResponse.json().meta).toMatchObject({
+      network: 'eth',
+      token_address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      days: 30,
+    });
+    expect(holdersChartResponse.json().data.map((point: { attributes: { timestamp: number } }) => point.attributes.timestamp)).toEqual([
+      1710028800,
+      1710633600,
+      1711238400,
+      1711843200,
+    ]);
+    expect(holdersChartResponse.json().data.map((point: { attributes: { holder_count: number } }) => point.attributes.holder_count)).toEqual([
+      181200,
+      184500,
+      188900,
+      193400,
+    ]);
+
+    expect(holdersChartShortResponse.statusCode).toBe(200);
+    expect(holdersChartShortResponse.json().meta).toMatchObject({
+      days: 7,
+    });
+    expect(holdersChartShortResponse.json().data.map((point: { attributes: { timestamp: number } }) => point.attributes.timestamp)).toEqual([
+      1711238400,
+      1711843200,
+    ]);
+  });
+
   it('validates malformed addresses and include flags for onchain simple token prices', async () => {
     const malformedAddressResponse = await getApp().inject({
       method: 'GET',

@@ -327,6 +327,69 @@ describe('OpenGecko invalid parameter handling', () => {
     });
   });
 
+  it('rejects invalid holder and trader analytics params explicitly', async () => {
+    const badHoldersCountResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/top_holders?holders=0',
+    });
+    const badHoldersFlagResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/top_holders?include_pnl_details=yes',
+    });
+    const badTradersCountResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/top_traders?traders=bad',
+    });
+    const badTradersSortResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/top_traders?sort=unsupported',
+    });
+    const badTradersLabelResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/top_traders?include_address_label=maybe',
+    });
+    const badHoldersChartDaysResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/holders_chart?days=0',
+    });
+
+    expect(badHoldersCountResponse.statusCode).toBe(400);
+    expect(badHoldersCountResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid holders value: 0',
+    });
+
+    expect(badHoldersFlagResponse.statusCode).toBe(400);
+    expect(badHoldersFlagResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid boolean query value: yes',
+    });
+
+    expect(badTradersCountResponse.statusCode).toBe(400);
+    expect(badTradersCountResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid traders value: bad',
+    });
+
+    expect(badTradersSortResponse.statusCode).toBe(400);
+    expect(badTradersSortResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported sort value: unsupported',
+    });
+
+    expect(badTradersLabelResponse.statusCode).toBe(400);
+    expect(badTradersLabelResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid boolean query value: maybe',
+    });
+
+    expect(badHoldersChartDaysResponse.statusCode).toBe(400);
+    expect(badHoldersChartDaysResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid days value: 0',
+    });
+  });
+
   it('rejects invalid exchange volume chart day values', async () => {
     const response = await app!.inject({
       method: 'GET',
