@@ -1303,6 +1303,130 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('returns pool-level onchain OHLCV with timeframe controls and currency/token semantics', async () => {
+    const baselineResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/hour',
+    });
+    const aggregatedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/hour?aggregate=2&limit=2',
+    });
+    const beforeResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/hour?before_timestamp=1714741200&limit=2',
+    });
+    const tokenCurrencyResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/hour?currency=token&token=0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2',
+    });
+    const emptyIntervalsResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7/ohlcv/day?include_empty_intervals=true',
+    });
+
+    expect(baselineResponse.statusCode).toBe(200);
+    expect(baselineResponse.json()).toMatchObject({
+      data: {
+        type: 'ohlcv',
+        attributes: {
+          network: 'eth',
+          pool_address: '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+          timeframe: 'hour',
+          aggregate: 1,
+          currency: 'usd',
+        },
+      },
+    });
+    const baselineSeries = baselineResponse.json().data.attributes.ohlcv_list;
+    expect(baselineSeries.length).toBeGreaterThan(2);
+    expect(baselineSeries[0]).toEqual(expect.objectContaining({
+      timestamp: expect.any(Number),
+      open: expect.any(Number),
+      high: expect.any(Number),
+      low: expect.any(Number),
+      close: expect.any(Number),
+      volume_usd: expect.any(Number),
+    }));
+
+    expect(aggregatedResponse.statusCode).toBe(200);
+    expect(aggregatedResponse.json().data.attributes.aggregate).toBe(2);
+    expect(aggregatedResponse.json().data.attributes.ohlcv_list).toHaveLength(2);
+
+    expect(beforeResponse.statusCode).toBe(200);
+    expect(beforeResponse.json().data.attributes.ohlcv_list).toHaveLength(2);
+    expect(beforeResponse.json().data.attributes.ohlcv_list.every((entry: { timestamp: number }) =>
+      entry.timestamp <= 1714741200)).toBe(true);
+
+    expect(tokenCurrencyResponse.statusCode).toBe(400);
+    expect(tokenCurrencyResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+    });
+
+    expect(emptyIntervalsResponse.statusCode).toBe(200);
+    const emptySeries = emptyIntervalsResponse.json().data.attributes.ohlcv_list;
+    expect(emptySeries.length).toBeGreaterThan(1);
+    expect(emptySeries.every((entry: { volume_usd: number }) => typeof entry.volume_usd === 'number')).toBe(true);
+  });
+
+  it('returns token-level onchain OHLCV aggregated from discoverable token pools', async () => {
+    const baselineResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/hour',
+    });
+    const aggregateResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/hour?aggregate=2&limit=2&before_timestamp=1714741200',
+    });
+    const inactiveSourceResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/day?include_inactive_source=true&include_empty_intervals=true',
+    });
+    const tokenPoolsResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/pools?page=1',
+    });
+
+    expect(baselineResponse.statusCode).toBe(200);
+    expect(baselineResponse.json()).toMatchObject({
+      data: {
+        type: 'ohlcv',
+        attributes: {
+          network: 'eth',
+          token_address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          timeframe: 'hour',
+          aggregate: 1,
+          include_inactive_source: false,
+        },
+      },
+    });
+    const baselineBody = baselineResponse.json().data.attributes;
+    expect(baselineBody.source_pools).toEqual([
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+    ]);
+    expect(new Set(baselineBody.source_pools)).toEqual(new Set([
+      tokenPoolsResponse.json().data[1].id,
+    ]));
+
+    expect(aggregateResponse.statusCode).toBe(200);
+    expect(aggregateResponse.json().data.attributes.aggregate).toBe(2);
+    expect(aggregateResponse.json().data.attributes.ohlcv_list).toHaveLength(2);
+    expect(aggregateResponse.json().data.attributes.ohlcv_list.every((entry: { timestamp: number }) =>
+      entry.timestamp <= 1714741200)).toBe(true);
+
+    expect(inactiveSourceResponse.statusCode).toBe(200);
+    const inactiveBody = inactiveSourceResponse.json().data.attributes;
+    expect(inactiveBody.include_inactive_source).toBe(true);
+    expect(inactiveBody.source_pools).toEqual([
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+    ]);
+    expect(new Set(inactiveBody.source_pools)).toEqual(new Set(
+      tokenPoolsResponse.json().data.map((pool: { id: string }) => pool.id),
+    ));
+    expect(inactiveBody.ohlcv_list.length).toBeGreaterThan(0);
+  });
+
   it('returns token list data for an asset platform', async () => {
     const response = await getApp().inject({
       method: 'GET',

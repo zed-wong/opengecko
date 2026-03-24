@@ -60,6 +60,27 @@ const tradesQuerySchema = z.object({
   token: z.string().optional(),
 });
 
+const onchainOhlcvQuerySchema = z.object({
+  aggregate: z.string().optional(),
+  before_timestamp: z.string().optional(),
+  limit: z.string().optional(),
+  currency: z.string().optional(),
+  token: z.string().optional(),
+  include_empty_intervals: z.string().optional(),
+  include_inactive_source: z.string().optional(),
+});
+
+const supportedOnchainOhlcvTimeframes = ['minute', 'hour', 'day'] as const;
+type OnchainOhlcvTimeframe = (typeof supportedOnchainOhlcvTimeframes)[number];
+type OnchainOhlcvSeriesPoint = {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volumeUsd: number;
+};
+
 function normalizeAddress(address: string) {
   return address.trim().toLowerCase();
 }
@@ -402,6 +423,230 @@ function parseTradeVolumeThreshold(value: string | undefined) {
   }
 
   return parsed;
+}
+
+function parseOnchainOhlcvTimeframe(value: string): OnchainOhlcvTimeframe {
+  if ((supportedOnchainOhlcvTimeframes as readonly string[]).includes(value)) {
+    return value as OnchainOhlcvTimeframe;
+  }
+
+  throw new HttpError(400, 'invalid_parameter', `Unsupported timeframe value: ${value}`);
+}
+
+function parseOptionalPositiveNumber(value: string | undefined, parameterName: string) {
+  if (value === undefined) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new HttpError(400, 'invalid_parameter', `Invalid ${parameterName} value: ${value}`);
+  }
+
+  return parsed;
+}
+
+function parseOptionalPositiveInteger(value: string | undefined, parameterName: string) {
+  const parsed = parseOptionalPositiveNumber(value, parameterName);
+  if (parsed === null) {
+    return null;
+  }
+  if (!Number.isInteger(parsed)) {
+    throw new HttpError(400, 'invalid_parameter', `Invalid ${parameterName} value: ${value}`);
+  }
+
+  return parsed;
+}
+
+function parseOptionalTimestamp(value: string | undefined, parameterName: string) {
+  const parsed = parseOptionalPositiveNumber(value, parameterName);
+  return parsed === null ? null : Math.floor(parsed);
+}
+
+function resolveOnchainOhlcvWindowMs(timeframe: OnchainOhlcvTimeframe, aggregate: number) {
+  const baseMs = timeframe === 'minute' ? 60_000 : timeframe === 'hour' ? 3_600_000 : 86_400_000;
+  return baseMs * aggregate;
+}
+
+function buildSyntheticPoolOhlcvSeries(
+  pool: typeof onchainPools.$inferSelect,
+  timeframe: OnchainOhlcvTimeframe,
+  aggregate: number,
+): OnchainOhlcvSeriesPoint[] {
+  const windowMs = resolveOnchainOhlcvWindowMs(timeframe, aggregate);
+  const createdAt = pool.createdAtTimestamp?.getTime() ?? Date.parse('2024-01-01T00:00:00.000Z');
+  const base = timeframe === 'minute'
+    ? Date.parse('2024-05-03T15:00:00.000Z')
+    : timeframe === 'hour'
+      ? Date.parse('2024-05-03T15:00:00.000Z')
+      : Date.parse('2024-05-03T00:00:00.000Z');
+  const count = 6;
+  const priceBase = pool.priceUsd ?? 0;
+  const volumeBase = pool.volume24hUsd ?? 0;
+  const series: OnchainOhlcvSeriesPoint[] = [];
+
+  for (let index = 0; index < count; index += 1) {
+    const timestamp = base - (count - 1 - index) * windowMs;
+
+    if (timestamp < createdAt) {
+      continue;
+    }
+
+    const step = index + 1;
+    const delta = priceBase * 0.0025 * step;
+    const open = Number((priceBase - delta).toFixed(6));
+    const close = Number((priceBase + delta / 2).toFixed(6));
+    const high = Number((Math.max(open, close) + priceBase * 0.0015).toFixed(6));
+    const low = Number((Math.min(open, close) - priceBase * 0.0015).toFixed(6));
+    const volumeUsd = Number((volumeBase / (count + aggregate) + step * 1_250).toFixed(2));
+
+    series.push({
+      timestamp: Math.floor(timestamp / 1000),
+      open,
+      high,
+      low,
+      close,
+      volumeUsd,
+    });
+  }
+
+  return series;
+}
+
+function aggregatePoolSeriesForToken(
+  pools: typeof onchainPools.$inferSelect[],
+  timeframe: OnchainOhlcvTimeframe,
+  aggregate: number,
+  targetTokenAddress: string,
+  includeInactiveSource: boolean,
+) {
+  const normalizedToken = normalizeAddress(targetTokenAddress);
+  const seriesByTimestamp = new Map<number, {
+    timestamp: number;
+    openWeighted: number;
+    high: number;
+    low: number;
+    closeWeighted: number;
+    volumeUsd: number;
+    reserveWeight: number;
+    sources: string[];
+  }>();
+
+  for (const pool of pools) {
+    const baseSeries = buildSyntheticPoolOhlcvSeries(pool, timeframe, aggregate);
+    const tokenMultiplier = normalizeAddress(pool.baseTokenAddress) === normalizedToken ? 1 : pool.priceUsd ?? 1;
+    const poolIsInactive = pool.volume24hUsd === null || pool.volume24hUsd <= 30_000_000;
+
+    if (poolIsInactive && !includeInactiveSource) {
+      continue;
+    }
+
+    for (const point of baseSeries) {
+      const convertedOpen = Number((point.open * tokenMultiplier).toFixed(6));
+      const convertedHigh = Number((point.high * tokenMultiplier).toFixed(6));
+      const convertedLow = Number((point.low * tokenMultiplier).toFixed(6));
+      const convertedClose = Number((point.close * tokenMultiplier).toFixed(6));
+      const weight = (pool.reserveUsd ?? 1) / 1_000_000;
+      const current = seriesByTimestamp.get(point.timestamp);
+
+      if (!current) {
+        seriesByTimestamp.set(point.timestamp, {
+          timestamp: point.timestamp,
+          openWeighted: convertedOpen * weight,
+          high: convertedHigh,
+          low: convertedLow,
+          closeWeighted: convertedClose * weight,
+          volumeUsd: point.volumeUsd,
+          reserveWeight: weight,
+          sources: [pool.address],
+        });
+        continue;
+      }
+
+      current.openWeighted += convertedOpen * weight;
+      current.high = Math.max(current.high, convertedHigh);
+      current.low = Math.min(current.low, convertedLow);
+      current.closeWeighted += convertedClose * weight;
+      current.volumeUsd += point.volumeUsd;
+      current.reserveWeight += weight;
+      current.sources.push(pool.address);
+    }
+  }
+
+  return [...seriesByTimestamp.values()]
+    .sort((left, right) => left.timestamp - right.timestamp)
+    .map((point) => ({
+      timestamp: point.timestamp,
+      open: Number((point.openWeighted / point.reserveWeight).toFixed(6)),
+      high: Number(point.high.toFixed(6)),
+      low: Number(point.low.toFixed(6)),
+      close: Number((point.closeWeighted / point.reserveWeight).toFixed(6)),
+      volume_usd: Number(point.volumeUsd.toFixed(2)),
+      source_pools: point.sources.sort(),
+    }));
+}
+
+function finalizeOnchainOhlcvSeries(
+  series: OnchainOhlcvSeriesPoint[],
+  options: {
+    aggregate: number;
+    limit: number;
+    beforeTimestamp: number | null;
+    includeEmptyIntervals: boolean;
+    timeframe: OnchainOhlcvTimeframe;
+  },
+) {
+  const windowSeconds = resolveOnchainOhlcvWindowMs(options.timeframe, options.aggregate) / 1000;
+  const beforeBound = options.beforeTimestamp;
+  const filtered = series
+    .filter((point) => beforeBound === null || point.timestamp <= beforeBound)
+    .sort((left, right) => left.timestamp - right.timestamp);
+
+  if (filtered.length === 0) {
+    return [];
+  }
+
+  let withEmptyIntervals = filtered.map((point) => ({
+    timestamp: point.timestamp,
+    open: point.open,
+    high: point.high,
+    low: point.low,
+    close: point.close,
+    volume_usd: Number(point.volumeUsd.toFixed(2)),
+  }));
+
+  if (options.includeEmptyIntervals) {
+    const expanded: typeof withEmptyIntervals = [];
+    for (let index = 0; index < filtered.length; index += 1) {
+      const current = filtered[index]!;
+      if (index > 0) {
+        let nextTimestamp = filtered[index - 1]!.timestamp + windowSeconds;
+        while (nextTimestamp < current.timestamp) {
+          const previousClose = expanded[expanded.length - 1]!.close;
+          expanded.push({
+            timestamp: nextTimestamp,
+            open: previousClose,
+            high: previousClose,
+            low: previousClose,
+            close: previousClose,
+            volume_usd: 0,
+          });
+          nextTimestamp += windowSeconds;
+        }
+      }
+      expanded.push({
+        timestamp: current.timestamp,
+        open: current.open,
+        high: current.high,
+        low: current.low,
+        close: current.close,
+        volume_usd: Number(current.volumeUsd.toFixed(2)),
+      });
+    }
+    withEmptyIntervals = expanded;
+  }
+
+  return withEmptyIntervals.slice(-options.limit);
 }
 
 function buildOnchainTradeFixtures(database: AppDatabase): OnchainTradeRecord[] {
@@ -1155,6 +1400,143 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       meta: {
         network: params.network,
         token_address: tokenAddress,
+      },
+    };
+  });
+
+  app.get('/onchain/networks/:network/pools/:address/ohlcv/:timeframe', async (request) => {
+    const params = z.object({ network: z.string(), address: z.string(), timeframe: z.string() }).parse(request.params);
+    const query = onchainOhlcvQuerySchema.parse(request.query);
+    const timeframe = parseOnchainOhlcvTimeframe(params.timeframe);
+    const aggregate = parseOptionalPositiveInteger(query.aggregate, 'aggregate') ?? 1;
+    const limit = parseOptionalPositiveInteger(query.limit, 'limit') ?? 100;
+    const beforeTimestamp = parseOptionalTimestamp(query.before_timestamp, 'before_timestamp');
+    const includeEmptyIntervals = parseBooleanQuery(query.include_empty_intervals, false);
+    const currency = (query.currency ?? 'usd').trim().toLowerCase();
+
+    if (!['usd', 'token'].includes(currency)) {
+      throw new HttpError(400, 'invalid_parameter', `Unsupported currency value: ${query.currency}`);
+    }
+
+    const pool = database.db
+      .select()
+      .from(onchainPools)
+      .where(and(eq(onchainPools.networkId, params.network), eq(onchainPools.address, params.address)))
+      .limit(1)
+      .get();
+
+    if (!pool) {
+      throw new HttpError(404, 'not_found', `Onchain pool not found: ${params.address}`);
+    }
+
+    let tokenSelection: string | null = null;
+    if (query.token !== undefined) {
+      if (!isValidOnchainAddress(query.token)) {
+        throw new HttpError(400, 'invalid_parameter', `Invalid onchain address: ${query.token}`);
+      }
+
+      tokenSelection = normalizeAddress(query.token);
+      const constituentTokens = [normalizeAddress(pool.baseTokenAddress), normalizeAddress(pool.quoteTokenAddress)];
+      if (!constituentTokens.includes(tokenSelection)) {
+        throw new HttpError(400, 'invalid_parameter', `Token is not a constituent of pool: ${tokenSelection}`);
+      }
+    }
+
+    const baseSeries = buildSyntheticPoolOhlcvSeries(pool, timeframe, aggregate).map((point) => {
+      const multiplier = currency === 'token' && tokenSelection !== null && normalizeAddress(pool.quoteTokenAddress) === tokenSelection
+        ? 1 / (pool.priceUsd ?? 1)
+        : 1;
+
+      return {
+        ...point,
+        open: Number((point.open * multiplier).toFixed(6)),
+        high: Number((point.high * multiplier).toFixed(6)),
+        low: Number((point.low * multiplier).toFixed(6)),
+        close: Number((point.close * multiplier).toFixed(6)),
+      };
+    });
+
+    return {
+      data: {
+        id: `${params.network}:${params.address}:${timeframe}`,
+        type: 'ohlcv',
+        attributes: {
+          network: params.network,
+          pool_address: params.address,
+          timeframe,
+          aggregate,
+          currency,
+          token: tokenSelection,
+          ohlcv_list: finalizeOnchainOhlcvSeries(baseSeries, {
+            aggregate,
+            limit,
+            beforeTimestamp,
+            includeEmptyIntervals,
+            timeframe,
+          }),
+        },
+      },
+    };
+  });
+
+  app.get('/onchain/networks/:network/tokens/:address/ohlcv/:timeframe', async (request) => {
+    const params = z.object({ network: z.string(), address: z.string(), timeframe: z.string() }).parse(request.params);
+    const query = onchainOhlcvQuerySchema.parse(request.query);
+    const timeframe = parseOnchainOhlcvTimeframe(params.timeframe);
+    const aggregate = parseOptionalPositiveInteger(query.aggregate, 'aggregate') ?? 1;
+    const limit = parseOptionalPositiveInteger(query.limit, 'limit') ?? 100;
+    const beforeTimestamp = parseOptionalTimestamp(query.before_timestamp, 'before_timestamp');
+    const includeEmptyIntervals = parseBooleanQuery(query.include_empty_intervals, false);
+    const includeInactiveSource = parseBooleanQuery(query.include_inactive_source, false);
+    const tokenAddress = normalizeAddress(params.address);
+
+    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+    if (!network) {
+      throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
+    }
+
+    const tokenPools = collectTokenPools(params.network, tokenAddress, database);
+    if (tokenPools.length === 0) {
+      throw new HttpError(404, 'not_found', `Onchain token not found: ${tokenAddress}`);
+    }
+
+    const aggregatedSeries = aggregatePoolSeriesForToken(
+      tokenPools,
+      timeframe,
+      aggregate,
+      tokenAddress,
+      includeInactiveSource,
+    );
+
+    return {
+      data: {
+        id: `${params.network}:${tokenAddress}:${timeframe}`,
+        type: 'ohlcv',
+        attributes: {
+          network: params.network,
+          token_address: tokenAddress,
+          timeframe,
+          aggregate,
+          include_inactive_source: includeInactiveSource,
+          ohlcv_list: finalizeOnchainOhlcvSeries(
+            aggregatedSeries.map((point) => ({
+              timestamp: point.timestamp,
+              open: point.open,
+              high: point.high,
+              low: point.low,
+              close: point.close,
+              volumeUsd: point.volume_usd,
+            })),
+            {
+              aggregate,
+              limit,
+              beforeTimestamp,
+              includeEmptyIntervals,
+              timeframe,
+            },
+          ),
+          source_pools: [...new Set(aggregatedSeries.flatMap((point) => point.source_pools))].sort(),
+        },
       },
     };
   });

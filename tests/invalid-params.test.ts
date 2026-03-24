@@ -507,6 +507,89 @@ describe('OpenGecko invalid parameter handling', () => {
     });
   });
 
+  it('rejects invalid onchain OHLCV timeframe and numeric parameters explicitly', async () => {
+    const invalidPoolTimeframeResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/week',
+    });
+    const invalidPoolNumericResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/hour?aggregate=abc',
+    });
+    const invalidPoolLimitResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/hour?limit=0',
+    });
+    const invalidPoolTimestampResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/hour?before_timestamp=bad',
+    });
+    const invalidPoolCurrencyResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/hour?currency=eur',
+    });
+    const invalidPoolTokenResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/hour?token=0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
+    });
+    const invalidTokenTimeframeResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/week',
+    });
+    const invalidTokenNumericResponse = await app!.inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/hour?aggregate=abc',
+    });
+
+    expect(invalidPoolTimeframeResponse.statusCode).toBe(400);
+    expect(invalidPoolTimeframeResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported timeframe value: week',
+    });
+
+    expect(invalidPoolNumericResponse.statusCode).toBe(400);
+    expect(invalidPoolNumericResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid aggregate value: abc',
+    });
+
+    expect(invalidPoolLimitResponse.statusCode).toBe(400);
+    expect(invalidPoolLimitResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid limit value: 0',
+    });
+
+    expect(invalidPoolTimestampResponse.statusCode).toBe(400);
+    expect(invalidPoolTimestampResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid before_timestamp value: bad',
+    });
+
+    expect(invalidPoolCurrencyResponse.statusCode).toBe(400);
+    expect(invalidPoolCurrencyResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported currency value: eur',
+    });
+
+    expect(invalidPoolTokenResponse.statusCode).toBe(400);
+    expect(invalidPoolTokenResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Token is not a constituent of pool: 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
+    });
+
+    expect(invalidTokenTimeframeResponse.statusCode).toBe(400);
+    expect(invalidTokenTimeframeResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported timeframe value: week',
+    });
+
+    expect(invalidTokenNumericResponse.statusCode).toBe(400);
+    expect(invalidTokenNumericResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid aggregate value: abc',
+    });
+  });
+
   it('returns not found for unknown exchange tickers', async () => {
     const response = await app!.inject({
       method: 'GET',
