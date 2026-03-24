@@ -1046,6 +1046,37 @@ describe('OpenGecko app scaffold', () => {
     }
   });
 
+  it('supports ranged coin ohlc interval semantics with explicit daily and empty hourly responses', async () => {
+    const dailyResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/bitcoin/ohlc/range?vs_currency=usd&from=1774310400&to=1774310400&interval=daily',
+    });
+    const hourlyResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/bitcoin/ohlc/range?vs_currency=usd&from=1774310400&to=1774314000&interval=hourly',
+    });
+
+    expect(dailyResponse.statusCode).toBe(200);
+    expect(hourlyResponse.statusCode).toBe(200);
+
+    const dailyBody = dailyResponse.json();
+    const hourlyBody = hourlyResponse.json();
+
+    expect(dailyBody.length).toBeGreaterThan(0);
+    expect(hourlyBody).toEqual([]);
+
+    for (const body of [dailyBody, hourlyBody]) {
+      for (const tuple of body) {
+        expect(tuple).toHaveLength(5);
+        expect(typeof tuple[0]).toBe('number');
+        expect(tuple.slice(1).every((value: unknown) => typeof value === 'number' && Number.isFinite(value))).toBe(true);
+      }
+
+      const timestamps = body.map((tuple: number[]) => tuple[0]);
+      expect(timestamps).toEqual([...timestamps].sort((left, right) => left - right));
+    }
+  });
+
   it('returns categories and contract-address variants', async () => {
     const categoriesListResponse = await getApp().inject({
       method: 'GET',
