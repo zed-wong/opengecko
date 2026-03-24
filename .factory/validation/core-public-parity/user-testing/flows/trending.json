@@ -1,0 +1,87 @@
+{
+  "groupId": "trending",
+  "testedAt": "2026-03-24T18:57:00Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "tool": "curl"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-CORE-001",
+      "title": "Trending returns grouped payload",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /search/trending", "expected": "HTTP 200 with grouped arrays", "observed": "HTTP 200 with coins[], nfts[], categories[] top-level keys" }
+      ],
+      "evidence": {
+        "responseFiles": ["core-public-parity/trending/VAL-CORE-001-baseline.txt"],
+        "network": "GET /search/trending -> 200, Content-Type: application/json; charset=utf-8"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-002",
+      "title": "Trending coin rows use nested item structure",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /search/trending (first call)", "expected": "coins[] entries with nested item data", "observed": "Each coin has nested item object containing id, coin_id, name, symbol, market_cap_rank, thumb, small, large, slug, price_btc, score, data" },
+        { "action": "GET /search/trending (second call)", "expected": "Same structural contract preserved", "observed": "Identical nested item structure on repeated call" }
+      ],
+      "evidence": {
+        "responseFiles": [
+          "core-public-parity/trending/VAL-CORE-001-baseline.txt",
+          "core-public-parity/trending/VAL-CORE-002-second-call.json"
+        ],
+        "network": "Two consecutive GET /search/trending -> 200 both calls"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-002A",
+      "title": "Trending empty groups remain arrays",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /search/trending", "expected": "Empty groups as [] not null", "observed": "nfts: [], categories has entries, coins has entries" }
+      ],
+      "evidence": {
+        "responseFiles": ["core-public-parity/trending/VAL-CORE-001-baseline.txt"],
+        "network": "GET /search/trending -> 200, nfts array is empty []"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-003",
+      "title": "Trending honors show_max",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /search/trending (baseline)", "expected": "7 coins returned", "observed": "7 coins in baseline response" },
+        { "action": "GET /search/trending?show_max=2", "expected": "At most 2 coins returned", "observed": "2 coins returned (bitcoin, ethereum)" }
+      ],
+      "evidence": {
+        "responseFiles": [
+          "core-public-parity/trending/VAL-CORE-001-baseline.txt",
+          "core-public-parity/trending/VAL-CORE-003-show_max-2.json"
+        ],
+        "network": "Baseline: 7 coins | show_max=2: 2 coins"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-004",
+      "title": "Trending invalid show_max is explicit",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /search/trending?show_max=invalid", "expected": "Validation error or documented fallback", "observed": "HTTP 400 Bad Request with explicit error: {error: 'invalid_parameter', message: 'Invalid show_max value: invalid'}" }
+      ],
+      "evidence": {
+        "responseFiles": ["core-public-parity/trending/VAL-CORE-004-invalid-show_max.txt"],
+        "network": "GET /search/trending?show_max=invalid -> 400 Bad Request"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 5 assertions: 5 passed, 0 failed, 0 blocked. All trending endpoint assertions validated successfully."
+}

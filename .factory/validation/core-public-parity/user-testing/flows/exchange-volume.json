@@ -1,0 +1,177 @@
+{
+  "groupId": "exchange-volume",
+  "testedAt": "2026-03-24T19:02:59Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "testingTool": "curl",
+    "testExchangeId": "binance"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-CORE-024",
+      "title": "Exchange volume range returns BTC tuples [timestamp, volume_btc]",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /exchanges/binance/volume_chart/range?from=1766265600&to=1774377600",
+          "expected": "HTTP 200 with array of [timestamp, volume_btc] tuples",
+          "observed": "HTTP 200 OK with array of tuples"
+        },
+        {
+          "action": "Verify first tuple structure",
+          "expected": "Each tuple has [timestamp, volume_btc] format",
+          "observed": "First tuple: [1773446400000, 295000] - timestamp in milliseconds, volume as number"
+        },
+        {
+          "action": "Verify second tuple structure",
+          "expected": "Consistent [timestamp, volume_btc] format",
+          "observed": "Second tuple: [1773532800000, 300500]"
+        }
+      ],
+      "evidence": {
+        "request": "GET /exchanges/binance/volume_chart/range?from=1766265600&to=1774377600",
+        "statusCode": 200,
+        "responseExcerpt": "[[1773446400000,295000],[1773532800000,300500],[1773619200000,305000],...]",
+        "tupleFormat": "[timestamp, volume_btc] where timestamp is Unix ms and volume_btc is numeric",
+        "evidenceFile": "core-public-parity/exchange-volume/VAL-CORE-024-response-body.json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-024A",
+      "title": "Exchange volume range is chronologically ordered (ascending timestamp)",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Extract timestamps from consecutive tuples",
+          "expected": "Timestamps in strictly ascending order",
+          "observed": "1773446400000 < 1773532800000 < 1773619200000 < 1773705600000..."
+        },
+        {
+          "action": "Verify ascending order through sample",
+          "expected": "Each subsequent timestamp > previous timestamp",
+          "observed": "All consecutive pairs show timestamp increase"
+        }
+      ],
+      "evidence": {
+        "request": "GET /exchanges/binance/volume_chart/range?from=1766265600&to=1774377600",
+        "timestampsAscending": [
+          1773446400000,
+          1773532800000,
+          1773619200000,
+          1773705600000,
+          1773792000000,
+          1773878400000,
+          1773964800000,
+          1774247591318,
+          1774252465714,
+          1774252554657
+        ],
+        "verification": "Each timestamp is strictly greater than the previous"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-024B",
+      "title": "Exchange volume samples are finite numeric values",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Check volume_btc values are numeric",
+          "expected": "All volume values are finite numbers (not strings, null, Infinity, NaN)",
+          "observed": "All values are finite: 295000, 300500, 305000, 299500, 308000, 315000, 320000, 4148503453.5001783..."
+        },
+        {
+          "action": "Verify floating point precision",
+          "expected": "Volume values support decimal precision",
+          "observed": "Values include precise decimals like 4148503453.5001783, 4502293870.640416"
+        },
+        {
+          "action": "Check for non-finite values",
+          "expected": "No null, undefined, Infinity, or NaN values in volume field",
+          "observed": "All sampled values are finite numbers"
+        }
+      ],
+      "evidence": {
+        "request": "GET /exchanges/binance/volume_chart/range?from=1766265600&to=1774377600",
+        "sampleValues": [
+          295000,
+          300500,
+          305000,
+          4148503453.5001783,
+          4502293870.640416,
+          4513704797.139272,
+          4537189817.389209,
+          4546259631.446846
+        ],
+        "numericTypes": "All values are JavaScript number type (finite, no strings or nulls)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-025",
+      "title": "Exchange volume range validates explicit ranges (malformed, missing, reversed from/to)",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Test malformed 'from' value",
+          "expected": "400 Bad Request with explicit error",
+          "observed": "400 Bad Request - {\"error\":\"invalid_parameter\",\"message\":\"Invalid from value: invalid\"}"
+        },
+        {
+          "action": "Test malformed 'to' value",
+          "expected": "400 Bad Request with explicit error",
+          "observed": "400 Bad Request - {\"error\":\"invalid_parameter\",\"message\":\"Invalid to value: invalid\"}"
+        },
+        {
+          "action": "Test missing 'from' parameter",
+          "expected": "400 Bad Request with validation error",
+          "observed": "400 Bad Request - fieldErrors: {from: [\"Required\"]}"
+        },
+        {
+          "action": "Test missing 'to' parameter",
+          "expected": "400 Bad Request with validation error",
+          "observed": "400 Bad Request - fieldErrors: {to: [\"Required\"]}"
+        },
+        {
+          "action": "Test reversed range (from > to)",
+          "expected": "400 Bad Request with explicit validation message",
+          "observed": "400 Bad Request - {\"error\":\"invalid_parameter\",\"message\":\"Invalid time range: from must be less than or equal to to.\"}"
+        }
+      ],
+      "evidence": {
+        "malformed_from": {
+          "request": "GET /exchanges/binance/volume_chart/range?from=invalid&to=1774377600",
+          "status": 400,
+          "response": {"error":"invalid_parameter","message":"Invalid from value: invalid"}
+        },
+        "malformed_to": {
+          "request": "GET /exchanges/binance/volume_chart/range?from=1766265600&to=invalid",
+          "status": 400,
+          "response": {"error":"invalid_parameter","message":"Invalid to value: invalid"}
+        },
+        "missing_from": {
+          "request": "GET /exchanges/binance/volume_chart/range?to=1774377600",
+          "status": 400,
+          "response": {"error":"invalid_request","details":{"formErrors":[],"fieldErrors":{"from":["Required"]}}}
+        },
+        "missing_to": {
+          "request": "GET /exchanges/binance/volume_chart/range?from=1766265600",
+          "status": 400,
+          "response": {"error":"invalid_request","details":{"formErrors":[],"fieldErrors":{"to":["Required"]}}}
+        },
+        "reversed_range": {
+          "request": "GET /exchanges/binance/volume_chart/range?from=1774377600&to=1766265600",
+          "status": 400,
+          "response": {"error":"invalid_parameter","message":"Invalid time range: from must be less than or equal to to."}
+        },
+        "evidenceFile": "core-public-parity/exchange-volume/VAL-CORE-025-validation-errors.json"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 4 assertions: 4 passed, 0 failed, 0 blocked. All assertions for /exchanges/{id}/volume_chart/range endpoint validated successfully."
+}

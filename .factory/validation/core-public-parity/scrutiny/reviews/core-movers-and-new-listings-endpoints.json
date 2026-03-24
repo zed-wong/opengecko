@@ -1,0 +1,27 @@
+{
+  "featureId": "core-movers-and-new-listings-endpoints",
+  "reviewedAt": "2026-03-25T00:00:00Z",
+  "commitId": "5c62c2a",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation fully satisfies the feature requirements. Both `/coins/top_gainers_losers` and `/coins/list/new` endpoints are implemented with proper CoinGecko-compatible response shapes, validation semantics, and comprehensive test coverage. The code follows existing project patterns and conventions.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The worker correctly used `.select()` without explicit column mapping in Drizzle ORM joins, following the pattern established in other recent fixes. This resolves the join-shape typing issues that were prevalent in the codebase.",
+      "evidence": "src/modules/coins.ts:687-689 - Uses `.select().from(coinTickers).innerJoin(exchanges, ...)` pattern consistent with other stabilized queries in exchanges.ts and treasury.ts"
+    },
+    {
+      "area": "skills",
+      "observation": "Worker followed the core-api-worker skill procedure precisely: wrote failing tests first (confirmed by handoff showing 404 responses before implementation), implemented the routes, ran targeted tests until passing, and completed typecheck validation.",
+      "evidence": "Handoff shows: 1) Initial test run with 404s confirming red phase, 2) Implementation patches, 3) Final test pass with 48 tests passing, 4) Typecheck exit code 0"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature successfully implements both required endpoints with correct CoinGecko-compatible contracts. The `/coins/top_gainers_losers` endpoint returns dual grouped payloads (top_gainers, top_losers arrays) with stable ranking polarity and explicit validation for unsupported duration/top_coins/price_change_percentage values. The `/coins/list/new` endpoint returns the required object envelope with coins array ordered newest-first and includes listing timestamps (activated_at). Test coverage is comprehensive with 3 new test cases covering happy paths, ranking semantics, and validation behavior. Typecheck passes. Code follows existing project patterns for query schemas, error handling, and response building."
+}
+</function_results>

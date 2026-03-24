@@ -13,3 +13,6 @@ Architecture facts, decisions, and extension notes for workers.
 - Reuse existing patterns for validation, route registration, and DB access before introducing new abstractions.
 - This mission completes the remaining in-roadmap endpoint surface, then hardens cross-endpoint compatibility semantics.
 - Keep provider seams replaceable; do not couple new routes tightly to a single source unless unavoidable and surfaced to the orchestrator.
+
+- For Drizzle join/select work, define explicit row types when needed and expect table-name keys in joined results unless you alias them yourself.
+- When Drizzle `count()` inference becomes brittle in this codebase, a simpler select-and-`.length` pattern is acceptable if the query scope is bounded and behavior remains clear.

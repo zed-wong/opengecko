@@ -1,0 +1,36 @@
+{
+  "featureId": "baseline-validator-stabilization",
+  "reviewedAt": "2026-03-25T00:00:00Z",
+  "commitId": "5f97118",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation successfully stabilizes the Bun/Vitest baseline by replacing incompatible `vi.mocked(...)` usage in `tests/initial-sync.test.ts` with explicit typed mock aliases. The change is minimal, focused, and preserves all existing test behavior while restoring Bun runtime compatibility.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The worker followed the established pattern of using explicit typed mock aliases (`const mockedFn = fn as ReturnType<typeof vi.fn>`) instead of `vi.mocked(...)` which is incompatible with the Bun/Vitest runtime in this environment. This pattern should be documented in AGENTS.md or .factory/library/ for future test authors.",
+      "evidence": "tests/initial-sync.test.ts:24-28 — defines typed mock aliases for all CCXT provider functions. Compare to the removed vi.mocked() calls at lines 32-36 in the original."
+    },
+    {
+      "area": "skills",
+      "observation": "The compatibility-hardening-worker skill correctly guided the worker to write characterization tests first, run targeted validation, and document pre-existing issues. The worker followed the procedure without deviations.",
+      "evidence": "handoff.skillFeedback.followedProcedure is true with no deviations recorded."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The worker discovered and documented that `vi.mocked(...)` is undefined in the Bun/Vitest runtime, causing immediate test failures in beforeEach. This runtime quirk should be captured in .factory/library/ to prevent future workers from encountering the same issue.",
+      "evidence": "handoff.verification.commandsRun shows initial-sync tests failing with 'TypeError: vi.mocked is not a function' before the fix."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The worker noted that `bun run typecheck` was already green at the time of this feature, and the chart timestamp expectation in tests/app.test.ts was already passing. This contradicts the feature description which mentioned these as pre-existing failures, suggesting prior baseline stabilization work may have already addressed them.",
+      "evidence": "handoff.verification.commandsRun shows 'bun run typecheck' exitCode 0 with observation 'TypeScript no-emit compilation completed successfully; the repository typecheck was already green'."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The baseline-validator-stabilization feature successfully addresses its core requirement: making the initial-sync test harness compatible with the Bun/Vitest runtime. The worker replaced 25 lines of `vi.mocked(...)` usage with 30 lines of equivalent typed mock aliases, resulting in all 6 initial-sync tests passing. The repository typecheck and chart timestamp expectations were already green, so no additional changes were needed. The commit is clean, focused, and ready for broader validation."
+}

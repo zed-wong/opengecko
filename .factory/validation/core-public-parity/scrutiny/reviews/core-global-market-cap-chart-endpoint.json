@@ -1,0 +1,39 @@
+{
+  "featureId": "core-global-market-cap-chart-endpoint",
+  "reviewedAt": "2026-03-25T00:00:00.000Z",
+  "commitId": "1f8a8cec84d608a5c3482c3a67efae1a22b5de09",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation correctly adds the `/global/market_cap_chart` endpoint with required `vs_currency` and `days` parameters, stable named series output (`market_cap_chart`), and proper validation. The code follows existing project patterns for chart semantics, currency conversion, and error handling. Tests cover happy-path shape verification and missing parameter validation.",
+    "issues": [
+      {
+        "file": "src/modules/global.ts",
+        "line": 1,
+        "severity": "non_blocking",
+        "description": "Unused imports: `SUPPORTED_VS_CURRENCIES` and `exchanges` are imported at the top of the file but not used in the new `/global/market_cap_chart` route handler. These should be removed to keep imports clean."
+      },
+      {
+        "file": "src/modules/global.ts",
+        "line": 54,
+        "severity": "non_blocking",
+        "description": "Inefficient data fetching for non-'max' days: When days is not 'max', the code loads ALL chart points from the database then filters in JavaScript. For large datasets, this could be slow. Consider adding a WHERE clause to filter at the database level. This is acceptable for the current seeded data volume but may need optimization later."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The worker correctly followed the established pattern of using zod schemas for query parameter validation, HttpError for explicit 400 responses with 'invalid_parameter' error codes, and existing utilities like downsampleTimeSeries and getChartGranularityMs for chart handling.",
+      "evidence": "src/modules/global.ts lines 37-42: zod schema for validation; lines 47, 70-72: HttpError usage for invalid days; lines 88-91: downsampleTimeSeries usage consistent with other chart endpoints."
+    },
+    {
+      "area": "services",
+      "observation": "The manual curl validation was blocked by a stale API server on port 3100. The worker noted this in their handoff and relied on automated tests instead. This suggests the validation-api service on port 3102 (declared in services.yaml) should be used for manual verification when port 3100 is occupied.",
+      "evidence": "Handoff: 'a stale API server was already occupying port 3100, so manual curl validation could not hit the newly implemented route'. services.yaml shows validation-api on port 3102 as an alternative."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature implementation is complete and correct. The endpoint returns a stable named series object with 2-tuple arrays [timestamp, market_cap], respects vs_currency conversion, validates required parameters, and has proper test coverage. Two minor non-blocking issues: unused imports and potentially inefficient DB query pattern. The skill procedure was followed correctly with no deviations."
+}

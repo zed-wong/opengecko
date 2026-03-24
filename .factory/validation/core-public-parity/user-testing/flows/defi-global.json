@@ -1,0 +1,92 @@
+{
+  "groupId": "defi-global",
+  "testedAt": "2026-03-25T00:00:00Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "tool": "curl",
+    "target": "validation API"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-CORE-005",
+      "title": "DeFi global returns data envelope",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /global/decentralized_finance_defi",
+          "expected": "HTTP 200 with top-level 'data' key",
+          "observed": "HTTP 200 with top-level 'data' object containing DeFi aggregate fields"
+        }
+      ],
+      "evidence": {
+        "statusCode": 200,
+        "responseFile": "core-public-parity/defi-global/VAL-CORE-005-response.json",
+        "topLevelKeys": ["data"],
+        "hasDataEnvelope": true
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-006",
+      "title": "DeFi global exposes aggregate fields",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect data.defi_market_cap",
+          "expected": "Finite numeric value",
+          "observed": "1634868818071.4285 (finite number)"
+        },
+        {
+          "action": "Inspect data.eth_market_cap",
+          "expected": "Finite numeric value",
+          "observed": "254487085714.2857 (finite number)"
+        },
+        {
+          "action": "Inspect data.defi_to_eth_ratio",
+          "expected": "Finite numeric value",
+          "observed": "6.424172030115926 (finite number)"
+        },
+        {
+          "action": "Inspect data.trading_volume_24h",
+          "expected": "Finite numeric value",
+          "observed": "2576859614.9569225 (finite number)"
+        },
+        {
+          "action": "Inspect data.defi_dominance",
+          "expected": "Finite numeric value",
+          "observed": "96.45927697290742 (finite number)"
+        },
+        {
+          "action": "Inspect data.top_coin_name",
+          "expected": "Explicit string value",
+          "observed": "\"BTC\" (string)"
+        },
+        {
+          "action": "Inspect data.top_coin_defi_dominance",
+          "expected": "Finite numeric value",
+          "observed": "84.43379169623584 (finite number)"
+        }
+      ],
+      "evidence": {
+        "responseFile": "core-public-parity/defi-global/VAL-CORE-006-fields.json",
+        "fieldsChecked": [
+          "defi_market_cap",
+          "eth_market_cap",
+          "defi_to_eth_ratio",
+          "trading_volume_24h",
+          "defi_dominance",
+          "top_coin_name",
+          "top_coin_defi_dominance"
+        ],
+        "allFinite": true,
+        "noMalformedValues": true,
+        "noNullWhereNotAllowed": true
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 2 assertions: 2 passed. DeFi global endpoint correctly returns HTTP 200 with data envelope and exposes all aggregate fields as finite numeric values or explicit strings."
+}

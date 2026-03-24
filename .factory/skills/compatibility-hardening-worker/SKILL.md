@@ -18,6 +18,7 @@ Use this skill for cross-area consistency work: identity continuity, range-vs-lo
 3. Write characterization tests first that reproduce the current inconsistency or missing behavior across the affected endpoints.
 4. Make the smallest changes needed to align behavior without breaking already-compatible surfaces.
 5. Re-run the targeted characterization tests, then the most relevant broader suite touching the affected families.
+If the manifest-wide baseline test command fails only on issues already listed in `AGENTS.md` as pre-existing, continue with scoped work and narrower validation instead of stopping immediately; record that baseline failure explicitly in the handoff.
 6. Run `bun run typecheck` before finishing.
 7. Manually verify the fixture chain with `curl`, capturing the ids, addresses, and timestamps used so later validators can reproduce the same comparisons.
 8. If a cross-area issue is really a product or contract ambiguity rather than an implementation bug, stop and return to orchestrator instead of guessing.

@@ -1,0 +1,31 @@
+{
+  "featureId": "core-derivatives-exchange-detail-endpoint",
+  "reviewedAt": "2026-03-25T00:00:00.000Z",
+  "commitId": "c5ac5b04c18c8391b02f15f984f2833fbbd4995d",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Implementation fully satisfies the feature requirements. The `/derivatives/exchanges/{id}` endpoint correctly returns venue metadata with explicit identity fields (id, name, open_interest_btc, trade_volume_24h_btc, etc.), omits tickers by default, includes them when `include_tickers=true` is requested, returns 404 for unknown IDs with clear error messaging, and enforces strict validation on the include_tickers flag (only accepts 'true' or 'false'). The code follows existing module conventions and integrates cleanly with the derivatives exchange family.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The worker correctly used the existing pattern of strict enum validation for boolean query parameters (include_tickers: z.enum(['true', 'false'])). This matches how other endpoints in the exchanges module handle similar flags.",
+      "evidence": "src/modules/exchanges.ts:306-308 — derivativesExchangeDetailQuerySchema follows same pattern as exchangeTickersQuerySchema (lines 38-45)"
+    },
+    {
+      "area": "skills",
+      "observation": "Worker followed the core-api-worker skill procedure precisely: wrote failing tests first, implemented the route, ran targeted tests until passing, ran typecheck, and performed manual curl verification. No deviations recorded.",
+      "evidence": "Handoff shows test-first approach: 'Initial targeted run failed as expected before implementation' followed by 'All 90 targeted tests passed after implementation'"
+    },
+    {
+      "area": "knowledge",
+      "observation": "The test fixtures include seeded derivatives exchange data for 'binance_futures' that enables comprehensive happy-path testing without external dependencies.",
+      "evidence": "tests/app.test.ts:217-251 — derivatives detail test uses binance_futures fixture which is expected to exist in the test database seed data"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The derivatives exchange detail endpoint implementation is complete, well-tested, and ready for use. All requirements from the feature specification are met: explicit venue identity fields in responses, default omission of ticker-heavy data, optional ticker inclusion via include_tickers parameter, proper 404 handling for unknown IDs, and strict validation that rejects invalid include flag values with HTTP 400. Tests cover default behavior, optional ticker inclusion, unknown ID handling, and invalid parameter validation. TypeScript type-checking passes and manual verification via curl confirmed the expected behavior."
+}

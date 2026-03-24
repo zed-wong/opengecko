@@ -1,0 +1,98 @@
+{
+  "groupId": "new-listings",
+  "testedAt": "2026-03-25T18:57:55Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "tool": "curl",
+    "target": "validation API"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-CORE-013",
+      "title": "New listings returns stable object envelope",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /coins/list/new",
+          "expected": "HTTP 200 with top-level object containing coins array",
+          "observed": "HTTP 200 OK, Content-Type: application/json, top-level object with 'coins' key containing array of 4681 items"
+        }
+      ],
+      "evidence": {
+        "httpStatus": "200",
+        "responseFile": "core-public-parity/new-listings/VAL-CORE-013-response.txt",
+        "topLevelKeys": ["coins"],
+        "totalCoins": 4681
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-013A",
+      "title": "New listings rows include explicit identity fields",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect first 5 coins[] entries",
+          "expected": "Each row has explicit id, symbol, name fields",
+          "observed": "All rows contain id, symbol, name fields with string values"
+        }
+      ],
+      "evidence": {
+        "responseFile": "core-public-parity/new-listings/VAL-CORE-013A-014-full-payload.json",
+        "sampleRows": [
+          {"id": "akita", "symbol": "akita", "name": "AKITA"},
+          {"id": "cohron", "symbol": "cohron", "name": "COHRON"},
+          {"id": "pfeon", "symbol": "pfeon", "name": "PFEON"}
+        ],
+        "identityFieldsPresent": ["id", "symbol", "name"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-014",
+      "title": "New listings rows include explicit listing timestamp",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect coins[] entries for timestamp field",
+          "expected": "Each row includes explicit listing-time field used for recency ordering",
+          "observed": "Each row contains 'activated_at' field with Unix timestamp integer"
+        }
+      ],
+      "evidence": {
+        "responseFile": "core-public-parity/new-listings/timestamp-analysis.txt",
+        "sampleTimestamps": [
+          {"id": "akita", "activated_at": 1774369758},
+          {"id": "cohron", "activated_at": 1774276715},
+          {"id": "pfeon", "activated_at": 1774276715}
+        ],
+        "timestampField": "activated_at",
+        "timestampType": "Unix epoch seconds (integer)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-015",
+      "title": "New listings ordered newest-first",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Compare activated_at timestamps from first 3 rows and last rows",
+          "expected": "Rows ordered by recency descending (newest first)",
+          "observed": "First row: 1774369758 > Second row: 1774276715 > Last rows: 1773964800 - descending order confirmed"
+        }
+      ],
+      "evidence": {
+        "responseFile": "core-public-parity/new-listings/timestamp-analysis.txt",
+        "first3Timestamps": [1774369758, 1774276715, 1774276715],
+        "last3Timestamps": [1773964800, 1773964800, 1773964800],
+        "ordering": "Descending (newest first) - 1774369758 > 1774276715 > 1773964800"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 4 assertions: 4 passed, 0 failed, 0 blocked. All assertions for /coins/list/new endpoint verified: stable object envelope with coins array (VAL-CORE-013), explicit identity fields id/symbol/name on each row (VAL-CORE-013A), explicit listing timestamp 'activated_at' field (VAL-CORE-014), and newest-first descending order by activated_at (VAL-CORE-015)."
+}

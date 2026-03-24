@@ -1,0 +1,100 @@
+{
+  "groupId": "market-cap-chart",
+  "testedAt": "2026-03-24T18:57:01Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "tool": "curl",
+    "target": "validation API"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-CORE-007",
+      "title": "Global market cap chart returns historical series",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /global/market_cap_chart?vs_currency=usd&days=7",
+          "expected": "HTTP 200 with historical chart arrays for USD/7-day window",
+          "observed": "HTTP 200 OK with market_cap_chart array containing [timestamp, market_cap] tuples"
+        }
+      ],
+      "evidence": {
+        "responseFile": "core-public-parity/market-cap-chart/VAL-CORE-007-response.txt",
+        "statusCode": 200,
+        "responseExcerpt": {
+          "firstSample": [1773792000000, 2253650000000],
+          "lastSample": [1773964800000, 2325000000000],
+          "sampleCount": 3
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-007A",
+      "title": "Global market cap chart exposes stable series keys",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /global/market_cap_chart?vs_currency=eur&days=30",
+          "expected": "Named top-level series key (not anonymous array)",
+          "observed": "Response uses 'market_cap_chart' named key consistently"
+        },
+        {
+          "action": "Verify key stability across currencies",
+          "expected": "Same key structure for USD and EUR requests",
+          "observed": "Both responses use 'market_cap_chart' as top-level key"
+        }
+      ],
+      "evidence": {
+        "responseFile": "core-public-parity/market-cap-chart/VAL-CORE-007A-eur-response.txt",
+        "topLevelKey": "market_cap_chart",
+        "firstSample": [1773446400000, 1850060189046.2942],
+        "lastSample": [1773964800000, 2005777542332.7742],
+        "sampleCount": 7
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-008",
+      "title": "Global market cap chart validates required params",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /global/market_cap_chart?days=7 (missing vs_currency)",
+          "expected": "HTTP 400 with explicit validation error for vs_currency",
+          "observed": "HTTP 400 Bad Request with fieldErrors.vs_currency: ['Required']"
+        },
+        {
+          "action": "GET /global/market_cap_chart?vs_currency=usd (missing days)",
+          "expected": "HTTP 400 with explicit validation error for days",
+          "observed": "HTTP 400 Bad Request with fieldErrors.days: ['Required']"
+        },
+        {
+          "action": "GET /global/market_cap_chart (missing both params)",
+          "expected": "HTTP 400 with validation errors for both missing params",
+          "observed": "HTTP 400 Bad Request with fieldErrors for both vs_currency and days"
+        }
+      ],
+      "evidence": {
+        "missingCurrencyFile": "core-public-parity/market-cap-chart/VAL-CORE-008-missing-currency.txt",
+        "missingDaysFile": "core-public-parity/market-cap-chart/VAL-CORE-008-missing-days.txt",
+        "missingBothFile": "core-public-parity/market-cap-chart/VAL-CORE-008-missing-both.txt",
+        "validationErrorStructure": {
+          "error": "invalid_request",
+          "details": {
+            "formErrors": [],
+            "fieldErrors": {
+              "vs_currency": ["Required"],
+              "days": ["Required"]
+            }
+          }
+        }
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 3 assertions: 3 passed, 0 failed, 0 blocked. All market cap chart behaviors verified: historical series return (VAL-CORE-007), stable named series keys (VAL-CORE-007A), and required parameter validation (VAL-CORE-008)."
+}

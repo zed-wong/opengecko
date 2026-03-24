@@ -1,0 +1,36 @@
+{
+  "featureId": "core-search-trending-endpoint",
+  "reviewedAt": "2026-03-25T00:00:00.000Z",
+  "commitId": "4fa3f05",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation correctly delivers the CoinGecko-compatible `/search/trending` endpoint with grouped payload shape, nested coin item rows, deterministic `show_max` truncation, and explicit invalid-parameter handling. The code follows existing project patterns for validation (Zod), error handling (HttpError), and fixture-based testing.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The worker correctly used the existing HttpError pattern for invalid parameter handling (400 status with error code 'invalid_parameter'), matching patterns in src/http/errors.ts.",
+      "evidence": "src/modules/search.ts:20-26 - parseShowMax function throws HttpError(400, 'invalid_parameter', ...) for non-numeric input"
+    },
+    {
+      "area": "conventions",
+      "observation": "The implementation follows the established Zod validation pattern for query parameter parsing, consistent with other endpoints.",
+      "evidence": "src/modules/search.ts:15-17 - trendingQuerySchema uses z.object with z.string().optional() for show_max parameter"
+    },
+    {
+      "area": "testing",
+      "observation": "The worker correctly followed the fixture-based testing pattern, adding both contract fixtures (for success cases) and error fixtures (for invalid parameter cases).",
+      "evidence": "tests/fixtures/contract-fixtures.json added 'searchTrending' fixture; tests/fixtures/error-fixtures.json added 'searchTrendingBadShowMax' fixture"
+    },
+    {
+      "area": "testing",
+      "observation": "Test coverage is comprehensive: includes happy path, show_max truncation (1 item), show_max zero (empty arrays), and invalid parameter rejection.",
+      "evidence": "tests/app.test.ts:626-679 contains 3 test cases; tests/invalid-params.test.ts:243-251 adds invalid show_max test"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature implementation is complete and correct. The `/search/trending` endpoint returns grouped arrays (coins, nfts, categories) with nested coin items as specified, supports `show_max` parameter with proper truncation behavior, and returns explicit 400 errors for invalid parameters. All 72 targeted tests pass, typecheck passes, and manual verification confirms correct behavior."
+}

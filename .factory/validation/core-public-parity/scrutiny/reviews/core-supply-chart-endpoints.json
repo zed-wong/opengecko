@@ -1,0 +1,36 @@
+{
+  "featureId": "core-supply-chart-endpoints",
+  "reviewedAt": "2026-03-25T00:00:00Z",
+  "commitId": "635102c",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation fully satisfies the feature requirements for the four supply-chart routes (circulating_supply_chart, total_supply_chart, and their /range variants). All routes return named series payloads with chronologically ordered [timestamp, value] samples, properly validate parameters with explicit 400 errors for invalid days, from/to bounds, and intervals. The implementation reuses existing chart infrastructure appropriately and includes comprehensive test coverage.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The worker introduced a new helper function `parseExplicitRange` for explicit date range validation that enforces `from <= to` with a clear error message. This follows the existing pattern in `parseChartRange` but extracts it as a reusable function.",
+      "evidence": "src/modules/coins.ts lines 817-827 - new parseExplicitRange function used by both supply chart range routes and the existing market_chart/range route"
+    },
+    {
+      "area": "conventions",
+      "observation": "The supply chart implementation uses a hardcoded fallback for Bitcoin's circulating/total supply (19.8M / 21M) when market snapshot data is unavailable. This is a pragmatic seed-data approach but may need documentation if other coins require similar treatment.",
+      "evidence": "src/modules/coins.ts lines 997-1018 - hardcoded fallback values for bitcoin circulatingSupply/totalSupply in buildSupplySeriesRowsFromChart"
+    },
+    {
+      "area": "tests",
+      "observation": "The tests validate supply chart responses using the existing error fixture patterns (errorFixtures.coinChartBadDays, coinChartBadInterval, etc.), maintaining consistency with other chart endpoint tests.",
+      "evidence": "tests/invalid-params.test.ts lines 176-206 - reuses existing error fixtures for validation error assertions"
+    },
+    {
+      "area": "tests",
+      "observation": "Test coverage includes validation that range endpoints respect the requested time bounds (first timestamp >= from, last timestamp <= to) and that samples are chronologically ordered.",
+      "evidence": "tests/app.test.ts lines 1145-1169 - explicit range bounds checking and timestamp ordering validation"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The core-supply-chart-endpoints feature is fully implemented and meets all requirements from the validation contract (VAL-CORE-019 through VAL-CORE-023). The four routes return properly named series with ordered samples, enforce parameter validation with clear 400 errors, and maintain consistency with existing chart endpoint patterns. All targeted tests pass (85 tests), typecheck is clean, and the commit is properly documented with the handoff showing successful verification via both automated tests and manual HTTP checks."
+}

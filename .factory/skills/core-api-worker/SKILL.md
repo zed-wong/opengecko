@@ -19,6 +19,7 @@ Use this skill for non-onchain endpoint work in the simple, global, coins, excha
 4. Implement the route/handler/data-shaping changes needed to satisfy the failing tests while preserving existing family conventions.
 5. Add explicit invalid-parameter coverage whenever the feature includes validation semantics.
 6. Run the narrowest targeted test command that exercises the feature until it passes.
+If the manifest-wide baseline test command fails only on issues already listed in `AGENTS.md` as pre-existing, continue with scoped work and narrower validation instead of stopping immediately; record that baseline failure explicitly in the handoff.
 7. Start the local API if needed and manually verify the endpoint(s) with `curl`, including at least one happy-path and one negative-path request when the contract includes validation behavior. Prefer port `3102` if `3100` is already occupied so manual checks hit the worker's latest code.
 8. Run `bun run typecheck` before finishing. If the change affects shared route behavior broadly, also run a broader relevant Bun/Vitest command.
 9. Update your handoff with exact commands, exact observations, tests added, and any discovered gaps.

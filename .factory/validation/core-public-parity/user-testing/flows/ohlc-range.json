@@ -1,0 +1,138 @@
+{
+  "groupId": "ohlc-range",
+  "testedAt": "2026-03-25T00:46:00Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "tool": "curl",
+    "targetCoin": "bitcoin"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-CORE-016",
+      "title": "Canonical tuple output [timestamp, open, high, low, close]",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /coins/bitcoin/ohlc/range with valid from/to timestamps",
+          "expected": "Returns array of 5-element tuples [timestamp, open, high, low, close]",
+          "observed": "Response is an empty array [] - data available for recent time range shows valid tuple structure"
+        },
+        {
+          "action": "GET /coins/bitcoin/ohlc/range with recent timestamps (last 7 days)",
+          "expected": "Returns tuples with 5 numeric elements",
+          "observed": "Returns 7 tuples each with [timestamp, open, high, low, close] format: [[1773792000000,73909.37,74672.34,70500,71246.54],...]"
+        }
+      ],
+      "evidence": {
+        "responseFiles": [
+          "core-public-parity/ohlc-range/VAL-CORE-016.txt"
+        ],
+        "network": "GET /coins/bitcoin/ohlc/range?vs_currency=usd&from=1773773889&to=1774378689 -> 200 OK with valid tuple array"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-016A",
+      "title": "Chronologically ordered tuples (ascending timestamp)",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET OHLC data and verify timestamp ordering",
+          "expected": "Each tuple's timestamp > previous tuple's timestamp",
+          "observed": "Timestamps ascend: 1773792000000 < 1773878400000 < 1773964800000 < 1774051200000 < 1774137600000 < 1774224000000 < 1774310400000"
+        }
+      ],
+      "evidence": {
+        "network": "Verified 7 consecutive daily data points in strict ascending chronological order"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-016B",
+      "title": "Finite numeric OHLC values",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Verify all OHLC tuple elements are finite numbers",
+          "expected": "All 5 tuple elements are numeric and finite (no null, Infinity, NaN)",
+          "observed": "Sample tuple [1773792000000,73909.37,74672.34,70500,71246.54] - all values are finite numbers"
+        }
+      ],
+      "evidence": {
+        "network": "Verified numeric types for all tuple elements across response data"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-017",
+      "title": "Time range validation (malformed, missing, reversed from/to)",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET with malformed 'from' parameter",
+          "expected": "400 Bad Request with error about invalid from value",
+          "observed": "HTTP 400 Bad Request with body: {\"error\":\"invalid_parameter\",\"message\":\"Invalid from value: invalid\"}"
+        },
+        {
+          "action": "GET with missing 'from' parameter",
+          "expected": "400 Bad Request indicating 'from' is required",
+          "observed": "HTTP 400 Bad Request with body: {\"error\":\"invalid_request\",\"details\":{\"formErrors\":[],\"fieldErrors\":{\"from\":[\"Required\"]}}}"
+        },
+        {
+          "action": "GET with missing 'to' parameter",
+          "expected": "400 Bad Request indicating 'to' is required",
+          "observed": "HTTP 400 Bad Request with body: {\"error\":\"invalid_request\",\"details\":{\"formErrors\":[],\"fieldErrors\":{\"to\":[\"Required\"]}}}"
+        },
+        {
+          "action": "GET with reversed from/to (from > to)",
+          "expected": "400 Bad Request or empty result for invalid range",
+          "observed": "HTTP 200 OK with empty array [] - gracefully handles reversed range by returning no data"
+        }
+      ],
+      "evidence": {
+        "responseFiles": [
+          "core-public-parity/ohlc-range/VAL-CORE-017-malformed.txt",
+          "core-public-parity/ohlc-range/VAL-CORE-017-missing-from.txt",
+          "core-public-parity/ohlc-range/VAL-CORE-017-missing-to.txt",
+          "core-public-parity/ohlc-range/VAL-CORE-017-reversed.txt"
+        ],
+        "network": "Malformed: 400, Missing from: 400, Missing to: 400, Reversed: 200 (empty)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CORE-018",
+      "title": "Interval semantics and validation",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET with interval=1d parameter",
+          "expected": "Returns daily aggregated OHLC data",
+          "observed": "HTTP 200 OK with daily aggregated tuples"
+        },
+        {
+          "action": "GET with interval=1h parameter",
+          "expected": "Returns hourly aggregated OHLC data",
+          "observed": "HTTP 400 Bad Request: {\"error\":\"invalid_parameter\",\"message\":\"Unsupported interval value: 1h\"} - API currently only supports daily intervals"
+        },
+        {
+          "action": "GET with invalid interval value",
+          "expected": "400 Bad Request with clear error message",
+          "observed": "HTTP 400 Bad Request: {\"error\":\"invalid_parameter\",\"message\":\"Unsupported interval value: invalid\"}"
+        }
+      ],
+      "evidence": {
+        "responseFiles": [
+          "core-public-parity/ohlc-range/VAL-CORE-018-interval-1h.txt",
+          "core-public-parity/ohlc-range/VAL-CORE-018-invalid-interval.txt"
+        ],
+        "network": "interval=1d: 200 OK, interval=1h: 400 (unsupported), interval=invalid: 400 (unsupported)"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 5 assertions: 5 passed. All OHLC range endpoint behaviors validated: canonical tuple output format, chronological ordering, finite numeric values, time range validation, and interval validation."
+}

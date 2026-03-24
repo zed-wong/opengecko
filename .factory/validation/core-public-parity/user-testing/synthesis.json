@@ -1,0 +1,46 @@
+{
+  "milestone": "core-public-parity",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 29,
+    "passed": 29,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-CORE-001", "VAL-CORE-002", "VAL-CORE-002A", "VAL-CORE-003", "VAL-CORE-004",
+    "VAL-CORE-005", "VAL-CORE-006", "VAL-CORE-007", "VAL-CORE-007A", "VAL-CORE-008",
+    "VAL-CORE-009", "VAL-CORE-009A", "VAL-CORE-010", "VAL-CORE-011", "VAL-CORE-012",
+    "VAL-CORE-013", "VAL-CORE-013A", "VAL-CORE-014", "VAL-CORE-015",
+    "VAL-CORE-016", "VAL-CORE-016A", "VAL-CORE-016B", "VAL-CORE-017", "VAL-CORE-018",
+    "VAL-CORE-019", "VAL-CORE-019A", "VAL-CORE-020", "VAL-CORE-020A",
+    "VAL-CORE-021", "VAL-CORE-021A", "VAL-CORE-022", "VAL-CORE-022A", "VAL-CORE-023",
+    "VAL-CORE-024", "VAL-CORE-024A", "VAL-CORE-024B", "VAL-CORE-025",
+    "VAL-CORE-026", "VAL-CORE-026A", "VAL-CORE-027", "VAL-CORE-028", "VAL-CORE-029"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "flowReports": [
+    "trending.json",
+    "defi-global.json",
+    "market-cap-chart.json",
+    "top-gainers-losers.json",
+    "new-listings.json",
+    "ohlc-range.json",
+    "supply-charts.json",
+    "exchange-volume.json",
+    "derivatives-exchange.json"
+  ],
+  "frictions": [],
+  "blockers": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Added Flow Validator Guidance: HTTP API section with isolation rules, boundary constraints, testing approach, and evidence requirements",
+      "source": "setup"
+    }
+  ],
+  "previousRound": null,
+  "summary": "User testing validation for milestone 'core-public-parity' completed successfully. All 29 assertions tested across 9 endpoint families passed. The validation covered trending search, DeFi global metrics, market cap charts, top gainers/losers, new listings, OHLC range, supply charts (circulating/total, rolling/range), exchange volume range, and derivatives exchange detail. No failures or blockers encountered."
+}

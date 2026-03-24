@@ -1,0 +1,31 @@
+{
+  "featureId": "core-coin-ohlc-range-endpoint",
+  "reviewedAt": "2026-03-25T00:00:00.000Z",
+  "commitId": "0f6c8314643ee00fc88970853d8d85996746d0ca",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature implementation meets all stated requirements. The `/coins/{id}/ohlc/range` endpoint already existed in the codebase; this feature added focused test coverage to verify the contract semantics. The test coverage validates: (1) canonical tuple output `[timestamp, open, high, low, close]`, (2) ascending timestamp ordering, (3) finite numeric OHLC values, (4) interval handling (daily vs hourly), and (5) relies on existing invalid-range validation in `tests/invalid-params.test.ts`.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The project follows a test-first pattern where workers add failing tests before implementation. In this case, the endpoint already existed, so the worker added characterization tests to verify the existing contract. This is consistent with AGENTS.md guidance.",
+      "evidence": "tests/app.test.ts lines 1047-1110 - two comprehensive test cases added for OHLC range endpoint"
+    },
+    {
+      "area": "patterns",
+      "observation": "The codebase uses a fixture-based test pattern with contract fixtures in `tests/fixtures/contract-fixtures.json` and error fixtures in `tests/fixtures/error-fixtures.json`. The worker appropriately used this pattern for consistency.",
+      "evidence": "tests/app.test.ts imports and uses contractFixtures; tests/invalid-params.test.ts uses errorFixtures for validation error expectations"
+    },
+    {
+      "area": "validation",
+      "observation": "Invalid parameter validation is centralized in `tests/invalid-params.test.ts`. The OHLC range endpoint already has comprehensive negative-case coverage including malformed `from`, reversed `from/to` ranges, and unsupported intervals.",
+      "evidence": "tests/invalid-params.test.ts lines 155-175 - three test cases for invalid OHLC range parameters"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature `core-coin-ohlc-range-endpoint` is complete and passes review. The endpoint was already implemented; this feature added 31 lines of focused test coverage in `tests/app.test.ts` to verify the canonical tuple output, ascending timestamp ordering, finite numeric OHLC values, and interval handling semantics. All targeted tests pass (82 tests across app.test.ts and invalid-params.test.ts), typecheck passes, and manual validation confirms correct behavior. No blocking issues found."
+}

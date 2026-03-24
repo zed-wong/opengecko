@@ -19,6 +19,7 @@ Use this skill for `/onchain/*` endpoints, including network/dex catalogs, pool/
 4. Implement the route and response-shaping changes while preserving JSON:API-style `data`, `included`, `relationships`, and `meta` semantics where the contract expects them.
 5. Verify network, dex, pool, and token relationship integrity explicitly; do not assume identity continuity without checking returned ids/relationships.
 6. Run targeted onchain tests until they pass.
+If the manifest-wide baseline test command fails only on issues already listed in `AGENTS.md` as pre-existing, continue with scoped work and narrower validation instead of stopping immediately; record that baseline failure explicitly in the handoff.
 7. Start the local API if needed and manually verify at least one valid request plus one invalid request with `curl`. Prefer port `3102` if `3100` is already occupied so manual checks hit the worker's latest code.
 8. Run `bun run typecheck` before finishing. If your changes affect shared onchain routing or schemas, run the most relevant broader onchain test slice too.
 9. In the handoff, record exact ids/addresses/networks used in verification so follow-up workers and validators can reproduce the checks.
