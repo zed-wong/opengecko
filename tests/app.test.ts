@@ -1547,6 +1547,147 @@ describe('OpenGecko app scaffold', () => {
     ]);
   });
 
+  it('returns onchain categories and category pools with deterministic sorting, stable pagination, category scoping, and include handling', async () => {
+    const categoriesResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/categories?sort=h24_volume_usd_desc&page=1',
+    });
+    const categoriesPageTwoResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/categories?sort=h24_volume_usd_desc&page=2',
+    });
+    const categoryPoolsResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/categories/stablecoins/pools?sort=reserve_in_usd_desc&page=1',
+    });
+    const categoryPoolsIncludedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/categories/stablecoins/pools?sort=reserve_in_usd_desc&page=1&include=network,dex',
+    });
+
+    expect(categoriesResponse.statusCode).toBe(200);
+    expect(categoriesResponse.json()).toMatchObject({
+      data: [
+        expect.objectContaining({
+          id: 'stablecoins',
+          type: 'category',
+          attributes: expect.objectContaining({
+            name: 'Stablecoins',
+          }),
+        }),
+      ],
+      meta: expect.objectContaining({
+        page: 1,
+        per_page: 1,
+        total_count: 2,
+        total_pages: 2,
+        sort: 'h24_volume_usd_desc',
+      }),
+    });
+    expect(categoriesResponse.json().data).toHaveLength(1);
+    expect(categoriesResponse.json().data.map((category: { id: string }) => category.id)).toEqual(['stablecoins']);
+
+    expect(categoriesPageTwoResponse.statusCode).toBe(200);
+    expect(categoriesPageTwoResponse.json()).toMatchObject({
+      data: [
+        expect.objectContaining({
+          id: 'smart-contract-platform',
+          type: 'category',
+        }),
+      ],
+      meta: expect.objectContaining({
+        page: 2,
+        per_page: 1,
+        total_count: 2,
+        total_pages: 2,
+        sort: 'h24_volume_usd_desc',
+      }),
+    });
+    expect(categoriesPageTwoResponse.json().data).toHaveLength(1);
+    expect(categoriesPageTwoResponse.json().data.map((category: { id: string }) => category.id)).toEqual(['smart-contract-platform']);
+    expect(new Set([
+      ...categoriesResponse.json().data.map((category: { id: string }) => category.id),
+      ...categoriesPageTwoResponse.json().data.map((category: { id: string }) => category.id),
+    ])).toEqual(new Set(['smart-contract-platform', 'stablecoins']));
+
+    expect(categoryPoolsResponse.statusCode).toBe(200);
+    expect(categoryPoolsResponse.json()).toMatchObject({
+      meta: expect.objectContaining({
+        page: 1,
+        per_page: 100,
+        total_count: 4,
+        total_pages: 1,
+        sort: 'reserve_in_usd_desc',
+        category_id: 'stablecoins',
+      }),
+    });
+    expect(categoryPoolsResponse.json().data.map((pool: { id: string }) => pool.id)).toEqual([
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+      '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36',
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+      '58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2',
+    ]);
+    expect(categoryPoolsResponse.json().data.every((pool: {
+      attributes: { base_token_symbol: string; quote_token_symbol: string };
+    }) => ['USDC', 'USDT'].includes(pool.attributes.base_token_symbol) || ['USDC', 'USDT'].includes(pool.attributes.quote_token_symbol))).toBe(true);
+
+    expect(categoryPoolsIncludedResponse.statusCode).toBe(200);
+    expect(categoryPoolsIncludedResponse.json()).toMatchObject({
+      data: expect.any(Array),
+      included: expect.arrayContaining([
+        expect.objectContaining({ id: 'eth', type: 'network' }),
+        expect.objectContaining({ id: 'solana', type: 'network' }),
+        expect.objectContaining({ id: 'uniswap_v3', type: 'dex' }),
+        expect.objectContaining({ id: 'curve', type: 'dex' }),
+        expect.objectContaining({ id: 'raydium', type: 'dex' }),
+      ]),
+    });
+    expect(categoryPoolsIncludedResponse.json().data).toHaveLength(4);
+  });
+
+  it('rejects invalid onchain category sort/include values explicitly and returns not found for unknown categories', async () => {
+    const invalidCategorySortResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/categories?sort=unsupported',
+    });
+    const invalidCategoryPoolsSortResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/categories/stablecoins/pools?sort=unsupported',
+    });
+    const invalidCategoryPoolsIncludeResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/categories/stablecoins/pools?include=token',
+    });
+    const unknownCategoryResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/categories/not-a-category/pools',
+    });
+
+    expect(invalidCategorySortResponse.statusCode).toBe(400);
+    expect(invalidCategorySortResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported sort value: unsupported',
+    });
+
+    expect(invalidCategoryPoolsSortResponse.statusCode).toBe(400);
+    expect(invalidCategoryPoolsSortResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported sort value: unsupported',
+    });
+
+    expect(invalidCategoryPoolsIncludeResponse.statusCode).toBe(400);
+    expect(invalidCategoryPoolsIncludeResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported include value: token',
+    });
+
+    expect(unknownCategoryResponse.statusCode).toBe(404);
+    expect(unknownCategoryResponse.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Onchain category not found: not-a-category',
+    });
+  });
+
   it('validates malformed addresses and include flags for onchain simple token prices', async () => {
     const malformedAddressResponse = await getApp().inject({
       method: 'GET',

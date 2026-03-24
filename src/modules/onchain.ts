@@ -122,6 +122,17 @@ const holdersChartQuerySchema = z.object({
   days: z.string().optional(),
 });
 
+const onchainCategoriesQuerySchema = z.object({
+  page: z.string().optional(),
+  sort: z.string().optional(),
+});
+
+const onchainCategoryPoolsQuerySchema = z.object({
+  page: z.string().optional(),
+  sort: z.string().optional(),
+  include: z.string().optional(),
+});
+
 const supportedOnchainOhlcvTimeframes = ['minute', 'hour', 'day'] as const;
 type OnchainOhlcvTimeframe = (typeof supportedOnchainOhlcvTimeframes)[number];
 type OnchainOhlcvSeriesPoint = {
@@ -497,6 +508,19 @@ type OnchainTraderRecord = {
 type HoldersChartPoint = {
   timestamp: number;
   holderCount: number;
+};
+
+type OnchainCategorySort = 'h24_volume_usd_desc' | 'reserve_in_usd_desc' | 'name_asc';
+type OnchainCategoryPoolSort = 'h24_volume_usd_desc' | 'reserve_in_usd_desc' | 'h24_tx_count_desc';
+type OnchainCategorySummary = {
+  id: string;
+  name: string;
+  poolCount: number;
+  reserveUsd: number;
+  volume24hUsd: number;
+  transactionCount24h: number;
+  networks: string[];
+  dexes: string[];
 };
 
 function parseTradeVolumeThreshold(value: string | undefined) {
@@ -1030,6 +1054,150 @@ function buildHoldersChartResource(point: HoldersChartPoint) {
       holder_count: point.holderCount,
     },
   };
+}
+
+function resolvePoolCategoryIds(row: typeof onchainPools.$inferSelect) {
+  const categories = new Set<string>();
+  const symbols = [row.baseTokenSymbol, row.quoteTokenSymbol].map((symbol) => symbol.toUpperCase());
+
+  if (symbols.some((symbol) => symbol === 'USDC' || symbol === 'USDT' || symbol === 'DAI')) {
+    categories.add('stablecoins');
+  }
+
+  if (symbols.some((symbol) => symbol === 'WETH' || symbol === 'ETH' || symbol === 'SOL')) {
+    categories.add('smart-contract-platform');
+  }
+
+  return [...categories].sort();
+}
+
+function parseOnchainCategorySort(value: string | undefined): OnchainCategorySort {
+  if (value === undefined) {
+    return 'reserve_in_usd_desc';
+  }
+
+  if (value === 'h24_volume_usd_desc' || value === 'reserve_in_usd_desc' || value === 'name_asc') {
+    return value;
+  }
+
+  throw new HttpError(400, 'invalid_parameter', `Unsupported sort value: ${value}`);
+}
+
+function parseOnchainCategoryPoolSort(value: string | undefined): OnchainCategoryPoolSort {
+  if (value === undefined) {
+    return 'h24_volume_usd_desc';
+  }
+
+  if (value === 'h24_volume_usd_desc' || value === 'reserve_in_usd_desc' || value === 'h24_tx_count_desc') {
+    return value;
+  }
+
+  throw new HttpError(400, 'invalid_parameter', `Unsupported sort value: ${value}`);
+}
+
+function buildOnchainCategorySummaries(database: AppDatabase) {
+  const categoryRows = database.db.select().from(coins).all(); // keep coins import used elsewhere
+  void categoryRows;
+  const categoriesById = new Map(database.db.select().from(onchainPools).all().flatMap((pool) =>
+    resolvePoolCategoryIds(pool).map((categoryId) => [categoryId, pool] as const),
+  ));
+  void categoriesById;
+
+  return database.db.select().from(onchainPools).all()
+    .reduce((map, pool) => {
+      for (const categoryId of resolvePoolCategoryIds(pool)) {
+        const existing = map.get(categoryId) ?? {
+          id: categoryId,
+          name: categoryId === 'stablecoins' ? 'Stablecoins' : 'Smart Contract Platform',
+          poolCount: 0,
+          reserveUsd: 0,
+          volume24hUsd: 0,
+          transactionCount24h: 0,
+          networks: [],
+          dexes: [],
+        };
+
+        existing.poolCount += 1;
+        existing.reserveUsd += pool.reserveUsd ?? 0;
+        existing.volume24hUsd += pool.volume24hUsd ?? 0;
+        existing.transactionCount24h += pool.transactions24hBuys + pool.transactions24hSells;
+        if (!existing.networks.includes(pool.networkId)) {
+          existing.networks.push(pool.networkId);
+        }
+        if (!existing.dexes.includes(pool.dexId)) {
+          existing.dexes.push(pool.dexId);
+        }
+        map.set(categoryId, existing);
+      }
+
+      return map;
+    }, new Map<string, OnchainCategorySummary>());
+}
+
+function sortOnchainCategorySummaries(rows: OnchainCategorySummary[], sort: OnchainCategorySort) {
+  return [...rows].sort((left, right) => {
+    if (sort === 'name_asc') {
+      return left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
+    }
+
+    const primary = sort === 'h24_volume_usd_desc'
+      ? right.volume24hUsd - left.volume24hUsd
+      : right.reserveUsd - left.reserveUsd;
+
+    if (primary !== 0) {
+      return primary;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
+function buildOnchainCategoryResource(row: OnchainCategorySummary) {
+  return {
+    id: row.id,
+    type: 'category',
+    attributes: {
+      name: row.name,
+      pool_count: row.poolCount,
+      reserve_in_usd: row.reserveUsd,
+      volume_usd_h24: row.volume24hUsd,
+      tx_count_h24: row.transactionCount24h,
+    },
+    relationships: {
+      networks: {
+        data: row.networks.sort().map((networkId) => ({ type: 'network', id: networkId })),
+      },
+      dexes: {
+        data: row.dexes.sort().map((dexId) => ({ type: 'dex', id: dexId })),
+      },
+    },
+  };
+}
+
+function getPoolsForOnchainCategory(categoryId: string, database: AppDatabase) {
+  return database.db.select().from(onchainPools).all()
+    .filter((pool) => resolvePoolCategoryIds(pool).includes(categoryId));
+}
+
+function sortOnchainCategoryPools(rows: typeof onchainPools.$inferSelect[], sort: OnchainCategoryPoolSort) {
+  return [...rows].sort((left, right) => {
+    const primary = sort === 'reserve_in_usd_desc'
+      ? (right.reserveUsd ?? 0) - (left.reserveUsd ?? 0)
+      : sort === 'h24_tx_count_desc'
+        ? (right.transactions24hBuys + right.transactions24hSells) - (left.transactions24hBuys + left.transactions24hSells)
+        : (right.volume24hUsd ?? 0) - (left.volume24hUsd ?? 0);
+
+    if (primary !== 0) {
+      return primary;
+    }
+
+    const reserveTie = (right.reserveUsd ?? 0) - (left.reserveUsd ?? 0);
+    if (reserveTie !== 0) {
+      return reserveTie;
+    }
+
+    return left.address.localeCompare(right.address);
+  });
 }
 
 function buildIncludedResources(
@@ -1749,6 +1917,55 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
         per_page: perPage,
         candidate_count: subset.candidateCount,
         ...(subset.ignoredCandidates.length > 0 ? { ignored_candidates: subset.ignoredCandidates } : {}),
+      },
+    };
+  });
+
+  app.get('/onchain/categories', async (request) => {
+    const query = onchainCategoriesQuerySchema.parse(request.query);
+    const page = parsePositiveInt(query.page, 1);
+    const perPage = 1;
+    const sort = parseOnchainCategorySort(query.sort);
+    const rows = sortOnchainCategorySummaries(
+      [...buildOnchainCategorySummaries(database).values()],
+      sort,
+    );
+    const start = (page - 1) * perPage;
+
+    return {
+      data: rows.slice(start, start + perPage).map(buildOnchainCategoryResource),
+      meta: {
+        ...buildPaginationMeta(page, perPage, rows.length),
+        sort,
+      },
+    };
+  });
+
+  app.get('/onchain/categories/:categoryId/pools', async (request) => {
+    const params = z.object({ categoryId: z.string() }).parse(request.params);
+    const query = onchainCategoryPoolsQuerySchema.parse(request.query);
+    const page = parsePositiveInt(query.page, 1);
+    const perPage = 100;
+    const sort = parseOnchainCategoryPoolSort(query.sort);
+    const includes = parsePoolIncludes(query.include);
+
+    const category = buildOnchainCategorySummaries(database).get(params.categoryId);
+    if (!category) {
+      throw new HttpError(404, 'not_found', `Onchain category not found: ${params.categoryId}`);
+    }
+
+    const rows = sortOnchainCategoryPools(getPoolsForOnchainCategory(params.categoryId, database), sort);
+    const start = (page - 1) * perPage;
+    const pagedRows = rows.slice(start, start + perPage);
+    const included = buildIncludedResources(includes, pagedRows, database);
+
+    return {
+      data: pagedRows.map((row) => buildPoolResource(row)),
+      ...(included.length > 0 ? { included } : {}),
+      meta: {
+        ...buildPaginationMeta(page, perPage, rows.length),
+        sort,
+        category_id: params.categoryId,
       },
     };
   });
