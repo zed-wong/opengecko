@@ -1,0 +1,161 @@
+{
+  "groupId": "identity-continuity",
+  "testedAt": "2026-03-25T00:00:00.000Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "port": 3102,
+    "testingTool": "curl",
+    "missionDir": "/home/whoami/.factory/missions/cd18b974-6c92-4699-a479-996ae744b901"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-001",
+      "title": "Coin list/detail identity continuity",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /coins/list", "expected": "Returns coin list with id fields", "observed": "Returns coin list with ids like '00-token', 'bitcoin'" },
+        { "action": "GET /coins/{id} with id from list", "expected": "Returns coin detail matching the id", "observed": "GET /coins/00-token returns id='00-token'" },
+        { "action": "GET /coins/markets", "expected": "Returns market rows with id fields", "observed": "Returns market data with id='bitcoin'" },
+        { "action": "GET /search/trending", "expected": "Returns trending coins with nested item structure", "observed": "Returns coins with id='bitcoin' in nested item" }
+      ],
+      "evidence": {
+        "network": "GET /coins/list -> 200, GET /coins/bitcoin -> 200, GET /search/trending -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "title": "Contract-address resolution matches coin identity",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /coins/list?include_platform=true", "expected": "Returns coins with platform/contract mappings", "observed": "USDC has ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" },
+        { "action": "GET /coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "expected": "Returns coin detail for the contract", "observed": "Returns id='usd-coin'" },
+        { "action": "GET /coins/usd-coin", "expected": "Returns same coin identity", "observed": "Returns id='usd-coin'" }
+      ],
+      "evidence": {
+        "network": "GET /coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 -> 200 returns id='usd-coin'"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-002A",
+      "title": "Token-list, platform map, and contract route agree",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /token_lists/ethereum/all.json", "expected": "Returns token list with geckoId extensions", "observed": "Returns USDC with geckoId='usd-coin'" },
+        { "action": "GET /coins/list?include_platform=true", "expected": "Returns same coin with platform mapping", "observed": "USDC has ethereum contract address" },
+        { "action": "GET /coins/ethereum/contract/{address}", "expected": "Returns same canonical coin id", "observed": "Returns id='usd-coin'" }
+      ],
+      "evidence": {
+        "network": "GET /token_lists/ethereum/all.json -> 200, GET /coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "title": "Contract simple-price aligns with contract detail",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "expected": "Returns coin id for contract", "observed": "Returns id='usd-coin'" },
+        { "action": "GET /simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&vs_currencies=usd", "expected": "Returns price for same contract", "observed": "Returns {\"0xa0...48\":{\"usd\":1}}" }
+      ],
+      "evidence": {
+        "network": "GET /simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&vs_currencies=usd -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "title": "Market rows are detail-dereferenceable",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /coins/markets?vs_currency=usd", "expected": "Returns market rows with id fields", "observed": "Returns bitcoin with id='bitcoin'" },
+        { "action": "GET /coins/{id} with market coin id", "expected": "Returns matching coin detail", "observed": "GET /coins/bitcoin returns id='bitcoin'" },
+        { "action": "GET /coins/top_gainers_losers?vs_currency=usd", "expected": "Returns top movers with id fields", "observed": "Returns coins with id fields" },
+        { "action": "GET /coins/list/new", "expected": "Returns new listings with id fields", "observed": "Returns coins with id='akita', 'cohron'" }
+      ],
+      "evidence": {
+        "network": "GET /coins/markets -> 200, GET /coins/bitcoin -> 200, GET /coins/top_gainers_losers -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-005",
+      "title": "Category membership and aggregate consistency",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /coins/categories/list", "expected": "Returns category list with category_id", "observed": "Returns 'smart-contract-platform', 'stablecoins'" },
+        { "action": "GET /coins/categories", "expected": "Returns categories with top coins", "observed": "Returns 'smart-contract-platform' with top_3_coins=['bitcoin','ethereum']" },
+        { "action": "GET /coins/{id} with category top coin", "expected": "Returns coin detail", "observed": "GET /coins/bitcoin returns bitcoin" }
+      ],
+      "evidence": {
+        "network": "GET /coins/categories -> 200, GET /coins/bitcoin -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-006",
+      "title": "Search results exist in canonical registries",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /search?query=bitcoin", "expected": "Returns search results with coin ids", "observed": "Returns 'bitcoinfile', 'bitcoinsv'" },
+        { "action": "Check if search result exists in /coins/list", "expected": "Coin exists in registry", "observed": "bitcoinfile found in /coins/list" },
+        { "action": "GET /search/trending", "expected": "Returns trending coins", "observed": "Returns 'bitcoin'" },
+        { "action": "Check trending coin in /coins/list", "expected": "Coin exists in registry", "observed": "bitcoin found in /coins/list" }
+      ],
+      "evidence": {
+        "network": "GET /search?query=bitcoin -> 200, GET /search/trending -> 200, GET /coins/list -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-007",
+      "title": "Exchange registry/detail/ticker identity continuity",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /exchanges", "expected": "Returns exchange list with id fields", "observed": "Returns 'bigone', 'bybit'" },
+        { "action": "GET /exchanges/{id}", "expected": "Returns exchange detail", "observed": "GET /exchanges/bigone returns id='bigone'" },
+        { "action": "GET /exchanges/list", "expected": "Returns minimal exchange list", "observed": "Returns 'bigone', 'binance', 'bybit'" },
+        { "action": "GET /search?query=binance", "expected": "Returns exchange in search results", "observed": "Returns exchange id='binance'" }
+      ],
+      "evidence": {
+        "network": "GET /exchanges -> 200, GET /exchanges/bigone -> 200, GET /exchanges/list -> 200, GET /search?query=binance -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-008",
+      "title": "Derivatives venue registry/detail continuity",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /derivatives/exchanges", "expected": "Returns derivatives exchange list with id fields", "observed": "Returns 'binance_futures', 'bybit'" },
+        { "action": "GET /derivatives/exchanges/{id}", "expected": "Returns derivatives exchange detail", "observed": "GET /derivatives/exchanges/binance_futures returns id='binance_futures'" },
+        { "action": "GET /derivatives/exchanges/list", "expected": "Returns derivatives exchange list", "observed": "Returns 'binance_futures', 'bybit'" },
+        { "action": "GET /derivatives", "expected": "Returns derivatives markets with market_id", "observed": "Returns markets with market_id='binance_futures'" }
+      ],
+      "evidence": {
+        "network": "GET /derivatives/exchanges -> 200, GET /derivatives/exchanges/binance_futures -> 200, GET /derivatives/exchanges/list -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-009",
+      "title": "Exchange and coin ticker cross-reference integrity",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /coins/bitcoin/tickers", "expected": "Returns coin tickers with coin_id and exchange info", "observed": "Returns tickers with coin_id='bitcoin'" },
+        { "action": "Check coin_id in ticker resolves", "expected": "coin_id dereferences through /coins/{id}", "observed": "coin_id='bitcoin' resolves through /coins/bitcoin" },
+        { "action": "GET /exchanges/binance/tickers", "expected": "Returns exchange tickers with coin_id", "observed": "Returns tickers with coin_id='usd-coin'" },
+        { "action": "Check coin from exchange tickers resolves", "expected": "coin_id dereferences through /coins/{id}", "observed": "coin_id='usd-coin' resolves through /coins/usd-coin" }
+      ],
+      "evidence": {
+        "network": "GET /coins/bitcoin/tickers -> 200, GET /exchanges/binance/tickers -> 200"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 10 cross-area identity continuity assertions: all passed. Verified that coin IDs from /coins/list, /coins/markets, /search, /search/trending, and category outputs dereference consistently through /coins/{id}. Verified contract address resolution through /coins/{platform}/contract/{address} matches direct coin detail. Verified token-list, platform map, and contract routes agree on identity. Verified exchange and derivatives venue IDs resolve consistently across list, detail, search, and ticker endpoints. Verified ticker cross-reference integrity between coin and exchange tickers."
+}

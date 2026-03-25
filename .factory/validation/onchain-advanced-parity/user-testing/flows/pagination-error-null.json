@@ -1,0 +1,108 @@
+{
+  "groupId": "pagination-error-null",
+  "testedAt": "2026-03-25T15:30:00.000Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "port": 3102,
+    "testingTool": "curl"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-019",
+      "title": "Shared pagination and ordering stay stable across entity families",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /coins/markets?page=1&per_page=5", "expected": "First page of coin results", "observed": "Returned bitcoin, ethereum, usd-coin, 00-token, 0g" },
+        { "action": "GET /coins/markets?page=2&per_page=5", "expected": "Second page with no duplicates", "observed": "Returned 0g3l, 0g3s, 0x-protocol, 0xgen, 0xproject - no overlap with page 1" },
+        { "action": "GET /exchanges?page=1&per_page=5", "expected": "First page of exchanges", "observed": "Returned bigone, bybit, coinbase, gate, kraken" },
+        { "action": "GET /exchanges?page=2&per_page=5", "expected": "Second page with no duplicates", "observed": "Returned mexc, okx, binance, coinbase_exchange - no overlap with page 1" },
+        { "action": "GET /onchain/networks/eth/pools?page=1", "expected": "First page of pools", "observed": "Returned 3 pools" },
+        { "action": "GET /onchain/categories?page=1&per_page=5", "expected": "First page of categories", "observed": "Returned stablecoins" },
+        { "action": "GET /onchain/categories?page=2&per_page=5", "expected": "Second page with no duplicates", "observed": "Returned smart-contract-platform - no overlap with page 1" }
+      ],
+      "evidence": {
+        "files": [
+          "pagination-error-null/coins-page1.json",
+          "pagination-error-null/coins-page2.json",
+          "pagination-error-null/exchanges-page1.json",
+          "pagination-error-null/exchanges-page2.json",
+          "pagination-error-null/pools-page1.json",
+          "pagination-error-null/categories-page1.json",
+          "pagination-error-null/categories-page2.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-020",
+      "title": "Shared failure modes use compatible error envelopes",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /coins/invalid-coin-id-xyz", "expected": "404 with error envelope", "observed": "404 with {\"error\":\"not_found\",\"message\":\"Coin not found: invalid-coin-id-xyz\"}" },
+        { "action": "GET /exchanges/invalid-exchange-xyz", "expected": "404 with error envelope", "observed": "404 with {\"error\":\"not_found\",\"message\":\"Exchange not found: invalid-exchange-xyz\"}" },
+        { "action": "GET /onchain/networks/eth/pools/0xinvalidaddress123...", "expected": "404 with error envelope", "observed": "404 with {\"error\":\"not_found\",\"message\":\"Onchain pool not found: 0xinvalidaddress...\"}" },
+        { "action": "GET /coins/bitcoin/ohlc?days=abc", "expected": "400 with error envelope", "observed": "400 with {\"error\":\"invalid_parameter\",\"message\":\"Invalid days value: abc\"}" },
+        { "action": "GET /coins/markets?page=invalid", "expected": "400 with error envelope", "observed": "400 with {\"error\":\"invalid_parameter\",\"message\":\"Invalid integer value: invalid\"}" },
+        { "action": "GET /onchain/networks/unknown_network_xyz/dexes", "expected": "404 with error envelope", "observed": "404 with {\"error\":\"not_found\",\"message\":\"Onchain network not found: unknown_network_xyz\"}" }
+      ],
+      "evidence": {
+        "files": [
+          "pagination-error-null/fail-coin-invalid-id.json",
+          "pagination-error-null/fail-exchange-invalid-id.json",
+          "pagination-error-null/fail-pool-invalid-address.json",
+          "pagination-error-null/fail-ohlc-invalid-days.json",
+          "pagination-error-null/fail-invalid-page.json",
+          "pagination-error-null/fail-unknown-network.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-020A",
+      "title": "Shared failure matrix covers every affected endpoint family",
+      "status": "pass",
+      "steps": [
+        { "action": "Test core/public failure modes", "expected": "Cover coin and market endpoints", "observed": "Tested: coin invalid ID, ohlc invalid days, invalid page - all returned consistent error envelopes" },
+        { "action": "Test exchange/derivatives failure modes", "expected": "Cover exchange and derivatives endpoints", "observed": "Tested: exchange invalid ID, derivatives invalid ID - both returned 404 with consistent envelope" },
+        { "action": "Test onchain failure modes", "expected": "Cover onchain network, pool, token endpoints", "observed": "Tested: pool invalid address, unknown network, pool ohlc invalid timeframe, token invalid address - all returned consistent error envelopes" }
+      ],
+      "evidence": {
+        "files": [
+          "pagination-error-null/fail-coin-invalid-id.json",
+          "pagination-error-null/fail-exchange-invalid-id.json",
+          "pagination-error-null/fail-derivatives-invalid-id.json",
+          "pagination-error-null/fail-pool-invalid-address.json",
+          "pagination-error-null/fail-unknown-network.json",
+          "pagination-error-null/fail-pool-ohlcv-invalid-timeframe.json",
+          "pagination-error-null/fail-token-invalid-address.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-021",
+      "title": "Null-vs-omitted policy stays consistent for equivalent resources",
+      "status": "pass",
+      "steps": [
+        { "action": "Compare coin markets (compact) vs coin detail (rich)", "expected": "Different but consistent structures", "observed": "Markets returns array of market rows with limited fields, detail returns full coin object with all metadata - clearly distinguished as compact vs rich" },
+        { "action": "Compare pool list (compact) vs pool detail (rich)", "expected": "Same attribute keys, consistent null/omission", "observed": "Both use JSON:API format with same attribute keys: address, base_token_address, base_token_symbol, name, pool_created_at, price_usd, quote_token_address, quote_token_symbol, reserve_usd, transactions, volume_usd" },
+        { "action": "Compare token detail vs simple price", "expected": "Different structures for compact vs rich", "observed": "Token detail uses JSON:API format with attributes; simple price uses flat key-value format - clearly distinguished as compact vs rich representations" }
+      ],
+      "evidence": {
+        "files": [
+          "pagination-error-null/coins-compact.json",
+          "pagination-error-null/coins-rich.json",
+          "pagination-error-null/pools-compact.json",
+          "pagination-error-null/pools-rich.json",
+          "pagination-error-null/token-detail-weth.json",
+          "pagination-error-null/token-simple-price.json"
+        ]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 4 assertions: 4 passed. Verified pagination stability across coins, exchanges, pools, and categories (no duplicates). Confirmed error envelope consistency across core/public, exchange/derivatives, and onchain families (404 for not_found, 400 for invalid_parameter). Verified null-vs-omitted policy distinguishes compact vs rich representations appropriately."
+}

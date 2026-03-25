@@ -1,0 +1,115 @@
+{
+  "groupId": "address-handling",
+  "testedAt": "2026-03-25T01:30:00.000Z",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "port": 3102,
+    "testingTool": "curl",
+    "missionDir": "/home/whoami/.factory/missions/cd18b974-6c92-4699-a479-996ae744b901"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-013",
+      "title": "Treasury coin references resolve through core coin endpoints",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /entities/list",
+          "expected": "Returns treasury entities",
+          "observed": "Returns 'el-salvador' (government) and 'strategy' (company)"
+        },
+        {
+          "action": "GET /public_treasury/strategy",
+          "expected": "Returns holdings with coin_id values",
+          "observed": "Returns holdings with coin_id: 'bitcoin'"
+        },
+        {
+          "action": "GET /coins/bitcoin",
+          "expected": "Resolves coin_id from treasury endpoint",
+          "observed": "Returns coin with id='bitcoin', symbol='btc', name='BTC'"
+        },
+        {
+          "action": "GET /public_treasury/el-salvador",
+          "expected": "Government treasury entity returns coin_id values",
+          "observed": "Returns holdings with coin_id: 'bitcoin'"
+        },
+        {
+          "action": "Verify identity match",
+          "expected": "Treasury coin_id resolves with same identity as market endpoints",
+          "observed": "Both entities return 'bitcoin' which resolves through /coins/bitcoin with matching id, symbol, and name"
+        }
+      ],
+      "evidence": {
+        "treasury_strategy": "GET /public_treasury/strategy -> coin_id='bitcoin' resolves through /coins/bitcoin",
+        "treasury_el_salvador": "GET /public_treasury/el-salvador -> coin_id='bitcoin' resolves through /coins/bitcoin",
+        "coin_resolution": "GET /coins/bitcoin -> id='bitcoin', symbol='btc', name='BTC'"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-023",
+      "title": "Equivalent addresses do not split identity by casing",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36 (lowercase)",
+          "expected": "Returns pool for valid address",
+          "observed": "Returns pool successfully with address '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36'"
+        },
+        {
+          "action": "GET /onchain/networks/eth/pools/0x4E68CCD3E89F51C3074CA5072BBAC773960DFA36 (uppercase)",
+          "expected": "Returns same pool as lowercase OR rejects consistently",
+          "observed": "Returns 404 error: 'Onchain pool not found: 0x4E68CCD3E89F51C3074CA5072BBAC773960DFA36'"
+        },
+        {
+          "action": "GET /onchain/networks/eth/pools/0x4e68Ccd3E89F51c3074Ca5072bBAc773960dfA36 (mixed case)",
+          "expected": "Returns same pool as lowercase OR rejects consistently",
+          "observed": "Returns 404 error: 'Onchain pool not found: 0x4e68Ccd3E89F51c3074Ca5072bBAc773960dfA36'"
+        },
+        {
+          "action": "GET /onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b (lowercase)",
+          "expected": "Returns pools for valid addresses",
+          "observed": "Returns 2 pools"
+        },
+        {
+          "action": "GET /onchain/networks/eth/pools/multi/0x4E68CCD3E89F51C3074CA5072BBAC773960DFA36 (uppercase)",
+          "expected": "Returns same pools as lowercase OR rejects consistently",
+          "observed": "Returns empty array (silent failure)"
+        },
+        {
+          "action": "GET /coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 (lowercase)",
+          "expected": "Returns coin for contract address",
+          "observed": "Returns coin id='usd-coin'"
+        },
+        {
+          "action": "GET /coins/ethereum/contract/0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48 (uppercase)",
+          "expected": "Returns same coin as lowercase OR rejects consistently",
+          "observed": "Returns coin id='usd-coin' (normalizes to lowercase internally)"
+        }
+      ],
+      "evidence": {
+        "pool_detail_lowercase": "GET /onchain/networks/eth/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36 -> 200 OK",
+        "pool_detail_uppercase": "GET /onchain/networks/eth/pools/0x4E68CCD3E89F51C3074CA5072BBAC773960DFA36 -> 404 not found",
+        "pool_detail_mixed": "GET /onchain/networks/eth/pools/0x4e68Ccd3E89F51c3074Ca5072bBAc773960dfA36 -> 404 not found",
+        "pool_multi_lowercase": "GET /onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b -> 2 pools",
+        "pool_multi_uppercase": "GET /onchain/networks/eth/pools/multi/0x4E68CCD3E89F51C3074CA5072BBAC773960DFA36 -> [] (empty)",
+        "contract_lowercase": "GET /coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 -> 200 OK, id='usd-coin'",
+        "contract_uppercase": "GET /coins/ethereum/contract/0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48 -> 200 OK, id='usd-coin'"
+      },
+      "issues": [
+        "Inconsistent address normalization across onchain endpoints: lowercase pool addresses work, uppercase/mixed-case return 404 or empty results",
+        "Inconsistent behavior between contract route (/coins/ethereum/contract/...) and onchain pool route (/onchain/networks/eth/pools/...): contract route normalizes addresses (accepts uppercase), onchain route does not normalize",
+        "Pool detail endpoint returns 'not found' error for uppercase/mixed-case, while pool multi endpoint returns empty array for same case variants - inconsistent error handling"
+      ]
+    }
+  ],
+  "frictions": [
+    "Onchain pool endpoints do not normalize addresses before lookup, causing equivalent addresses to fail inconsistently",
+    "Contract route normalizes to lowercase before lookup, creating inconsistent behavior compared to onchain routes"
+  ],
+  "blockers": [
+    "The onchain pool endpoint address handling needs to normalize addresses (trim + lowercase) before identity matching, similar to how contract endpoints handle it"
+  ],
+  "summary": "Tested 2 cross-area assertions. VAL-CROSS-013 (Treasury coin references resolve through core coin endpoints): PASS. Treasury entities (strategy, el-salvador) both return coin_id='bitcoin' which successfully resolves through /coins/bitcoin with matching identity (id, symbol, name). VAL-CROSS-023 (Equivalent addresses do not split identity by casing): FAIL. Onchain pool endpoints accept lowercase addresses but reject uppercase/mixed-case variants with 404 errors or empty results. Contract endpoints (/coins/ethereum/contract/...) correctly normalize addresses and accept all case variants. This is inconsistent behavior that violates the assertion - equivalent addresses should either resolve to the same canonical entity or be rejected consistently if normalization is not supported."
+}

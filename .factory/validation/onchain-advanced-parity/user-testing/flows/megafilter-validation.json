@@ -1,0 +1,68 @@
+{
+  "assertion_id": "VAL-ONCHAIN-ADV-015A",
+  "assertion_title": "Megafilter rejects malformed filters and invalid sort values",
+  "test_date": "2026-03-25T01:15:00Z",
+  "endpoint": "/onchain/pools/megafilter",
+  "test_tool": "curl",
+  "base_url": "http://127.0.0.1:3102",
+  "status": "PASS",
+  "tests": [
+    {
+      "test_name": "malformed_numeric_bounds",
+      "test_case": "min_reserve_in_usd=abc",
+      "expected_status": 400,
+      "actual_status": 400,
+      "expected_error_type": "invalid_parameter",
+      "actual_error_type": "invalid_parameter",
+      "response_body": {
+        "error": "invalid_parameter",
+        "message": "Invalid min_reserve_in_usd value: abc"
+      },
+      "result": "PASS"
+    },
+    {
+      "test_name": "invalid_sort_value",
+      "test_case": "sort=invalid_sort_value",
+      "expected_status": 400,
+      "actual_status": 400,
+      "expected_error_type": "invalid_parameter",
+      "actual_error_type": "invalid_parameter",
+      "response_body": {
+        "error": "invalid_parameter",
+        "message": "Unsupported sort value: invalid_sort_value"
+      },
+      "result": "PASS"
+    },
+    {
+      "test_name": "additional_malformed_numeric",
+      "test_case": "max_volume_usd_h24=not_a_number",
+      "expected_status": 400,
+      "actual_status": 400,
+      "expected_error_type": "invalid_parameter",
+      "actual_error_type": "invalid_parameter",
+      "response_body": {
+        "error": "invalid_parameter",
+        "message": "Invalid max_volume_usd_h24 value: not_a_number"
+      },
+      "result": "PASS"
+    },
+    {
+      "test_name": "valid_request_baseline",
+      "test_case": "sort=reserve_in_usd_desc&per_page=2",
+      "expected_status": 200,
+      "actual_status": 200,
+      "result": "PASS"
+    }
+  ],
+  "validation_summary": {
+    "total_tests": 4,
+    "passed": 4,
+    "failed": 0,
+    "all_4xx_responses_stable": true,
+    "error_envelope_consistent": true
+  },
+  "evidence_files": [
+    "/home/whoami/.factory/missions/cd18b974-6c92-4699-a479-996ae744b901/evidence/onchain-advanced-parity/megafilter-validation/malformed-numeric.txt",
+    "/home/whoami/.factory/missions/cd18b974-6c92-4699-a479-996ae744b901/evidence/onchain-advanced-parity/megafilter-validation/invalid-sort.txt"
+  ]
+}
