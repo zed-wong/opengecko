@@ -18,16 +18,20 @@ vi.mock('../src/providers/ccxt', () => ({
 
 import { fetchExchangeMarkets, fetchExchangeTickers, fetchExchangeOHLCV } from '../src/providers/ccxt';
 
+const mockedFetchExchangeMarkets = fetchExchangeMarkets as ReturnType<typeof vi.fn>;
+const mockedFetchExchangeTickers = fetchExchangeTickers as ReturnType<typeof vi.fn>;
+const mockedFetchExchangeOHLCV = fetchExchangeOHLCV as ReturnType<typeof vi.fn>;
+
 describe('CoinGecko API compatibility', () => {
   let app: FastifyInstance;
   let tempDir: string;
 
   beforeEach(async () => {
-    vi.mocked(fetchExchangeMarkets).mockReset();
-    vi.mocked(fetchExchangeTickers).mockReset();
-    vi.mocked(fetchExchangeOHLCV).mockReset();
+    mockedFetchExchangeMarkets.mockReset();
+    mockedFetchExchangeTickers.mockReset();
+    mockedFetchExchangeOHLCV.mockReset();
 
-    vi.mocked(fetchExchangeMarkets).mockImplementation(async (exchangeId) => {
+    mockedFetchExchangeMarkets.mockImplementation(async (exchangeId) => {
       if (exchangeId === 'binance') return [
         { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin', raw: {} },
         { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', active: true, spot: true, baseName: 'Ethereum', raw: {} },
@@ -40,7 +44,7 @@ describe('CoinGecko API compatibility', () => {
       return [];
     });
 
-    vi.mocked(fetchExchangeTickers).mockImplementation(async (exchangeId) => {
+    mockedFetchExchangeTickers.mockImplementation(async (exchangeId) => {
       if (exchangeId === 'binance') return [
         { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', last: 85000, bid: 84950, ask: 85050, high: 86000, low: 84000, baseVolume: 5000, quoteVolume: 425000000, percentage: 1.8, timestamp: Date.now(), raw: {} as never },
         { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', last: 2000, bid: 1999, ask: 2001, high: 2050, low: 1950, baseVolume: 50000, quoteVolume: 100000000, percentage: 2.56, timestamp: Date.now(), raw: {} as never },
@@ -53,7 +57,7 @@ describe('CoinGecko API compatibility', () => {
       return [];
     });
 
-    vi.mocked(fetchExchangeOHLCV).mockResolvedValue([]);
+    mockedFetchExchangeOHLCV.mockResolvedValue([]);
 
     tempDir = mkdtempSync(join(tmpdir(), 'opengecko-compare-'));
     app = buildApp({

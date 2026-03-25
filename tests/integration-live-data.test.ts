@@ -18,16 +18,20 @@ vi.mock('../src/providers/ccxt', () => ({
 
 import { fetchExchangeMarkets, fetchExchangeTickers, fetchExchangeOHLCV } from '../src/providers/ccxt';
 
+const mockedFetchExchangeMarkets = fetchExchangeMarkets as ReturnType<typeof vi.fn>;
+const mockedFetchExchangeTickers = fetchExchangeTickers as ReturnType<typeof vi.fn>;
+const mockedFetchExchangeOHLCV = fetchExchangeOHLCV as ReturnType<typeof vi.fn>;
+
 describe('live data integration', () => {
   let app: FastifyInstance;
   let tempDir: string;
 
   beforeEach(async () => {
-    vi.mocked(fetchExchangeMarkets).mockReset();
-    vi.mocked(fetchExchangeTickers).mockReset();
-    vi.mocked(fetchExchangeOHLCV).mockReset();
+    mockedFetchExchangeMarkets.mockReset();
+    mockedFetchExchangeTickers.mockReset();
+    mockedFetchExchangeOHLCV.mockReset();
 
-    vi.mocked(fetchExchangeMarkets).mockImplementation(async (exchangeId) => {
+    mockedFetchExchangeMarkets.mockImplementation(async (exchangeId) => {
       if (exchangeId === 'binance') return [
         { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin', raw: {} },
         { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', active: true, spot: true, baseName: 'Ethereum', raw: {} },
@@ -38,7 +42,7 @@ describe('live data integration', () => {
       return [];
     });
 
-    vi.mocked(fetchExchangeTickers).mockImplementation(async (exchangeId) => {
+    mockedFetchExchangeTickers.mockImplementation(async (exchangeId) => {
       if (exchangeId === 'binance') return [
         { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', last: 90_000, bid: 89_950, ask: 90_050, high: 91_000, low: 89_000, baseVolume: 5_000, quoteVolume: 450_000_000, percentage: 3.5, timestamp: Date.now(), raw: {} as never },
         { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', last: 2_100, bid: 2_099, ask: 2_101, high: 2_150, low: 2_050, baseVolume: 50_000, quoteVolume: 105_000_000, percentage: 2.1, timestamp: Date.now(), raw: {} as never },
@@ -49,7 +53,7 @@ describe('live data integration', () => {
       return [];
     });
 
-    vi.mocked(fetchExchangeOHLCV).mockImplementation(async (exchangeId) => {
+    mockedFetchExchangeOHLCV.mockImplementation(async (exchangeId) => {
       if (exchangeId === 'binance') return [
         { exchangeId: 'binance', symbol: 'BTC/USDT', timeframe: '1d', timestamp: Date.parse('2026-03-20T00:00:00Z'), open: 88_000, high: 91_000, low: 87_000, close: 90_000, volume: 1_500, raw: [0, 0, 0, 0, 0, 0] },
         { exchangeId: 'binance', symbol: 'BTC/USDT', timeframe: '1d', timestamp: Date.parse('2026-03-21T00:00:00Z'), open: 90_000, high: 92_000, low: 89_000, close: 91_000, volume: 1_600, raw: [0, 0, 0, 0, 0, 0] },
