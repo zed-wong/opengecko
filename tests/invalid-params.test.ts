@@ -551,6 +551,60 @@ describe('OpenGecko invalid parameter handling', () => {
     });
   });
 
+  it('uses a compatible error envelope for equivalent negative cases across core, exchange/derivatives, and onchain families', async () => {
+    const [coreResponse, exchangeResponse, derivativesResponse, onchainResponse] = await Promise.all([
+      app!.inject({
+        method: 'GET',
+        url: '/coins/not-a-coin',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/exchanges/not-an-exchange',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/derivatives/exchanges/not-a-venue',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/onchain/networks/not-a-network/dexes',
+      }),
+    ]);
+
+    for (const response of [coreResponse, exchangeResponse, derivativesResponse, onchainResponse]) {
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: 'not_found',
+        message: expect.any(String),
+      });
+    }
+  });
+
+  it('uses a compatible validation envelope for equivalent bad paging across representative families', async () => {
+    const [coinMarketsResponse, exchangesResponse, onchainNetworksResponse] = await Promise.all([
+      app!.inject({
+        method: 'GET',
+        url: '/coins/markets?vs_currency=usd&page=0',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/exchanges?page=0',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/onchain/networks?page=0',
+      }),
+    ]);
+
+    for (const response of [coinMarketsResponse, exchangesResponse, onchainNetworksResponse]) {
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'invalid_parameter',
+        message: 'Invalid integer value: 0',
+      });
+    }
+  });
+
   it('returns not found for unknown treasury holding-chart coins', async () => {
     const response = await app!.inject({
       method: 'GET',

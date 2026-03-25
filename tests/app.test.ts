@@ -2684,6 +2684,45 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('keeps representative pagination boundaries deterministic across coin, exchange, and onchain category families', async () => {
+    const [
+      coinMarketsPageOne,
+      coinMarketsPageTwo,
+      exchangesPageOne,
+      exchangesPageTwo,
+      onchainCategoriesPageOne,
+      onchainCategoriesPageTwo,
+    ] = await Promise.all([
+      getApp().inject({ method: 'GET', url: '/coins/markets?vs_currency=usd&per_page=2&page=1' }),
+      getApp().inject({ method: 'GET', url: '/coins/markets?vs_currency=usd&per_page=2&page=2' }),
+      getApp().inject({ method: 'GET', url: '/exchanges?per_page=1&page=1' }),
+      getApp().inject({ method: 'GET', url: '/exchanges?per_page=1&page=2' }),
+      getApp().inject({ method: 'GET', url: '/onchain/categories?sort=h24_volume_usd_desc&page=1' }),
+      getApp().inject({ method: 'GET', url: '/onchain/categories?sort=h24_volume_usd_desc&page=2' }),
+    ]);
+
+    expect(coinMarketsPageOne.statusCode).toBe(200);
+    expect(coinMarketsPageTwo.statusCode).toBe(200);
+    const coinPageOneIds = coinMarketsPageOne.json().map((coin: { id: string }) => coin.id);
+    const coinPageTwoIds = coinMarketsPageTwo.json().map((coin: { id: string }) => coin.id);
+    expect(coinPageOneIds).toEqual(['bitcoin', 'cardano']);
+    expect(coinPageTwoIds).toEqual(['chainlink', 'dogecoin']);
+    expect(new Set([...coinPageOneIds, ...coinPageTwoIds]).size).toBe(4);
+
+    expect(exchangesPageOne.statusCode).toBe(200);
+    expect(exchangesPageTwo.statusCode).toBe(200);
+    const exchangePageOneIds = exchangesPageOne.json().map((exchange: { id: string }) => exchange.id);
+    const exchangePageTwoIds = exchangesPageTwo.json().map((exchange: { id: string }) => exchange.id);
+    expect(exchangePageOneIds).toEqual(['binance']);
+    expect(exchangePageTwoIds).toEqual(['coinbase']);
+    expect(new Set([...exchangePageOneIds, ...exchangePageTwoIds]).size).toBe(2);
+
+    expect(onchainCategoriesPageOne.statusCode).toBe(200);
+    expect(onchainCategoriesPageTwo.statusCode).toBe(200);
+    expect(onchainCategoriesPageOne.json().data.map((category: { id: string }) => category.id)).toEqual(['stablecoins']);
+    expect(onchainCategoriesPageTwo.json().data.map((category: { id: string }) => category.id)).toEqual(['smart-contract-platform']);
+  });
+
   it('returns a detailed coin payload', async () => {
     const response = await getApp().inject({
       method: 'GET',
@@ -2712,6 +2751,37 @@ describe('OpenGecko app scaffold', () => {
       community_data: null,
       developer_data: null,
     });
+  });
+
+  it('keeps equivalent compact and rich resources on the same null-vs-omitted policy', async () => {
+    const [coinMarketsResponse, coinDetailResponse, exchangeListResponse, exchangeDetailResponse] = await Promise.all([
+      getApp().inject({ method: 'GET', url: '/coins/markets?vs_currency=usd&ids=bitcoin' }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/bitcoin?localization=false&tickers=false&community_data=false&developer_data=false',
+      }),
+      getApp().inject({ method: 'GET', url: '/exchanges?per_page=1&page=2' }),
+      getApp().inject({ method: 'GET', url: '/exchanges/binance' }),
+    ]);
+
+    const compactCoin = coinMarketsResponse.json()[0];
+    const richCoin = coinDetailResponse.json();
+    const compactExchange = exchangeListResponse.json()[0];
+    const richExchange = exchangeDetailResponse.json();
+
+    expect(compactCoin.current_price).not.toBeNull();
+    expect(richCoin.market_data).not.toBeNull();
+    expect(compactCoin.roi).toBeNull();
+    expect(richCoin.public_notice).toBeNull();
+
+    expect(typeof compactExchange.description).toBe(typeof richExchange.description);
+    expect(compactExchange.description).toBe('');
+    expect(richExchange.description).toBe('');
+    expect(typeof compactExchange.year_established).toBe(typeof richExchange.year_established);
+    expect(compactExchange.year_established).toBeNull();
+    expect(richExchange.year_established).toBeNull();
+    expect(compactExchange).not.toHaveProperty('facebook_url');
+    expect(richExchange).toHaveProperty('facebook_url', null);
   });
 
   it('returns richer default coin detail sections', async () => {
