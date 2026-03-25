@@ -4,8 +4,6 @@ import type { Logger } from 'pino';
 import { buildCoinId, buildCoinName } from '../lib/coin-id';
 import { fetchExchangeMarkets, type ExchangeId } from '../providers/ccxt';
 
-const CATALOG_BASELINE_QUOTES = new Set(['USD', 'USDT', 'EUR']);
-
 function upsertDiscoveredCoin(
   database: AppDatabase,
   discoveredCoins: Map<string, typeof coins.$inferInsert>,
@@ -96,17 +94,31 @@ export async function syncCoinCatalogFromExchanges(
   const existingCoinsById = new Map(database.db.select().from(coins).all().map((coin) => [coin.id, coin]));
   const discoveredCoins = new Map<string, typeof coins.$inferInsert>();
 
-  for (const exchangeId of exchangeIds) {
+  // Fetch all exchange markets in parallel
+  const results = await Promise.allSettled(
+    exchangeIds.map((exchangeId) => fetchExchangeMarkets(exchangeId)),
+  );
+
+  let succeeded = 0;
+  let failed = 0;
+
+  for (let i = 0; i < exchangeIds.length; i++) {
+    const exchangeId = exchangeIds[i];
+    const result = results[i];
     const exchangeLogger = logger?.child({ exchange: exchangeId });
-    let markets: Awaited<ReturnType<typeof fetchExchangeMarkets>> = [];
-    try {
-      markets = await fetchExchangeMarkets(exchangeId);
-      exchangeLogger?.debug({ marketCount: markets.length }, 'fetched markets for coin discovery');
-    } catch (error) {
-      const errorInfo = error instanceof Error ? { message: error.message, name: error.name } : { message: String(error) };
+
+    if (result.status === 'rejected') {
+      failed += 1;
+      const errorInfo = result.reason instanceof Error
+        ? { message: result.reason.message, name: result.reason.name }
+        : { message: String(result.reason) };
       exchangeLogger?.warn(errorInfo, 'coin catalog sync failed for exchange');
       continue;
     }
+
+    succeeded += 1;
+    const markets = result.value;
+    exchangeLogger?.debug({ marketCount: markets.length }, 'fetched markets for coin discovery');
 
     for (const market of markets) {
       if (!market.active || !market.spot) {
@@ -119,7 +131,7 @@ export async function syncCoinCatalogFromExchanges(
 
   const count = flushDiscoveredCoins(database, discoveredCoins);
   const durationMs = Date.now() - startTime;
-  logger?.info({ coinsDiscovered: count, exchangeCount: exchangeIds.length, durationMs }, 'coin catalog sync complete');
+  logger?.info({ coinsDiscovered: count, exchangeCount: exchangeIds.length, succeeded, failed, durationMs }, 'coin catalog sync complete');
 
   return { insertedOrUpdated: count };
 }

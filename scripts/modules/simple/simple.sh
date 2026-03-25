@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOP10_ASSETS="bitcoin,ethereum,tether,binancecoin,solana,ripple,usd-coin,dogecoin,cardano,tron"
+TOP50_ASSETS="bitcoin,ethereum,tether,binancecoin,solana,ripple,usd-coin,dogecoin,cardano,tron,avalanche-2,chainlink,polkadot,stellar,shiba-inu,internet-computer,bitcoin-cash,litecoin,uniswap,cosmos,ethereum-classic,filecoin,arbitrum,curve-dao-token,aave,near,optimism,injective-protocol,algorand,aptos,sui,monero,zksync,okb,pepe,bonk,celestia,jasmycoin,kaspa,matic-network,blur,wormhole,pyth-network,flow,tezos,1inch,sandbox,decentraland,chiliz,render-token,immutable-x"
 STABLE_ASSETS="tether,usd-coin"
 QUOTE_CURRENCIES="usd,eur"
 TOKEN_CONTRACTS="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48,0xdac17f958d2ee523a2206206994597c13d831ec7"
@@ -59,6 +60,16 @@ else
   skip_check "top-10 price basket returns 10 asset objects" "market snapshots are not ready yet"
   skip_check "top-10 price basket returns numeric usd prices" "market snapshots are not ready yet"
   skip_check "stable assets return both usd and eur quotes" "market snapshots are not ready yet"
+fi
+
+module_section "Top-50 Coverage"
+check_status "GET /simple/price supports top-50 asset basket" "/simple/price?ids=${TOP50_ASSETS}&vs_currencies=usd"
+if price_basket_ready; then
+  check_json_expr "top-50 price basket returns 50 asset objects" "/simple/price?ids=${TOP50_ASSETS}&vs_currencies=usd" 'keys | length == 50' "50 asset ids are present in the response"
+  check_json_expr "top-50 price basket returns numeric usd prices" "/simple/price?ids=${TOP50_ASSETS}&vs_currencies=usd" '([to_entries[].value.usd | type] | all(. == "number"))' "every top-50 asset has a numeric usd price"
+else
+  skip_check "top-50 price basket returns 50 asset objects" "market snapshots are not ready yet"
+  skip_check "top-50 price basket returns numeric usd prices" "market snapshots are not ready yet"
 fi
 
 module_section "Field Coverage"

@@ -34,19 +34,33 @@ export async function syncChainCatalogFromExchanges(
   logger?: Logger,
 ): Promise<ChainCatalogSyncResult> {
   const startTime = Date.now();
-  const networksById = new Map<string, { name: string; chainIdentifier: number | null }>();
 
-  for (const exchangeId of exchangeIds) {
+  // Fetch all exchange networks in parallel
+  const results = await Promise.allSettled(
+    exchangeIds.map((exchangeId) => fetchExchangeNetworks(exchangeId)),
+  );
+
+  const networksById = new Map<string, { name: string; chainIdentifier: number | null }>();
+  let succeeded = 0;
+  let failed = 0;
+
+  for (let i = 0; i < exchangeIds.length; i++) {
+    const exchangeId = exchangeIds[i];
+    const result = results[i];
     const exchangeLogger = logger?.child({ exchange: exchangeId });
-    let networks: Awaited<ReturnType<typeof fetchExchangeNetworks>> = [];
-    try {
-      networks = await fetchExchangeNetworks(exchangeId);
-      exchangeLogger?.debug({ networkCount: networks.length }, 'fetched networks for chain discovery');
-    } catch (error) {
-      const errorInfo = error instanceof Error ? { message: error.message, name: error.name } : { message: String(error) };
+
+    if (result.status === 'rejected') {
+      failed += 1;
+      const errorInfo = result.reason instanceof Error
+        ? { message: result.reason.message, name: result.reason.name }
+        : { message: String(result.reason) };
       exchangeLogger?.warn(errorInfo, 'chain catalog sync failed for exchange');
       continue;
     }
+
+    succeeded += 1;
+    const networks = result.value;
+    exchangeLogger?.debug({ networkCount: networks.length }, 'fetched networks for chain discovery');
 
     for (const network of networks) {
       const existing = networksById.get(network.networkId);
@@ -103,7 +117,7 @@ export async function syncChainCatalogFromExchanges(
   }
 
   const durationMs = Date.now() - startTime;
-  logger?.info({ chainsDiscovered: upserted, exchangeCount: exchangeIds.length, durationMs }, 'chain catalog sync complete');
+  logger?.info({ chainsDiscovered: upserted, exchangeCount: exchangeIds.length, succeeded, failed, durationMs }, 'chain catalog sync complete');
 
   return { insertedOrUpdated: upserted };
 }

@@ -71,6 +71,7 @@ function createExchange(exchangeId: ExchangeId): Exchange {
 
   return new ExchangeClass({
     enableRateLimit: true,
+    timeout: 10_000,
   });
 }
 

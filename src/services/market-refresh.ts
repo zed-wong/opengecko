@@ -164,22 +164,28 @@ export async function runMarketRefreshOnce(
     database.db.select().from(exchanges).all().map((row) => [row.id, row.trustScore]),
   );
 
-  for (const exchangeId of exchangeIds) {
+  // Fetch all exchange tickers in parallel
+  const tickerResults = await Promise.allSettled(
+    exchangeIds.map((exchangeId) => fetchExchangeTickers(exchangeId, requestedSymbols)),
+  );
+
+  for (let i = 0; i < exchangeIds.length; i++) {
+    const exchangeId = exchangeIds[i];
+    const result = tickerResults[i];
     const exchangeLogger = refreshLogger?.child({ exchange: exchangeId });
     const exchangeStart = Date.now();
 
-    let tickers: Awaited<ReturnType<typeof fetchExchangeTickers>> = [];
-    try {
-      tickers = await fetchExchangeTickers(exchangeId, requestedSymbols);
-    } catch (error) {
-      const errorInfo = error instanceof Error
-        ? { message: error.message, name: error.name }
-        : { message: String(error) };
+    if (result.status === 'rejected') {
+      const errorInfo = result.reason instanceof Error
+        ? { message: result.reason.message, name: result.reason.name }
+        : { message: String(result.reason) };
       exchangeLogger?.warn({ ...errorInfo, durationMs: Date.now() - exchangeStart }, 'exchange ticker fetch failed');
       continue;
     }
 
+    const tickers = result.value;
     let matchedCount = 0;
+
     for (const ticker of tickers) {
       const marketTarget = symbolIndex.get(ticker.symbol);
 

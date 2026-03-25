@@ -18,38 +18,55 @@ export async function syncExchangesFromCCXT(
   exchangeIds: ExchangeId[],
   logger: Logger,
 ) {
-  for (const exchangeId of exchangeIds) {
+  const results = await Promise.allSettled(
+    exchangeIds.map((exchangeId) => fetchExchangeMarkets(exchangeId)),
+  );
+
+  const now = new Date();
+  let succeeded = 0;
+  let failed = 0;
+
+  for (let i = 0; i < exchangeIds.length; i++) {
+    const exchangeId = exchangeIds[i];
+    const result = results[i];
     const exchangeLogger = logger.child({ exchange: exchangeId });
-    try {
-      const markets = await fetchExchangeMarkets(exchangeId);
-      exchangeLogger.debug({ marketCount: markets.length }, 'fetched exchange markets');
 
-      if (markets.length === 0) {
-        continue;
-      }
-
-      // Use exchange ID directly - CCXT provides the canonical ID
-      database.db
-        .insert(exchanges)
-        .values({
-          id: exchangeId,
-          name: exchangeId.charAt(0).toUpperCase() + exchangeId.slice(1),
-          description: '',
-          url: `https://www.${exchangeId}.com`,
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: exchanges.id,
-          set: {
-            updatedAt: new Date(),
-          },
-        })
-        .run();
-    } catch (error) {
-      const errorInfo = error instanceof Error ? { message: error.message } : { message: String(error) };
+    if (result.status === 'rejected') {
+      failed += 1;
+      const errorInfo = result.reason instanceof Error
+        ? { message: result.reason.message }
+        : { message: String(result.reason) };
       exchangeLogger.warn(errorInfo, 'exchange metadata sync failed');
+      continue;
     }
+
+    const markets = result.value;
+    exchangeLogger.debug({ marketCount: markets.length }, 'fetched exchange markets');
+
+    if (markets.length === 0) {
+      continue;
+    }
+
+    succeeded += 1;
+    database.db
+      .insert(exchanges)
+      .values({
+        id: exchangeId,
+        name: exchangeId.charAt(0).toUpperCase() + exchangeId.slice(1),
+        description: '',
+        url: `https://www.${exchangeId}.com`,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: exchanges.id,
+        set: {
+          updatedAt: now,
+        },
+      })
+      .run();
   }
+
+  logger.debug({ succeeded, failed }, 'exchange metadata sync complete');
 }
 
 export type InitialSyncResult = {

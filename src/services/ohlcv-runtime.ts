@@ -202,7 +202,10 @@ export function createOhlcvRuntime(
       return inFlight;
     },
     async start() {
-      await this.tick();
+      // Start the first tick in the background without awaiting
+      // to prevent blocking the server startup. The tick will
+      // complete asynchronously and subsequent ticks run on the interval.
+      void this.tick();
       timer = setInterval(() => {
         void this.tick();
       }, (config.ohlcvRefreshIntervalSeconds ?? 60) * 1000);

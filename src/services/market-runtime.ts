@@ -131,7 +131,8 @@ export function createMarketRuntime(
 
           await initialSync();
           startupProgress?.begin('start_ohlcv_worker');
-          await (overrides.startOhlcvRuntime ?? (() => ohlcvRuntime.start()))();
+          // Start OHLCV runtime without awaiting — it runs independently
+          void (overrides.startOhlcvRuntime ?? (() => ohlcvRuntime.start()))();
           startupProgress?.complete('start_ohlcv_worker');
           state.initialSyncCompleted = true;
           state.syncFailureReason = null;
