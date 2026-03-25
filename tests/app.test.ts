@@ -893,18 +893,20 @@ describe('OpenGecko app scaffold', () => {
       '0x4e68ccd3e89f51c3074ca5072bbac773960dfa36',
       '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
     ]);
-    expect(networkDurationResponse.json().data).toMatchObject(expect.arrayContaining([
-      expect.objectContaining({
-        relationships: {
-          network: {
-            data: {
-              id: 'eth',
-              type: 'network',
+    expect(networkDurationResponse.json().data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relationships: expect.objectContaining({
+            network: {
+              data: {
+                id: 'eth',
+                type: 'network',
+              },
             },
-          },
-        },
-      }),
-    ]));
+          }),
+        }),
+      ]),
+    );
   });
 
   it('returns global and network new pools as recency-ordered discovery feeds with include handling', async () => {
@@ -1993,25 +1995,27 @@ describe('OpenGecko app scaffold', () => {
       network: 'eth',
       pool_address: '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
     });
-    expect(poolTradesResponse.json().data).toMatchObject(expect.arrayContaining([
-      expect.objectContaining({
-        type: 'trade',
-        relationships: {
-          pool: {
-            data: {
-              type: 'pool',
-              id: '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+    expect(poolTradesResponse.json().data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'trade',
+          relationships: expect.objectContaining({
+            pool: {
+              data: {
+                type: 'pool',
+                id: '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+              },
             },
-          },
-          network: {
-            data: {
-              type: 'network',
-              id: 'eth',
+            network: {
+              data: {
+                type: 'network',
+                id: 'eth',
+              },
             },
-          },
-        },
-      }),
-    ]));
+          }),
+        }),
+      ]),
+    );
     expect(poolTradesResponse.json().data.length).toBeGreaterThanOrEqual(2);
     expect(poolTradesResponse.json().data.every((trade: { relationships: { pool: { data: { id: string } } } }) =>
       trade.relationships.pool.data.id === '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b')).toBe(true);
@@ -2031,25 +2035,27 @@ describe('OpenGecko app scaffold', () => {
       network: 'eth',
       token_address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     });
-    expect(tokenTradesResponse.json().data).toMatchObject(expect.arrayContaining([
-      expect.objectContaining({
-        type: 'trade',
-        relationships: {
-          token: {
-            data: {
-              type: 'token',
-              id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    expect(tokenTradesResponse.json().data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'trade',
+          relationships: expect.objectContaining({
+            token: {
+              data: {
+                type: 'token',
+                id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+              },
             },
-          },
-          network: {
-            data: {
-              type: 'network',
-              id: 'eth',
+            network: {
+              data: {
+                type: 'network',
+                id: 'eth',
+              },
             },
-          },
-        },
-      }),
-    ]));
+          }),
+        }),
+      ]),
+    );
     expect(new Set(tokenTradesResponse.json().data.map((trade: { relationships: { pool: { data: { id: string } } } }) =>
       trade.relationships.pool.data.id))).toEqual(new Set([
       '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
