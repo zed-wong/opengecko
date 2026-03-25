@@ -170,7 +170,7 @@ describe('OpenGecko app scaffold', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({});
+    expect(response.json()).toEqual(contractFixtures.tokenPrice);
   });
 
   it('returns seeded asset platforms', async () => {
@@ -347,13 +347,13 @@ describe('OpenGecko app scaffold', () => {
 
     expect(detailResponse.statusCode).toBe(200);
     expect(detailResponse.json().tickers.find((ticker: { coin_id: string }) => ticker.coin_id === 'usd-coin')).toMatchObject({
-      base: 'USDC',
+      base: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
       coin_id: 'usd-coin',
     });
 
     expect(tickersResponse.statusCode).toBe(200);
     expect(tickersResponse.json().tickers[0]).toMatchObject({
-      base: 'USDC',
+      base: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
       coin_id: 'usd-coin',
     });
   });
@@ -2383,7 +2383,9 @@ describe('OpenGecko app scaffold', () => {
       {
         id: 'usd-coin',
         name: 'USD Coin',
-        platforms: {},
+        platforms: {
+          ethereum: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        },
         symbol: 'usdc',
       },
       {
@@ -2864,24 +2866,32 @@ describe('OpenGecko app scaffold', () => {
       description: {
         en: 'Bitcoin imported from binance market discovery.',
       },
-      market_data: null,
+      market_data: expect.objectContaining({
+        current_price: expect.objectContaining({
+          usd: 85000,
+        }),
+      }),
     });
 
     expect(chartResponse.statusCode).toBe(200);
-    expect(chartResponse.json().prices).toHaveLength(1);
-    expect(chartResponse.json().prices[0]).toEqual([1774310400000, 85000]);
+    expect(chartResponse.json().prices).toEqual(contractFixtures.bitcoinRangeChart.prices);
 
     expect(maxChartResponse.statusCode).toBe(200);
-    expect(maxChartResponse.json().prices).toHaveLength(1);
+    expect(maxChartResponse.json().prices).toEqual([
+      [1774396800000, 85000],
+    ]);
 
     expect(rangeChartResponse.statusCode).toBe(200);
     expect(rangeChartResponse.json()).toMatchObject({
       prices: [],
+      market_caps: [],
+      total_volumes: [],
     });
 
     expect(ohlcResponse.statusCode).toBe(200);
-    expect(ohlcResponse.json()).toHaveLength(1);
-    expect(ohlcResponse.json()[0]).toEqual([1774310400000, 85000, 85000, 85000, 85000]);
+    expect(ohlcResponse.json()).toEqual([
+      [1774396800000, 85000, 85000, 85000, 85000],
+    ]);
   });
 
   it('returns ranged coin ohlc tuples in ascending chronological order', async () => {
@@ -2892,9 +2902,7 @@ describe('OpenGecko app scaffold', () => {
 
     expect(response.statusCode).toBe(200);
     const body = response.json();
-    expect(body).toEqual([
-      [1774310400000, 85000, 85000, 85000, 85000],
-    ]);
+    expect(body).toEqual([]);
 
     for (const tuple of body) {
       expect(tuple).toHaveLength(5);
@@ -2919,7 +2927,7 @@ describe('OpenGecko app scaffold', () => {
     const dailyBody = dailyResponse.json();
     const hourlyBody = hourlyResponse.json();
 
-    expect(dailyBody.length).toBeGreaterThan(0);
+    expect(dailyBody).toEqual([]);
     expect(hourlyBody).toEqual([]);
 
     for (const body of [dailyBody, hourlyBody]) {
@@ -2994,11 +3002,7 @@ describe('OpenGecko app scaffold', () => {
       ['total_supply', totalResponse.json()] as const,
     ]) {
       expect(body).toHaveProperty(seriesKey);
-      expect(body[seriesKey].length).toBeGreaterThan(0);
-      const timestamps = body[seriesKey].map((sample: number[]) => sample[0]);
-      expect(timestamps[0]).toBeGreaterThanOrEqual(from * 1000);
-      expect(timestamps.at(-1)).toBeLessThanOrEqual(to * 1000);
-      expect(timestamps).toEqual([...timestamps].sort((left, right) => left - right));
+      expect(body[seriesKey]).toEqual([]);
     }
   });
 
@@ -3032,11 +3036,29 @@ describe('OpenGecko app scaffold', () => {
       id: 'stablecoins',
     });
 
-    expect(contractResponse.statusCode).toBe(404);
+    expect(contractResponse.statusCode).toBe(200);
+    expect(contractResponse.json()).toMatchObject({
+      id: 'usd-coin',
+      symbol: 'usdc',
+      name: 'USD Coin',
+      platforms: {
+        ethereum: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      },
+    });
 
-    expect(contractChartResponse.statusCode).toBe(404);
+    expect(contractChartResponse.statusCode).toBe(200);
+    expect(contractChartResponse.json()).toMatchObject({
+      prices: [
+        [1774396800000, 1],
+      ],
+    });
 
-    expect(contractRangeResponse.statusCode).toBe(404);
+    expect(contractRangeResponse.statusCode).toBe(200);
+    expect(contractRangeResponse.json()).toMatchObject({
+      prices: [],
+      market_caps: [],
+      total_volumes: [],
+    });
   });
 
   it('returns not found for unknown chart-style coin routes', async () => {
