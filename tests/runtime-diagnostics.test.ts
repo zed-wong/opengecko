@@ -76,6 +76,56 @@ describe('runtime diagnostics', () => {
     });
   });
 
+  it('distinguishes failed degraded seeded boot from ordinary seeded startup', () => {
+    const diagnostics = buildRuntimeDiagnostics(
+      createState({
+        allowStaleLiveService: true,
+        syncFailureReason: 'bootstrap upstream unavailable',
+        hotDataRevision: 3,
+      }),
+      {
+        lastUpdated: new Date('2026-03-26T00:00:00.000Z'),
+        sourceProvidersJson: '[]',
+        sourceCount: 0,
+      },
+      300,
+      new Date('2026-03-26T00:01:00.000Z').getTime(),
+    );
+
+    expect(diagnostics).toEqual({
+      readiness: {
+        state: 'degraded',
+        listener_bound: false,
+        initial_sync_completed: false,
+      },
+      degraded: {
+        active: true,
+        stale_live_enabled: true,
+        reason: 'bootstrap upstream unavailable',
+        provider_failure_cooldown_until: null,
+        injected_provider_failure: {
+          active: false,
+          reason: null,
+        },
+      },
+      hot_paths: {
+        cache_revision: 3,
+        shared_market_snapshot: {
+          available: true,
+          source_class: 'degraded_seeded_bootstrap',
+          last_successful_live_refresh_at: null,
+          freshness: {
+            threshold_seconds: 300,
+            age_seconds: 60,
+            is_stale: false,
+          },
+          providers: [],
+          provider_count: 0,
+        },
+      },
+    });
+  });
+
   it('reports degraded stale-live service with stale snapshot metadata and provider cause', () => {
     const diagnostics = buildRuntimeDiagnostics(
       createState({

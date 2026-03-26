@@ -22,7 +22,7 @@ export type RuntimeDiagnostics = {
   hot_paths: {
     shared_market_snapshot: {
       available: boolean;
-      source_class: 'fresh_live' | 'stale_live' | 'seeded_bootstrap' | 'unavailable';
+      source_class: 'fresh_live' | 'stale_live' | 'seeded_bootstrap' | 'degraded_seeded_bootstrap' | 'unavailable';
       last_successful_live_refresh_at: string | null;
       freshness: {
         threshold_seconds: number;
@@ -62,6 +62,10 @@ export function buildRuntimeDiagnostics(
   const sourceClass = latestUsdSnapshot
     ? (() => {
       if (latestSnapshotOwnership === 'seeded') {
+        if (seededBootstrapFallbackActive) {
+          return 'degraded_seeded_bootstrap' as const;
+        }
+
         return 'seeded_bootstrap' as const;
       }
 

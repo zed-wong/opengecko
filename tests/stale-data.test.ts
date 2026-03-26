@@ -195,7 +195,7 @@ describe('stale market snapshot behavior', () => {
     });
   });
 
-  it('reports degraded bootstrap source class while serving seeded residual snapshots consistently after failed boot', async () => {
+  it('reports degraded seeded bootstrap source class while serving seeded residual snapshots consistently after failed boot', async () => {
     await app!.inject({ method: 'GET', url: '/ping' });
 
     const bootstrapSourceTime = new Date('2026-03-20T00:00:00.000Z');
@@ -213,9 +213,33 @@ describe('stale market snapshot behavior', () => {
       })
       .where(eq(marketSnapshots.coinId, 'bitcoin'))
       .run();
+    database!.db
+      .update(marketSnapshots)
+      .set({
+        price: 2000,
+        marketCap: null,
+        totalVolume: null,
+        priceChange24h: null,
+        priceChangePercentage24h: null,
+        sourceProvidersJson: JSON.stringify([]),
+        sourceCount: 0,
+        lastUpdated: bootstrapSourceTime,
+      })
+      .where(eq(marketSnapshots.coinId, 'ethereum'))
+      .run();
     app!.marketDataRuntimeState.initialSyncCompleted = false;
     app!.marketDataRuntimeState.allowStaleLiveService = true;
     app!.marketDataRuntimeState.syncFailureReason = 'bootstrap upstream unavailable';
+    app!.marketDataRuntimeState.startupPrewarm = {
+      enabled: false,
+      budgetMs: 0,
+      readyWithinBudget: true,
+      firstRequestWarmBenefitsObserved: false,
+      targets: [],
+      completedAt: null,
+      totalDurationMs: null,
+      targetResults: [],
+    };
     app!.marketDataRuntimeState.hotDataRevision += 1;
 
     const [simplePriceResponse, marketsResponse, diagnosticsResponse] = await Promise.all([
@@ -268,6 +292,18 @@ describe('stale market snapshot behavior', () => {
           active: true,
           stale_live_enabled: true,
           reason: 'bootstrap upstream unavailable',
+        },
+        hot_paths: {
+          shared_market_snapshot: {
+            available: true,
+            source_class: 'degraded_seeded_bootstrap',
+            last_successful_live_refresh_at: null,
+            freshness: {
+              is_stale: true,
+            },
+            providers: [],
+            provider_count: 0,
+          },
         },
       },
     });
