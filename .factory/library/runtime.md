@@ -13,6 +13,7 @@ Runtime-specific facts and guidance for the runtime hardening mission.
   - `src/services/initial-sync.ts`
   - catalog sync paths that still fan out across exchanges
 - Startup currently performs heavy initial sync before the listener becomes reachable; readiness must be reasoned about separately from process existence.
+- The shared HTTP app test fixture auto-completes bootstrap before `inject`, so route-level tests cannot model a true pre-ready startup listener state; use runtime-state/diagnostics-focused tests for pre-ready assertions instead of expecting `app.inject()` to observe the pre-bind phase.
 - Existing runtime state already tracks:
   - `initialSyncCompleted`
   - `allowStaleLiveService`
