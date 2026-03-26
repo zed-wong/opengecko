@@ -15,8 +15,8 @@ describe('http log style', () => {
     });
 
     expect(message).toContain('GET /coins/markets?vs_currency=usd');
-    expect(message).toContain('| ✅200 | ⏱7118ms | 🆔req-t | 🐢SLOW');
-    expect(message).toContain('🟢');
+    expect(message).toContain('| 200 | ⏱7118ms | 🆔req-t | 🐢SLOW');
+    expect(message).toContain('🟢 GET /coins/markets?vs_currency=usd');
   });
 
   it('uses status traffic emoji based on response class', () => {
@@ -39,8 +39,8 @@ describe('http log style', () => {
       slowThresholdMs: 1000,
     });
 
-    expect(warningMessage).toContain('🟠');
-    expect(errorMessage).toContain('🔴');
+    expect(warningMessage).toContain('🟠 GET /coins/not-a-coin | 404 |');
+    expect(errorMessage).toContain('🔴 GET /boom | 500 |');
     expect(warningMessage).not.toContain('🐢SLOW');
   });
 });

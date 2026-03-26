@@ -22,11 +22,11 @@ function formatTimestamp(date: Date) {
 
 function statusTrafficEmoji(statusCode: number) {
   if (statusCode >= 500) {
-    return '🔴';
+    return '🚩';
   }
 
   if (statusCode >= 400) {
-    return '🟠';
+    return '🟥';
   }
 
   if (statusCode >= 300) {
@@ -40,5 +40,5 @@ export function formatHttpCompactPLog(input: HttpCompactPLogInput) {
   const roundedDurationMs = Math.max(0, Math.round(input.durationMs));
   const slowSuffix = roundedDurationMs >= input.slowThresholdMs ? ' | 🐢SLOW' : '';
 
-  return `${formatTimestamp(input.timestamp)}  ${statusTrafficEmoji(input.statusCode)} ${input.method} ${input.url} | ✅${input.statusCode} | ⏱${roundedDurationMs}ms | 🆔${input.reqId}${slowSuffix}`;
+  return `${formatTimestamp(input.timestamp)}  ${statusTrafficEmoji(input.statusCode)} ${input.method} ${input.url} | ${input.statusCode} | ⏱ ${roundedDurationMs}ms | 🆔 ${input.reqId}${slowSuffix}`;
 }

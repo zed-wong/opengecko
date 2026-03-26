@@ -29,7 +29,7 @@ export function parseCsvQuery(value: string | undefined) {
 
 export function parsePrecision(value: string | undefined): number | 'full' {
   if (value === undefined) {
-    return 2;
+    return 'full';
   }
 
   if (value === 'full') {

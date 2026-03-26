@@ -2585,6 +2585,21 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('preserves sub-cent current_price values by default', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/coins/markets?vs_currency=btc&ids=usd-coin',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toHaveLength(1);
+    expect(response.json()[0]).toMatchObject({
+      id: 'usd-coin',
+    });
+    expect(response.json()[0].current_price).toBeGreaterThan(0);
+    expect(response.json()[0].current_price).toBeLessThan(0.001);
+  });
+
   it('supports market category filters and extra price change windows', async () => {
     const response = await getApp().inject({
       method: 'GET',
