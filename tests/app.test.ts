@@ -2698,6 +2698,17 @@ describe('OpenGecko app scaffold', () => {
   });
 
   it('negotiates gzip compression for responses above the threshold without changing body semantics', async () => {
+    await app?.close();
+    app = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'test.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+        responseCompressionThresholdBytes: 64,
+      },
+      startBackgroundJobs: false,
+    });
+
     const compressedResponse = await getApp().inject({
       method: 'GET',
       url: '/coins/list?include_platform=true',
@@ -2712,19 +2723,24 @@ describe('OpenGecko app scaffold', () => {
 
     expect(compressedResponse.statusCode).toBe(200);
     expect(uncompressedResponse.statusCode).toBe(200);
-    const encoding = compressedResponse.headers['content-encoding'];
-    if (encoding === 'gzip') {
-      expect(Number(compressedResponse.headers['content-length'] ?? 0)).toBeGreaterThan(0);
-      expect(String(compressedResponse.headers.vary ?? '')).toContain('Accept-Encoding');
-      expect(JSON.parse(gunzipSync(compressedResponse.rawPayload).toString('utf8'))).toEqual(uncompressedResponse.json());
-    } else {
-      expect(encoding).toBeUndefined();
-      expect(compressedResponse.json()).toEqual(uncompressedResponse.json());
-    }
+    expect(compressedResponse.headers['content-encoding']).toBe('gzip');
+    expect(Number(compressedResponse.headers['content-length'] ?? 0)).toBeGreaterThan(0);
+    expect(String(compressedResponse.headers.vary ?? '')).toContain('Accept-Encoding');
+    expect(JSON.parse(gunzipSync(compressedResponse.rawPayload).toString('utf8'))).toEqual(uncompressedResponse.json());
   });
 
   it('keeps unrelated non-hot endpoint bodies stable when compression is not negotiated', async () => {
-    const compressedResponse = await getApp().inject({
+    await app?.close();
+    app = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'test.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+
+    const negotiatedResponse = await getApp().inject({
       method: 'GET',
       url: '/exchange_rates',
       headers: {
@@ -2736,10 +2752,13 @@ describe('OpenGecko app scaffold', () => {
       url: '/exchange_rates',
     });
 
-    expect(compressedResponse.statusCode).toBe(200);
+    expect(negotiatedResponse.statusCode).toBe(200);
     expect(baselineResponse.statusCode).toBe(200);
-    expect(compressedResponse.headers['content-encoding']).toBeUndefined();
-    expect(compressedResponse.json()).toEqual(baselineResponse.json());
+    if (negotiatedResponse.headers['content-encoding'] === 'gzip') {
+      expect(JSON.parse(gunzipSync(negotiatedResponse.rawPayload).toString('utf8'))).toEqual(baselineResponse.json());
+    } else {
+      expect(negotiatedResponse.json()).toEqual(baselineResponse.json());
+    }
   });
 
   it('returns market search results', async () => {

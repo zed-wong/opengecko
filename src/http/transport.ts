@@ -9,14 +9,12 @@ type TransportOptions = {
 function shouldCompress(request: FastifyRequest, reply: FastifyReply, thresholdBytes: number) {
   const acceptEncoding = request.headers['accept-encoding'];
   const contentType = reply.getHeader('content-type');
-  const contentLength = Number(reply.getHeader('content-length'));
 
   return typeof acceptEncoding === 'string'
     && /\bgzip\b/.test(acceptEncoding)
     && typeof contentType === 'string'
     && contentType.includes('application/json')
-    && Number.isFinite(contentLength)
-    && contentLength >= thresholdBytes;
+    && !reply.hasHeader('content-encoding');
 }
 
 export function registerTransportControls(app: FastifyInstance, options: TransportOptions) {
@@ -26,6 +24,11 @@ export function registerTransportControls(app: FastifyInstance, options: Transpo
     }
 
     if (!shouldCompress(request, reply, options.responseCompressionThresholdBytes)) {
+      return payload;
+    }
+
+    const payloadBytes = Buffer.byteLength(payload);
+    if (payloadBytes < options.responseCompressionThresholdBytes) {
       return payload;
     }
 
