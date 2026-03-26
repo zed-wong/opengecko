@@ -26,7 +26,11 @@ const TRUST_WALLET_ASSETS_BASE_URL = 'https://raw.githubusercontent.com/trustwal
 const CURATED_NATIVE_ASSET_MAPPINGS: Record<string, NativeAssetMapping> = {
   bitcoin: { trustWalletAssetId: 'bitcoin' },
   ethereum: { trustWalletAssetId: 'ethereum' },
+  ripple: { trustWalletAssetId: 'xrp' },
   solana: { trustWalletAssetId: 'solana' },
+  dogecoin: { trustWalletAssetId: 'dogecoin' },
+  cardano: { trustWalletAssetId: 'cardano' },
+  chainlink: { trustWalletAssetId: 'chainlink' },
 };
 
 const TRUSTED_PLATFORM_MAPPINGS: Record<string, TrustedPlatformMapping> = {

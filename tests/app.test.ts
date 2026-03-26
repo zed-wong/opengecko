@@ -4011,6 +4011,94 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('keeps frontend-critical asset images coherent across list and detail surfaces', async () => {
+    await getApp().db.db
+      .update(coins)
+      .set({
+        imageThumbUrl: null,
+        imageSmallUrl: null,
+        imageLargeUrl: null,
+      })
+      .where(eq(coins.id, 'bitcoin'))
+      .run();
+
+    await getApp().db.db
+      .update(coins)
+      .set({
+        imageThumbUrl: null,
+        imageSmallUrl: null,
+        imageLargeUrl: null,
+      })
+      .where(eq(coins.id, 'ripple'))
+      .run();
+
+    await getApp().db.db
+      .update(coins)
+      .set({
+        imageThumbUrl: null,
+        imageSmallUrl: null,
+        imageLargeUrl: null,
+      })
+      .where(eq(coins.id, 'dogecoin'))
+      .run();
+
+    const marketsResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/markets?vs_currency=usd&ids=bitcoin,ripple,dogecoin',
+    });
+
+    const bitcoinDetailResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/bitcoin',
+    });
+
+    const rippleDetailResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/ripple',
+    });
+
+    const dogecoinDetailResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/dogecoin',
+    });
+
+    expect(marketsResponse.statusCode).toBe(200);
+    expect(bitcoinDetailResponse.statusCode).toBe(200);
+    expect(rippleDetailResponse.statusCode).toBe(200);
+    expect(dogecoinDetailResponse.statusCode).toBe(200);
+
+    expect(marketsResponse.json()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'bitcoin',
+        image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
+      }),
+      expect.objectContaining({
+        id: 'ripple',
+        image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/xrp/info/logo.png',
+      }),
+      expect.objectContaining({
+        id: 'dogecoin',
+        image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/dogecoin/info/logo.png',
+      }),
+    ]));
+
+    expect(bitcoinDetailResponse.json().image).toEqual({
+      thumb: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
+      small: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
+      large: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
+    });
+    expect(rippleDetailResponse.json().image).toEqual({
+      thumb: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/xrp/info/logo.png',
+      small: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/xrp/info/logo.png',
+      large: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/xrp/info/logo.png',
+    });
+    expect(dogecoinDetailResponse.json().image).toEqual({
+      thumb: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/dogecoin/info/logo.png',
+      small: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/dogecoin/info/logo.png',
+      large: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/dogecoin/info/logo.png',
+    });
+  });
+
   it('refuses to hydrate assets from unsupported or ambiguous platform mappings', async () => {
     await getApp().db.db
       .insert(coins)

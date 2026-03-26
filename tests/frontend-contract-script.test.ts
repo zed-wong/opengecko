@@ -255,4 +255,46 @@ describe('module contract verification scripts', () => {
     expect(body.market_data).not.toBeNull();
     expect(body.market_data?.current_price.usd).toBeTypeOf('number');
   });
+
+  it('keeps frontend-critical market and detail images usable for representative assets', async () => {
+    const marketsResponse = await app.inject({
+      method: 'GET',
+      url: '/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana,ripple,dogecoin',
+    });
+
+    expect(marketsResponse.statusCode).toBe(200);
+
+    const marketsBody = marketsResponse.json() as Array<{ id: string; image: string | null }>;
+    expect(marketsBody).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'bitcoin', image: expect.any(String) }),
+      expect.objectContaining({ id: 'ethereum', image: expect.any(String) }),
+      expect.objectContaining({ id: 'solana', image: expect.any(String) }),
+      expect.objectContaining({ id: 'ripple', image: expect.any(String) }),
+      expect.objectContaining({ id: 'dogecoin', image: expect.any(String) }),
+    ]));
+    for (const row of marketsBody) {
+      expect(row.image).not.toBeNull();
+      expect(row.image?.trim().length).toBeGreaterThan(0);
+    }
+
+    for (const coinId of ['bitcoin', 'ethereum', 'solana', 'ripple', 'dogecoin']) {
+      const detailResponse = await app.inject({
+        method: 'GET',
+        url: `/coins/${coinId}`,
+      });
+
+      expect(detailResponse.statusCode).toBe(200);
+
+      const detailBody = detailResponse.json() as {
+        image: { thumb: string | null; small: string | null; large: string | null };
+      };
+
+      expect(detailBody.image.thumb).toEqual(expect.any(String));
+      expect(detailBody.image.small).toEqual(expect.any(String));
+      expect(detailBody.image.large).toEqual(expect.any(String));
+      expect(detailBody.image.thumb?.trim().length).toBeGreaterThan(0);
+      expect(detailBody.image.small?.trim().length).toBeGreaterThan(0);
+      expect(detailBody.image.large?.trim().length).toBeGreaterThan(0);
+    }
+  });
 });
