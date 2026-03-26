@@ -168,6 +168,20 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('preserves the exact invalid-selector 400 envelope for simple price requests', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/simple/price?vs_currencies=usd',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.headers['content-type']).toContain('application/json');
+    expect(response.json()).toEqual({
+      error: 'invalid_parameter',
+      message: 'One of ids, names, or symbols must be provided.',
+    });
+  });
+
   it('keeps equivalent simple price selector requests stable across parameter ordering', async () => {
     const [baselineResponse, reorderedResponse] = await Promise.all([
       getApp().inject({

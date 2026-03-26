@@ -68,3 +68,6 @@ Each assertion should capture:
 - Prefer the validation API on port `3102` for manual curl checks if port `3100` is occupied by a stale server.
 - Bun/Vitest fake-timer-heavy tests may need explicit microtask flushing between timer advances to avoid apparent hangs.
 - The service may not bind until initial sync finishes; connection-refused before readiness is expected and must not be treated as immediate mission failure without a readiness wait.
+- Hot-endpoint-cache validation recorded a false-negative for `VAL-SIMPLE-001`: the synthesis says `/simple/price?vs_currencies=usd` failed because it used `{error,message}`, but the captured `expectedBody` and `actualBody` are identical and that exact envelope is the intended contract.
+- Treat the source of truth for `VAL-SIMPLE-001` as: HTTP `400` plus exact JSON `{ "error": "invalid_parameter", "message": "One of ids, names, or symbols must be provided." }`.
+- Characterization coverage for that contract now exists in both `tests/invalid-params.test.ts` and `tests/app.test.ts`; if a future validator still flags the assertion while those tests and manual curl evidence pass, the ambiguity is validator-side rather than product-side.
