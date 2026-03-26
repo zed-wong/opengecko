@@ -677,6 +677,123 @@ describe('OpenGecko app scaffold', () => {
     expect(metrics.recordStartupPrewarmTarget).toHaveBeenCalledWith('coins_markets_bitcoin_usd', 'completed', expect.any(Number));
   });
 
+  it('warms the simple-price startup target directly without self-injecting that endpoint', async () => {
+    const prewarmApp = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'prewarm-direct-simple-price.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+        startupPrewarmBudgetMs: 250,
+      },
+      startBackgroundJobs: false,
+    });
+
+    const injectSpy = vi.spyOn(prewarmApp, 'inject');
+
+    try {
+      await prewarmApp.ready();
+
+      const simplePriceInjectCalls = injectSpy.mock.calls.filter((call) => {
+        const request = (call as unknown[])[0] as string | { url?: string } | undefined;
+        if (typeof request === 'string') {
+          return request.includes('/simple/price');
+        }
+
+        return request?.url === '/simple/price?ids=bitcoin&vs_currencies=usd';
+      });
+      const coinsMarketsInjectCalls = injectSpy.mock.calls.filter((call) => {
+        const request = (call as unknown[])[0] as string | { url?: string } | undefined;
+        if (typeof request === 'string') {
+          return request.includes('/coins/markets');
+        }
+
+        return request?.url === '/coins/markets?vs_currency=usd&ids=bitcoin';
+      });
+
+      expect(simplePriceInjectCalls).toHaveLength(0);
+      expect(coinsMarketsInjectCalls.length).toBeGreaterThanOrEqual(1);
+
+      const diagnostics = await prewarmApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(diagnostics.statusCode).toBe(200);
+      expect(diagnostics.json().data.startup_prewarm.enabled).toBe(true);
+      expect(diagnostics.json().data.startup_prewarm.targetResults[0]).toMatchObject({
+        id: 'simple_price_bitcoin_usd',
+        status: 'completed',
+        cacheSurface: 'simple_price',
+        warmCacheRevision: expect.any(Number),
+      });
+
+      const firstWarmRequest = await prewarmApp.inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin&vs_currencies=usd',
+      });
+
+      expect(firstWarmRequest.statusCode).toBe(200);
+
+      const updatedDiagnostics = await prewarmApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(updatedDiagnostics.statusCode).toBe(200);
+      expect(updatedDiagnostics.json().data.startup_prewarm.firstRequestWarmBenefitsObserved).toBe(true);
+      expect(updatedDiagnostics.json().data.startup_prewarm.targetResults[0]).toMatchObject({
+        id: 'simple_price_bitcoin_usd',
+        firstObservedRequest: {
+          cacheHit: true,
+          durationMs: expect.any(Number),
+        },
+      });
+    } finally {
+      injectSpy.mockRestore();
+      await prewarmApp.close();
+    }
+  });
+
+  it('treats over-budget inject completion as a startup prewarm timeout for non-direct targets', async () => {
+    const prewarmApp = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'prewarm-direct-timeout.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+    const injectMock = vi.fn(async (request: { method: string; url: string }) => {
+      if (request.url === '/coins/markets?vs_currency=usd&ids=bitcoin') {
+        await new Promise((resolve) => setTimeout(resolve, 15));
+      }
+
+      return { statusCode: 200 } as never;
+    });
+
+    try {
+      prewarmApp.inject = injectMock as never;
+      await startupPrewarmModule.runStartupPrewarm(prewarmApp, prewarmApp.marketDataRuntimeState, prewarmApp.metrics, 5);
+
+      expect(prewarmApp.marketDataRuntimeState.startupPrewarm.readyWithinBudget).toBe(false);
+      expect(prewarmApp.marketDataRuntimeState.startupPrewarm.targetResults).toMatchObject([
+        {
+          id: 'simple_price_bitcoin_usd',
+          status: 'completed',
+          warmCacheRevision: 0,
+        },
+        {
+          id: 'coins_markets_bitcoin_usd',
+          status: 'timeout',
+          warmCacheRevision: null,
+        },
+      ]);
+      expect(injectMock).toHaveBeenCalledTimes(1);
+    } finally {
+      await prewarmApp.close();
+    }
+  });
+
   it('records failed prewarm outcomes on diagnostics and metrics surfaces without misclassifying them as timeouts', async () => {
     const prewarmApp = buildApp({
       config: {
@@ -811,9 +928,9 @@ describe('OpenGecko app scaffold', () => {
     expect(afterBody).toContain('opengecko_cache_events_total');
     expect(afterBody).toContain('surface="simple_price"');
     expect(afterBody).toContain('surface="coins_markets"');
-    expect(afterBody).toContain('opengecko_http_requests_total{method="GET",route="/simple/price",status_code="200"} 3');
-    expect(afterBody).toContain('opengecko_http_requests_total{method="GET",route="/coins/markets",status_code="200"} 2');
-    expect(afterBody).toContain('opengecko_http_request_duration_ms_count{method="GET",route="/simple/price",status_code="200"} 3');
+    expect(afterBody).toContain('opengecko_http_requests_total{method="GET",route="/simple/price",status_code="200"} 2');
+    expect(afterBody).toContain('opengecko_http_requests_total{method="GET",route="/coins/markets",status_code="200"} 3');
+    expect(afterBody).toContain('opengecko_http_request_duration_ms_count{method="GET",route="/simple/price",status_code="200"} 2');
     expect(afterBody).not.toEqual(beforeBody);
   });
 
@@ -3703,7 +3820,7 @@ describe('OpenGecko app scaffold', () => {
         current_price: 85000,
       }),
     ]);
-    expect(countSharedAssetCalls()).toBe(warmCallCountBeforeRequests + 4);
+    expect(countSharedAssetCalls()).toBe(warmCallCountBeforeRequests + 2);
   });
 
   it('clears stale-live recovery flags and bumps revision when bootstrap-only sync recovers stale-visible state', async () => {
@@ -3822,7 +3939,7 @@ describe('OpenGecko app scaffold', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toHaveLength(3);
-    expect(getCanonicalCloseSeriesSpy).toHaveBeenCalledTimes(3);
+    expect(getCanonicalCloseSeriesSpy).toHaveBeenCalledTimes(4);
   });
 
   it('returns dual top movers payloads with stable polarity and explicit arrays', async () => {
