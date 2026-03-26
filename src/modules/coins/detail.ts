@@ -6,6 +6,7 @@ import { getConversionRates } from '../../lib/conversion';
 import { SUPPORTED_VS_CURRENCIES } from '../../lib/conversion';
 import { getCategories, getChartSeries, getCoinById, getMarketRows, parseJsonArray, parseJsonObject } from '../catalog';
 import type { SnapshotAccessPolicy } from '../market-freshness';
+import { withResolvedCoinImages } from '../../services/asset-image-identity';
 import {
   buildCategoriesDetails,
   buildCommunityData,
@@ -34,6 +35,7 @@ export function buildCoinDetail(
     includeCategoriesDetails: boolean;
   },
 ) {
+  const hydratedCoin = withResolvedCoinImages(coin);
   const categoriesList = parseJsonArray<string>(coin.categoriesJson);
   const description = parseJsonObject<Record<string, string>>(coin.descriptionJson);
   const links = parseJsonObject<Record<string, unknown>>(coin.linksJson);
@@ -101,16 +103,16 @@ export function buildCoinDetail(
       };
 
   return {
-    id: coin.id,
-    symbol: coin.symbol,
-    name: coin.name,
-    web_slug: coin.id,
+    id: hydratedCoin.id,
+    symbol: hydratedCoin.symbol,
+    name: hydratedCoin.name,
+    web_slug: hydratedCoin.id,
     asset_platform_id: null,
-    localization: buildLocalizationPayload(coin, options.includeLocalization),
-    platforms: parsePlatforms(coin.platformsJson),
-    detail_platforms: buildDetailPlatforms(coin.platformsJson),
-    block_time_in_minutes: coin.blockTimeInMinutes,
-    hashing_algorithm: coin.hashingAlgorithm,
+    localization: buildLocalizationPayload(hydratedCoin, options.includeLocalization),
+    platforms: parsePlatforms(hydratedCoin.platformsJson),
+    detail_platforms: buildDetailPlatforms(hydratedCoin.platformsJson),
+    block_time_in_minutes: hydratedCoin.blockTimeInMinutes,
+    hashing_algorithm: hydratedCoin.hashingAlgorithm,
     categories: categoriesList,
     categories_details: options.includeCategoriesDetails ? buildCategoriesDetails(database, categoriesList, getCategories) : [],
     public_notice: null,
@@ -118,16 +120,16 @@ export function buildCoinDetail(
     description: options.includeLocalization ? description : { en: description.en ?? '' },
     links,
     image: {
-      thumb: coin.imageThumbUrl,
-      small: coin.imageSmallUrl,
-      large: coin.imageLargeUrl,
+      thumb: hydratedCoin.imageThumbUrl,
+      small: hydratedCoin.imageSmallUrl,
+      large: hydratedCoin.imageLargeUrl,
     },
     country_origin: null,
-    genesis_date: coin.genesisDate,
+    genesis_date: hydratedCoin.genesisDate,
     sentiment_votes_up_percentage: null,
     sentiment_votes_down_percentage: null,
-    market_cap_rank: coin.marketCapRank,
-    coingecko_rank: coin.marketCapRank,
+    market_cap_rank: hydratedCoin.marketCapRank,
+    coingecko_rank: hydratedCoin.marketCapRank,
     coingecko_score: null,
     developer_score: null,
     community_score: null,
@@ -142,7 +144,7 @@ export function buildCoinDetail(
     community_data: buildCommunityData(options.includeCommunityData),
     developer_data: buildDeveloperData(options.includeDeveloperData),
     status_updates: [],
-    last_updated: snapshot?.lastUpdated.toISOString() ?? coin.updatedAt.toISOString(),
+    last_updated: snapshot?.lastUpdated.toISOString() ?? hydratedCoin.updatedAt.toISOString(),
     tickers: options.includeTickers
       ? getCoinTickers(database, coin.id, {
         includeExchangeLogo: false,

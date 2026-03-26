@@ -8,6 +8,7 @@ import { getChartSeries, getMarketRows } from '../catalog';
 import { downsampleTimeSeries } from '../chart-semantics';
 import { getEffectiveSnapshot, getSnapshotAccessPolicy, getUsableSnapshot, type SnapshotAccessPolicy } from '../market-freshness';
 import type { MarketDataRuntimeState } from '../../services/market-runtime-state';
+import { withResolvedCoinImages } from '../../services/asset-image-identity';
 import {
   getGranularityMs,
   isSeededBootstrapSnapshot,
@@ -184,6 +185,7 @@ export function buildMarketRow(
   options: { sparkline: boolean; precision: number | 'full'; priceChangePercentages: string[] },
 ) {
   const snapshot = row.snapshot;
+  const coin = withResolvedCoinImages(row.coin);
   const seededBootstrapSnapshot = isSeededBootstrapSnapshot(snapshot);
   const validationOverrideMode = runtimeState.validationOverride?.mode ?? 'off';
   const validationStaleDisallowed = validationOverrideMode === 'stale_disallowed';
@@ -196,9 +198,9 @@ export function buildMarketRow(
 
   return {
     id: row.coin.id,
-    symbol: row.coin.symbol,
-    name: row.coin.name,
-    image: row.coin.imageLargeUrl,
+    symbol: coin.symbol,
+    name: coin.name,
+    image: coin.imageLargeUrl,
     current_price: toNumberOrNull(snapshot ? snapshot.price * rate : null, options.precision),
     market_cap: toNumberOrNull(snapshot?.marketCap ? snapshot.marketCap * rate : null, options.precision),
     market_cap_rank: snapshot?.marketCapRank ?? row.coin.marketCapRank,

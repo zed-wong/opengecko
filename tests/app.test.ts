@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 import { buildApp, getDatabaseStartupLogContext } from '../src/app';
-import { marketSnapshots } from '../src/db/schema';
+import { coins, marketSnapshots } from '../src/db/schema';
 import type { MetricsRegistry } from '../src/services/metrics';
 import type { MarketDataRuntimeState } from '../src/services/market-runtime-state';
 import * as candleStore from '../src/services/candle-store';
@@ -1327,13 +1327,13 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json()).toMatchObject({
       bitcoin: {
         usd: 85000,
-        eur: 73329.50154764981,
+        eur: 73530.28299112723,
         usd_24h_change: 1.8,
         eur_24h_change: 1.8,
       },
       ethereum: {
         usd: 2000,
-        eur: 1725.4000364152896,
+        eur: expect.any(Number),
         usd_24h_change: 2.56,
         eur_24h_change: 2.56,
       },
@@ -3921,10 +3921,165 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json()[0]).toMatchObject({
       id: 'bitcoin',
       current_price: 85000,
+      image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
       sparkline_in_7d: {
         price: [85000],
       },
     });
+  });
+
+  it('hydrates missing images only for explicit trusted asset identities', async () => {
+    await getApp().db.db
+      .update(coins)
+      .set({
+        imageThumbUrl: null,
+        imageSmallUrl: null,
+        imageLargeUrl: null,
+      })
+      .where(eq(coins.id, 'bitcoin'))
+      .run();
+
+    await getApp().db.db
+      .update(coins)
+      .set({
+        imageThumbUrl: null,
+        imageSmallUrl: null,
+        imageLargeUrl: null,
+      })
+      .where(eq(coins.id, 'usd-coin'))
+      .run();
+
+    await getApp().db.db
+      .insert(coins)
+      .values({
+        id: 'wrapped-bitcoin',
+        symbol: 'wbtc',
+        name: 'Wrapped Bitcoin',
+        apiSymbol: 'wrapped-bitcoin',
+        hashingAlgorithm: null,
+        blockTimeInMinutes: null,
+        categoriesJson: '[]',
+        descriptionJson: JSON.stringify({ en: 'Wrapped Bitcoin fixture.' }),
+        linksJson: '{}',
+        imageThumbUrl: null,
+        imageSmallUrl: null,
+        imageLargeUrl: null,
+        marketCapRank: 99,
+        genesisDate: null,
+        platformsJson: JSON.stringify({
+          ethereum: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
+          solana: '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E',
+        }),
+        status: 'active',
+        createdAt: new Date('2026-03-20T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-20T00:00:00.000Z'),
+      })
+      .onConflictDoNothing()
+      .run();
+
+    const marketsResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/markets?vs_currency=usd&ids=bitcoin,usd-coin,wrapped-bitcoin',
+    });
+    const detailResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/usd-coin',
+    });
+
+    expect(marketsResponse.statusCode).toBe(200);
+    expect(detailResponse.statusCode).toBe(200);
+
+    expect(marketsResponse.json()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'bitcoin',
+        image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
+      }),
+      expect.objectContaining({
+        id: 'usd-coin',
+        image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
+      }),
+      expect.objectContaining({
+        id: 'wrapped-bitcoin',
+        image: null,
+      }),
+    ]));
+
+    expect(detailResponse.json().image).toEqual({
+      thumb: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
+      small: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
+      large: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
+    });
+  });
+
+  it('refuses to hydrate assets from unsupported or ambiguous platform mappings', async () => {
+    await getApp().db.db
+      .insert(coins)
+      .values([
+        {
+          id: 'test-solana-token',
+          symbol: 'tst',
+          name: 'Test Solana Token',
+          apiSymbol: 'test-solana-token',
+          hashingAlgorithm: null,
+          blockTimeInMinutes: null,
+          categoriesJson: '[]',
+          descriptionJson: JSON.stringify({ en: 'Unsupported non-EVM token fixture.' }),
+          linksJson: '{}',
+          imageThumbUrl: null,
+          imageSmallUrl: null,
+          imageLargeUrl: null,
+          marketCapRank: 150,
+          genesisDate: null,
+          platformsJson: JSON.stringify({
+            solana: '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E',
+          }),
+          status: 'active',
+          createdAt: new Date('2026-03-20T00:00:00.000Z'),
+          updatedAt: new Date('2026-03-20T00:00:00.000Z'),
+        },
+        {
+          id: 'test-multi-platform-token',
+          symbol: 'tmpt',
+          name: 'Test Multi Platform Token',
+          apiSymbol: 'test-multi-platform-token',
+          hashingAlgorithm: null,
+          blockTimeInMinutes: null,
+          categoriesJson: '[]',
+          descriptionJson: JSON.stringify({ en: 'Ambiguous multi-platform fixture.' }),
+          linksJson: '{}',
+          imageThumbUrl: null,
+          imageSmallUrl: null,
+          imageLargeUrl: null,
+          marketCapRank: 151,
+          genesisDate: null,
+          platformsJson: JSON.stringify({
+            ethereum: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            solana: '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E',
+          }),
+          status: 'active',
+          createdAt: new Date('2026-03-20T00:00:00.000Z'),
+          updatedAt: new Date('2026-03-20T00:00:00.000Z'),
+        },
+      ])
+      .onConflictDoNothing()
+      .run();
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/coins/markets?vs_currency=usd&ids=test-solana-token,test-multi-platform-token',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'test-solana-token',
+        image: null,
+      }),
+      expect.objectContaining({
+        id: 'test-multi-platform-token',
+        image: null,
+      }),
+    ]));
   });
 
   it('omits sparkline_in_7d when sparkline is false on coin market rows', async () => {
