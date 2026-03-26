@@ -10,31 +10,33 @@ Validation surface findings and runtime testing notes.
 
 - Surface: HTTP API only
 - Tools: `curl`, existing shell endpoint scripts under `scripts/modules/*`, milestone scrutiny and user-testing validators
-- Startup command proven during dry run: `PORT=3107 bun run src/server.ts`
-- Representative dry-run checks that succeeded:
+- Startup command proven during dry run: `PORT=3100 LOG_LEVEL=error bun run src/server.ts`
+- Dry-run finding: the app can start, but heavy initial sync delays listener bind; validators must poll for readiness instead of assuming the port is immediately reachable.
+- Representative validation probes for this mission:
   - `GET /ping`
-  - `GET /simple/supported_vs_currencies`
   - `GET /simple/price?...`
-- Focused automated validation path is executable; a pre-existing timestamp-sensitive test drift exists in `tests/app.test.ts` and should be treated as mission work.
+  - `GET /coins/markets?...`
+  - targeted shell scripts such as `scripts/modules/simple/simple.sh` and `scripts/modules/coins/coins.sh`
+- Implementation workers may manually validate against the main mission API on `3100`; validators should prefer the dedicated validation API on `3102`.
 
 ## Validation Concurrency
 
 - Machine profile observed during planning: 8 CPU cores, ~30 GB RAM
-- Conservative max concurrent validators: `3`
-- Rationale: server startup triggers bootstrap sync and SQLite/network activity; 3-way parallelism leaves enough headroom while avoiding avoidable contention.
+- Mission max concurrent API validators: `1`
+- Rationale: startup and validation both depend on heavy initial sync and delayed listener readiness; the user approved sequential endpoint validation for this mission to avoid startup contention and ambiguous failures.
 
 ## Flow Validator Guidance: HTTP API
 
 ### Isolation Rules
-- Validators can safely run concurrently against the same API instance
-- HTTP GET requests are read-only and don't interfere with each other
-- No shared mutable state between validators
-- Use the same base URL but distinct test data/fixtures where appropriate
+- Validators must run sequentially for this mission’s API surface
+- HTTP GET requests are read-only, but startup cost and delayed listener readiness make concurrent validator flows undesirable here
+- Reuse the same validation API instance rather than spawning concurrent flows against multiple startup sequences
+- Use the same base URL with controlled test data/fixtures for sequential runs
 
 ### Boundary Constraints
-- Use only port 3102 (validation-api) for testing
-- Do not access port 3100 (main API) or port 3101 (worker)
-- Port 6379 is off-limits (already in use by another workload)
+- Validators should use port `3102` (validation-api) unless the orchestrator explicitly directs otherwise.
+- Main mission API on `3100` is acceptable for worker manual checks but should not be shared with validator flows.
+- Off-limits ports: `80`, `6379`, `8317`, `11434`, `33331`
 
 ### Testing Approach
 - Use `curl` for HTTP API assertions
@@ -42,6 +44,8 @@ Validation surface findings and runtime testing notes.
 - Prefer `curl -s` for clean JSON output, `curl -i` when headers needed
 - Use `jq` for JSON parsing and validation
 - Save evidence (response excerpts) for each assertion tested
+- Poll `/ping` or the declared runtime-status surface until readiness before running endpoint scripts
+- For degraded or fallback assertions, capture the matching diagnostics/runtime-status payload from the same time window
 
 ### Evidence Requirements
 Each assertion should capture:
@@ -54,10 +58,13 @@ Each assertion should capture:
 
 - Prefer targeted route-family checks while implementing features.
 - Use curated fixture chains for cross-area assertions instead of one-off spot checks.
-- For onchain responses, inspect `relationships` and `included` explicitly where the contract expects them.
+- Sequential validation is required for this mission’s API surface.
+- When validating compression, compare negotiated and non-negotiated responses and preserve body semantics.
+- When validating timeouts, record the timeout budget source plus measured elapsed time.
 
 ## Runtime Validation Gotchas
 
 - The dedicated validation API on port `3102` is already declared in `.factory/services.yaml`; use it consistently for manual verification instead of ad hoc ports.
 - Prefer the validation API on port `3102` for manual curl checks if port `3100` is occupied by a stale server.
 - Bun/Vitest fake-timer-heavy tests may need explicit microtask flushing between timer advances to avoid apparent hangs.
+- The service may not bind until initial sync finishes; connection-refused before readiness is expected and must not be treated as immediate mission failure without a readiness wait.

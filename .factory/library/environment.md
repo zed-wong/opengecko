@@ -10,7 +10,8 @@ Environment variables, external dependencies, and setup notes.
 - Runtime: Bun `1.3.9`
 - Database: local SQLite file at `data/opengecko.db`
 - Background startup and refresh logic may need outbound network access for CCXT-backed syncs.
-- Port boundary for this mission: `3100-3102`
-- Port `6379` is off-limits.
+- Do not add Redis, Docker services, or any other external infrastructure for this mission.
 - No new credentials are required to begin the mission.
 - If a later provider/source needs credentials, workers must return that requirement to the orchestrator instead of inventing placeholders in committed code.
+- See `.factory/services.yaml` for the authoritative mission ports and service commands.
+- Startup currently performs heavy initial sync before the listener becomes reachable; validation flows must poll for readiness instead of assuming immediate bind.
