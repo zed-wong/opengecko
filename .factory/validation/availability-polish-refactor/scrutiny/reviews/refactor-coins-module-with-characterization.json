@@ -1,28 +1,28 @@
 {
   "featureId": "refactor-coins-module-with-characterization",
-  "reviewedAt": "2026-03-26T16:09:21Z",
+  "reviewedAt": "2026-03-26T16:27:31.240444+00:00",
   "commitId": "860c2051aa66ce2f2c43b38a1eb90e1596d4c3ff",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "The coins module was structurally split as intended, but the refactor changed `/coins/top_gainers_losers` validation semantics by rejecting a trailing-comma `price_change_percentage` query that the pre-refactor route accepted and that the updated characterization test now locks in.",
+    "summary": "The refactor mostly preserves the coins route structure, but it accidentally changed invalid CSV handling for /coins/top_gainers_losers by accepting trailing commas that previously failed characterization. That is a contract drift in a feature that was explicitly scoped to behavior-preserving refactoring.",
     "issues": [
       {
         "file": "src/modules/coins/helpers.ts",
         "line": 184,
         "severity": "blocking",
-        "description": "`parseMoverPriceChangePercentage()` no longer preserves pre-refactor behavior for inputs with empty CSV segments. Before the refactor, the route used `parseCsvQuery()`, which ignored a trailing comma; after extraction, `value.split(',')` plus the explicit empty-entry check turns `/coins/top_gainers_losers?vs_currency=usd&price_change_percentage=24h,` into HTTP 400. This is contract drift in a refactor-only feature, and the updated test in `tests/app.test.ts` now codifies the new behavior instead of characterizing the old one."
+        "description": "`parseMoverPriceChangePercentage()` no longer uses the existing CSV parser and now tolerates trailing empty entries, so `/coins/top_gainers_losers?...&price_change_percentage=24h,` is accepted instead of preserving the pre-refactor invalid-parameter behavior. The existing characterization suite only pinned `24h,,7d` (tests/app.test.ts:3757), so this refactor introduced contract drift without first characterizing the trailing-comma case."
       }
     ]
   },
   "sharedStateObservations": [
     {
       "area": "knowledge",
-      "observation": "The mission library documents that final refactors must be characterization-first, but it does not capture a practical warning that shared query parsers like `parseCsvQuery()` intentionally tolerate empty trailing CSV segments on some routes. That subtle contract detail was easy to lose during extraction.",
-      "evidence": "Pre-refactor `src/modules/coins.ts` parsed mover `price_change_percentage` with `parseCsvQuery(value).map(...)`; post-refactor `src/modules/coins/helpers.ts:184-197` replaced it with manual `split(',')` handling that rejects empty segments, changing `/coins/top_gainers_losers?price_change_percentage=24h,` from 200 to 400."
+      "observation": "The mission's shared library documents that final refactors must be characterization-first, but it does not capture the important coins-module nuance that malformed CSV handling should keep using the shared HTTP param helpers rather than ad hoc parsing. This omission made it easier for the refactor to replace `parseCsvQuery()` with custom comma splitting in `parseMoverPriceChangePercentage()` and miss a compatibility edge case.",
+      "evidence": "src/modules/coins/helpers.ts:189-201 implements custom CSV parsing instead of reusing `parseCsvQuery`; .factory/library/api.md only says to prefer explicit 4xx validation and does not record the helper-reuse expectation for CSV semantics."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Review failed: the refactor successfully split `src/modules/coins.ts`, but it introduced route-contract drift for `/coins/top_gainers_losers` by changing how trailing-comma `price_change_percentage` values are parsed. Review report written for validator follow-up."
+  "summary": "Reviewed handoff, transcript skeleton, skill procedure, shared-state docs, and commit `860c2051aa66ce2f2c43b38a1eb90e1596d4c3ff`. The refactor is well-structured overall, but it fails scrutiny because `parseMoverPriceChangePercentage()` changed malformed `price_change_percentage` handling and introduced contract drift for trailing-comma CSV input in a supposedly behavior-preserving refactor."
 }

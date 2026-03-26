@@ -1,21 +1,28 @@
 {
   "featureId": "startup-prewarm-hot-endpoints",
-  "reviewedAt": "2026-03-26T16:09:18.920640Z",
+  "reviewedAt": "2026-03-27T00:00:00Z",
   "commitId": "c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "pass",
+  "status": "fail",
   "codeReview": {
-    "summary": "The current branch state covers the startup prewarm requirements: declared hot targets are prewarmed during bootstrap-only startup, readiness budget and target outcomes are surfaced through diagnostics, first-request warm observations are tracked in metrics, and targeted tests exercise attribution and non-2xx failure classification without regressing runtime behavior.",
-    "issues": []
+    "summary": "The recorded handoff references startup-prewarm runtime/test changes, but the reported commit only contains unrelated operational-controls user-testing artifacts. The branch state does include startup prewarm code, but this feature review must fail because the feature\u2019s evidence chain is inconsistent and the claimed implementation is not attributable to the handoff commit.",
+    "issues": [
+      {
+        "file": "/home/whoami/.factory/missions/535b983d-b72a-4bff-ba31-9473c53ea1ce/handoffs/2026-03-26T12-57-10-001Z__startup-prewarm-hot-endpoints__87156602-5e6c-43db-a459-95a613c382e3.json",
+        "line": 6,
+        "severity": "blocking",
+        "description": "The handoff declares commit `c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665` as the implementation commit for this feature, but `git show` proves that commit only adds `.factory/validation/operational-controls/user-testing/*` files and does not touch any startup-prewarm source or tests. The feature therefore lacks a reliable reviewed diff/commit trail tying the claimed implementation to the reviewed session."
+      }
+    ]
   },
   "sharedStateObservations": [
     {
-      "area": "knowledge",
-      "observation": "Startup prewarm behavior is now important shared runtime knowledge: validators depend on `/diagnostics/runtime` startup prewarm fields and `opengecko_startup_prewarm_*` metrics to prove warm-start benefit, so this needs to stay documented for future runtime or validation work.",
-      "evidence": "`.factory/library/runtime.md` now documents that `/diagnostics/runtime` exposes `startup_prewarm` fields and Prometheus emits `opengecko_startup_prewarm_*` series; implementation lives in `src/modules/diagnostics.ts:68-72`, `src/services/metrics.ts:153-174`, and `src/services/startup-prewarm.ts:13-150`."
+      "area": "skills",
+      "observation": "The worker reported success against an existing HEAD commit that was unrelated to the assigned feature, creating an evidence gap between the reviewed transcript, handoff, and actual code changes. The skill guidance should state more explicitly how to handle sessions that inherit partially implemented work so reviewers can still trace feature ownership to a concrete diff.",
+      "evidence": "`worker-transcripts.jsonl` entry for session `87156602-5e6c-43db-a459-95a613c382e3` ends with `rev-parse HEAD` = `c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665`; the handoff repeats that commit, while `git show c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665` only contains operational-controls validation artifacts."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Reviewed the feature metadata, worker handoff, transcript skeleton, runtime/api skill guidance, implementation files, and the current commit context. In the present branch state the startup prewarm feature passes scrutiny: the earlier failure mode has been addressed by explicit failed-vs-timeout classification and continued target processing, and the diagnostics/metrics surfaces now provide the validator-facing evidence described by the feature."
+  "summary": "Reviewed feature metadata, handoff, transcript skeleton, skill instructions, and the claimed commit diff. Failing the review because the handoff points to an unrelated commit, so the startup-prewarm implementation cannot be reliably attributed or reviewed from the provided evidence even though matching code exists in the current branch state."
 }

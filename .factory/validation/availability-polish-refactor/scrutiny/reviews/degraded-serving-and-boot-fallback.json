@@ -1,21 +1,21 @@
 {
   "featureId": "degraded-serving-and-boot-fallback",
-  "reviewedAt": "2026-03-26T16:10:17Z",
+  "reviewedAt": "2026-03-26T16:28:04Z",
   "commitId": "b0e5fba583cead53f88ae70768d488b6b3cc8794",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "Reviewed the degraded-serving fix commit, handoff, transcript skeleton, and touched runtime/coins/diagnostics code. The implementation consistently threads runtime state through bootstrap refresh, preserves seeded-bootstrap degraded row semantics on /coins/markets, and aligns diagnostics/source-class reporting with the selected degraded-boot policy covered by targeted stale-data regressions.",
+    "summary": "Reviewed the handoff, transcript skeleton, skill guidance, and commit b0e5fba. The implementation now routes bootstrap refresh through shared runtime state, keeps degraded seeded-bootstrap /coins/markets rows compatible by nulling market-value fields, and aligns runtime diagnostics with the selected degraded-boot policy covered by targeted stale-data regressions.",
     "issues": []
   },
   "sharedStateObservations": [
     {
       "area": "knowledge",
-      "observation": "The worker repeatedly hit a missing README at /home/whoami/dev/openGecko/README.md because the repo-level README was absent during the worker session, but the current environment now has one. Mission shared state does not explain this recent README movement, so future workers may repeat the same confusion when following the mandated README-first exploration rule.",
-      "evidence": "Transcript skeleton for worker session 022f786d-c8d2-4f2f-927b-3599545e9a4c shows `Read /home/whoami/dev/openGecko/README.md` returning ENOENT early in the run, while the current repo root now contains README.md per session context and review reads."
+      "observation": "Mission shared state does not explain the repo README transition even though workers are required to start exploration from README.md. A previous worker hit ENOENT on /home/whoami/dev/openGecko/README.md, while the file exists in the current environment, so future workers may repeat that confusion without a note in shared state.",
+      "evidence": "Worker transcript skeleton for session 80d04f19-aa6c-45c5-82dd-07e07790d605 shows early README-first exploration and related project context reads; an earlier sibling session in the same mission hit ENOENT for /home/whoami/dev/openGecko/README.md, while the current repo root now contains README.md and neither mission AGENTS.md nor .factory/library mention that movement."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Pass. The fix brings /simple/price, /coins/markets, and runtime diagnostics into agreement for stale-live and degraded-bootstrap fallback scenarios, and I found no blocking contract or edge-case gaps in the reviewed change set."
+  "summary": "Pass. The reviewed change set makes /simple/price, /coins/markets, and /diagnostics/runtime agree on degraded serving semantics for residual bootstrap snapshots, and I found no blocking or non-blocking code issues in scope."
 }

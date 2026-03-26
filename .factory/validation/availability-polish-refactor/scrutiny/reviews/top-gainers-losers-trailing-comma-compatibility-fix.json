@@ -1,0 +1,15 @@
+{
+  "featureId": "top-gainers-losers-trailing-comma-compatibility-fix",
+  "reviewedAt": "2026-03-26T16:30:17Z",
+  "commitId": "999bfd233dab0162a4e2c30893b6325231204718",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix matches the feature contract: `parseMoverPriceChangePercentage` now ignores only trailing empty CSV segments, so `price_change_percentage=24h,` is accepted again while malformed internal-empty input like `24h,,7d` still returns the established `invalid_parameter` 400. The route-level characterization in `tests/app.test.ts` covers both the restored tolerated case and the still-invalid malformed case, and the implementation remains scoped to the mover parser without widening broader CSV semantics.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Pass: reviewed feature metadata, transcript skeleton, handoff, skill procedure, and commit `999bfd2`. The implementation cleanly restores the historical trailing-comma compatibility for `/coins/top_gainers_losers` while preserving invalid-parameter behavior for genuinely malformed mover CSV input, and I found no blocking or non-blocking issues in the touched code."
+}

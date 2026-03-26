@@ -1,6 +1,6 @@
 {
   "milestone": "availability-polish-refactor",
-  "round": 4,
+  "round": 5,
   "status": "fail",
   "validatorsRun": {
     "test": {
@@ -20,34 +20,59 @@
     }
   },
   "reviewsSummary": {
-    "total": 5,
-    "passed": 4,
-    "failed": 1,
+    "total": 9,
+    "passed": 5,
+    "failed": 4,
     "failedFeatures": [
-      "refactor-coins-module-with-characterization"
+      "startup-prewarm-hot-endpoints",
+      "refactor-coins-module-with-characterization",
+      "startup-prewarm-finalization",
+      "prewarm-target-attribution-hardening"
     ]
   },
   "blockingIssues": [
     {
+      "featureId": "startup-prewarm-hot-endpoints",
+      "severity": "blocking",
+      "description": "The handoff declares commit `c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665` as the implementation commit for this feature, but `git show` proves that commit only adds `.factory/validation/operational-controls/user-testing/*` files and does not touch any startup-prewarm source or tests. The feature therefore lacks a reliable reviewed diff/commit trail tying the claimed implementation to the reviewed session."
+    },
+    {
       "featureId": "refactor-coins-module-with-characterization",
       "severity": "blocking",
-      "description": "`parseMoverPriceChangePercentage()` no longer preserves pre-refactor behavior for inputs with empty CSV segments. Before the refactor, the route used `parseCsvQuery()`, which ignored a trailing comma; after extraction, `value.split(',')` plus the explicit empty-entry check turns `/coins/top_gainers_losers?vs_currency=usd&price_change_percentage=24h,` into HTTP 400. This is contract drift in a refactor-only feature, and the updated test in `tests/app.test.ts` now codifies the new behavior instead of characterizing the old one."
+      "description": "`parseMoverPriceChangePercentage()` no longer uses the existing CSV parser and now tolerates trailing empty entries, so `/coins/top_gainers_losers?...&price_change_percentage=24h,` is accepted instead of preserving the pre-refactor invalid-parameter behavior. The existing characterization suite only pinned `24h,,7d` (tests/app.test.ts:3757), so this refactor introduced contract drift without first characterizing the trailing-comma case."
+    },
+    {
+      "featureId": "startup-prewarm-finalization",
+      "severity": "blocking",
+      "description": "This feature was supposed to finalize the pre-existing startup-prewarm working-tree slice only, but the commit also edits stale-data cache revision behavior by manually incrementing `app!.marketDataRuntimeState.hotDataRevision`. That change is unrelated to startup prewarm finalization, so the implementation does not satisfy the requirement to create a clean commit containing only startup-prewarm code and tests."
+    },
+    {
+      "featureId": "prewarm-target-attribution-hardening",
+      "severity": "blocking",
+      "description": "`normalizePrewarmQueryValues()` deduplicates query values with `new Set(...)` before comparison, so a request like `/simple/price?ids=bitcoin,bitcoin&vs_currencies=usd` normalizes to the same target signature as the declared prewarm target `/simple/price?ids=bitcoin&vs_currencies=usd`. The feature requires attribution only for requests truly equivalent to the prewarm target semantics, but duplicated selector values are not proven equivalent here and can still claim warm-path evidence."
     }
   ],
   "appliedUpdates": [],
-  "suggestedGuidanceUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skills",
+      "suggestion": "Clarify scrutiny/implementation skill guidance for sessions that inherit already-written code so handoffs must cite a feature-attributable diff or explain inherited commits explicitly.",
+      "evidence": "`worker-transcripts.jsonl` entry for session `87156602-5e6c-43db-a459-95a613c382e3` ends with `rev-parse HEAD` = `c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665`; the handoff repeats that commit, while `git show c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665` only contains operational-controls validation artifacts.",
+      "isSystemic": false
+    }
+  ],
   "rejectedObservations": [
     {
-      "observation": "The worker repeatedly hit a missing README at /home/whoami/dev/openGecko/README.md because the repo-level README was absent during the worker session, but the current environment now has one. Mission shared state does not explain this recent README movement, so future workers may repeat the same confusion when following the mandated README-first exploration rule.",
+      "observation": "Mission shared state does not explain the repo README transition even though workers are required to start exploration from README.md. A previous worker hit ENOENT on /home/whoami/dev/openGecko/README.md, while the file exists in the current environment, so future workers may repeat that confusion without a note in shared state.",
       "reason": "ambiguous"
     },
     {
-      "observation": "Startup prewarm behavior is now important shared runtime knowledge: validators depend on `/diagnostics/runtime` startup prewarm fields and `opengecko_startup_prewarm_*` metrics to prove warm-start benefit, so this needs to stay documented for future runtime or validation work.",
-      "reason": "already-documented"
+      "observation": "The mission's shared library documents that final refactors must be characterization-first, but it does not capture the important coins-module nuance that malformed CSV handling should keep using the shared HTTP param helpers rather than ad hoc parsing. This omission made it easier for the refactor to replace `parseCsvQuery()` with custom comma splitting in `parseMoverPriceChangePercentage()` and miss a compatibility edge case.",
+      "reason": "ambiguous"
     },
     {
-      "observation": "The mission library documents that final refactors must be characterization-first, but it does not capture a practical warning that shared query parsers like `parseCsvQuery()` intentionally tolerate empty trailing CSV segments on some routes. That subtle contract detail was easy to lose during extraction.",
-      "reason": "already-documented"
+      "observation": "Runtime shared-state guidance documents the startup prewarm diagnostics and metrics surfaces, but it does not capture the feature-scoping rule that the startup-prewarm finalization slice must exclude unrelated working-tree changes like stale-data regression adjustments. Future cleanup/finalization workers could benefit from an explicit note that 'finalize existing working tree slice' tasks must restage only files directly belonging to that slice.",
+      "reason": "ambiguous"
     }
   ],
   "previousRound": ".factory/validation/availability-polish-refactor/scrutiny/synthesis.json"
