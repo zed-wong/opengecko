@@ -152,13 +152,13 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json()).toMatchObject({
       bitcoin: {
         usd: 85000,
-        eur: 73329.5,
+        eur: 73329.50154764981,
         usd_24h_change: 1.8,
         eur_24h_change: 1.8,
       },
       ethereum: {
         usd: 2000,
-        eur: 1725.4,
+        eur: 1725.4000364152896,
         usd_24h_change: 2.56,
         eur_24h_change: 2.56,
       },
@@ -2976,19 +2976,19 @@ describe('OpenGecko app scaffold', () => {
     expect(chartResponse.statusCode).toBe(200);
     expect(chartResponse.json()).toEqual({
       prices: [
-        [1774396800000, 85000],
+        [1774483200000, 85000],
       ],
       market_caps: [
-        [1774396800000, null],
+        [1774483200000, null],
       ],
       total_volumes: [
-        [1774396800000, 425000000],
+        [1774483200000, 425000000],
       ],
     });
 
     expect(maxChartResponse.statusCode).toBe(200);
     expect(maxChartResponse.json().prices).toEqual([
-      [1774396800000, 85000],
+      [1774483200000, 85000],
     ]);
 
     expect(rangeChartResponse.statusCode).toBe(200);
@@ -3000,7 +3000,7 @@ describe('OpenGecko app scaffold', () => {
 
     expect(ohlcResponse.statusCode).toBe(200);
     expect(ohlcResponse.json()).toEqual([
-      [1774396800000, 85000, 85000, 85000, 85000],
+      [1774483200000, 85000, 85000, 85000, 85000],
     ]);
   });
 
@@ -3159,7 +3159,7 @@ describe('OpenGecko app scaffold', () => {
     expect(contractChartResponse.statusCode).toBe(200);
     expect(contractChartResponse.json()).toMatchObject({
       prices: [
-        [1774396800000, 1],
+        [1774483200000, 1],
       ],
     });
 

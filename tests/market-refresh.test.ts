@@ -13,11 +13,15 @@ vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn(),
   fetchExchangeTickers: vi.fn(),
   fetchExchangeNetworks: vi.fn().mockResolvedValue([]),
+  closeExchangePool: vi.fn().mockResolvedValue(undefined),
   isValidExchangeId: (value: string): value is string =>
     ['binance', 'coinbase', 'kraken', 'bybit', 'okx'].includes(value),
 }));
 
 import { fetchExchangeMarkets, fetchExchangeTickers } from '../src/providers/ccxt';
+
+const mockedFetchExchangeMarkets = fetchExchangeMarkets as ReturnType<typeof vi.fn>;
+const mockedFetchExchangeTickers = fetchExchangeTickers as ReturnType<typeof vi.fn>;
 
 const now = new Date();
 
@@ -41,8 +45,8 @@ describe('market refresh service', () => {
       database.db.insert(exchanges).values(exchange).run();
     }
     rebuildSearchIndex(database);
-    vi.mocked(fetchExchangeMarkets).mockReset();
-    vi.mocked(fetchExchangeTickers).mockReset();
+    mockedFetchExchangeMarkets.mockReset();
+    mockedFetchExchangeTickers.mockReset();
   });
 
   afterEach(() => {
@@ -51,7 +55,7 @@ describe('market refresh service', () => {
   });
 
   it('upserts live coin tickers from exchange refresh results', async () => {
-    vi.mocked(fetchExchangeMarkets).mockResolvedValue([
+    mockedFetchExchangeMarkets.mockResolvedValue([
       {
         exchangeId: 'binance',
         symbol: 'BTC/USD',
@@ -83,7 +87,7 @@ describe('market refresh service', () => {
         raw: {},
       },
     ]);
-    vi.mocked(fetchExchangeTickers).mockImplementation(async (exchangeId) => {
+    mockedFetchExchangeTickers.mockImplementation(async (exchangeId) => {
       switch (exchangeId) {
         case 'binance':
           return [{
@@ -221,7 +225,7 @@ describe('market refresh service', () => {
   });
 
   it('supports non-hardcoded exchanges with generic trade URLs', async () => {
-    vi.mocked(fetchExchangeMarkets).mockResolvedValue([
+    mockedFetchExchangeMarkets.mockResolvedValue([
       {
         exchangeId: 'bybit',
         symbol: 'BTC/USDT',
@@ -233,7 +237,7 @@ describe('market refresh service', () => {
         raw: {},
       },
     ]);
-    vi.mocked(fetchExchangeTickers).mockImplementation(async (exchangeId) => {
+    mockedFetchExchangeTickers.mockImplementation(async (exchangeId) => {
       if (exchangeId !== 'bybit') {
         return [];
       }
