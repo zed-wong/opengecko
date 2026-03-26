@@ -5,6 +5,7 @@ import {
   DEFAULT_CURRENCY_REFRESH_INTERVAL_SECONDS,
   DEFAULT_MARKET_FRESHNESS_THRESHOLD_SECONDS,
   DEFAULT_MARKET_REFRESH_INTERVAL_SECONDS,
+  DEFAULT_PROVIDER_FANOUT_CONCURRENCY,
   DEFAULT_SEARCH_REBUILD_INTERVAL_SECONDS,
 } from './runtime-policy';
 import { HTTP_LOG_STYLES } from '../http/http-log-style';
@@ -21,6 +22,7 @@ const envSchema = z.object({
   MARKET_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().positive().default(DEFAULT_MARKET_REFRESH_INTERVAL_SECONDS),
   CURRENCY_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().positive().default(DEFAULT_CURRENCY_REFRESH_INTERVAL_SECONDS),
   SEARCH_REBUILD_INTERVAL_SECONDS: z.coerce.number().int().positive().default(DEFAULT_SEARCH_REBUILD_INTERVAL_SECONDS),
+  PROVIDER_FANOUT_CONCURRENCY: z.coerce.number().int().positive().default(DEFAULT_PROVIDER_FANOUT_CONCURRENCY),
 });
 
 export type AppConfig = {
@@ -35,6 +37,7 @@ export type AppConfig = {
   marketRefreshIntervalSeconds: number;
   currencyRefreshIntervalSeconds: number;
   searchRebuildIntervalSeconds: number;
+  providerFanoutConcurrency: number;
 };
 
 export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -52,6 +55,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
     marketRefreshIntervalSeconds: env.MARKET_REFRESH_INTERVAL_SECONDS,
     currencyRefreshIntervalSeconds: env.CURRENCY_REFRESH_INTERVAL_SECONDS,
     searchRebuildIntervalSeconds: env.SEARCH_REBUILD_INTERVAL_SECONDS,
+    providerFanoutConcurrency: env.PROVIDER_FANOUT_CONCURRENCY,
   };
 }
 

@@ -147,6 +147,7 @@ describe('market refresh service', () => {
 
     await runMarketRefreshOnce(database, {
       ccxtExchanges: ['binance', 'coinbase', 'kraken'],
+      providerFanoutConcurrency: 2,
     });
 
     const bitcoinBinanceTicker = database.db
@@ -262,6 +263,7 @@ describe('market refresh service', () => {
 
     await runMarketRefreshOnce(database, {
       ccxtExchanges: ['bybit'],
+      providerFanoutConcurrency: 2,
     });
 
     const bybitTicker = database.db
@@ -280,5 +282,54 @@ describe('market refresh service', () => {
       tradeUrl: 'https://www.bybit.com/trade/BTC-USDT',
       tokenInfoUrl: null,
     });
+  });
+
+  it('limits ticker fanout concurrency during market refresh', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+
+    mockedFetchExchangeMarkets.mockResolvedValue([
+      {
+        exchangeId: 'binance',
+        symbol: 'BTC/USDT',
+        base: 'BTC',
+        quote: 'USDT',
+        active: true,
+        spot: true,
+        baseName: 'Bitcoin',
+        raw: {},
+      },
+    ]);
+
+    mockedFetchExchangeTickers.mockImplementation(async (exchangeId) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      inFlight -= 1;
+
+      return [{
+        exchangeId,
+        symbol: 'BTC/USDT',
+        base: 'BTC',
+        quote: 'USDT',
+        last: 90_000,
+        bid: 89_990,
+        ask: 90_010,
+        high: null,
+        low: null,
+        baseVolume: 1_000,
+        quoteVolume: 90_000_000,
+        percentage: 1,
+        timestamp: Date.parse('2026-03-21T00:00:00.000Z'),
+        raw: {} as never,
+      }];
+    });
+
+    await runMarketRefreshOnce(database, {
+      ccxtExchanges: ['binance', 'coinbase', 'kraken', 'bybit'],
+      providerFanoutConcurrency: 2,
+    });
+
+    expect(maxInFlight).toBeLessThanOrEqual(2);
   });
 });

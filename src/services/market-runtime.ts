@@ -67,7 +67,7 @@ type MarketRuntimeOverrides = {
 
 export function createMarketRuntime(
   database: AppDatabase,
-  config: Pick<AppConfig, 'ccxtExchanges' | 'currencyRefreshIntervalSeconds' | 'marketRefreshIntervalSeconds' | 'searchRebuildIntervalSeconds' | 'marketFreshnessThresholdSeconds'>,
+  config: Pick<AppConfig, 'ccxtExchanges' | 'currencyRefreshIntervalSeconds' | 'marketRefreshIntervalSeconds' | 'searchRebuildIntervalSeconds' | 'marketFreshnessThresholdSeconds' | 'providerFanoutConcurrency'>,
   logger: RuntimeLogger,
   state: MarketDataRuntimeState,
   overrides: MarketRuntimeOverrides = {},

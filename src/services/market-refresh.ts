@@ -7,6 +7,7 @@ import { coins } from '../db/schema';
 import type { Logger } from 'pino';
 import { fetchExchangeTickers, isValidExchangeId, type ExchangeId } from '../providers/ccxt';
 import { syncCoinCatalogFromExchanges } from './coin-catalog-sync';
+import { mapWithConcurrency } from '../lib/async';
 import { recordQuoteSnapshot, toMinuteBucket, toDailyBucket, upsertCanonicalCandle } from './candle-store';
 import { getCurrencyApiSnapshot } from './currency-rates';
 import { buildLiveSnapshotValue, createMarketQuoteAccumulator, type MarketQuoteAccumulator } from './market-snapshots';
@@ -140,7 +141,7 @@ function upsertLiveCoinTicker(
 
 export async function runMarketRefreshOnce(
   database: AppDatabase,
-  config: Pick<AppConfig, 'ccxtExchanges'>,
+  config: Pick<AppConfig, 'ccxtExchanges' | 'providerFanoutConcurrency'>,
   logger?: Logger,
 ) {
   const refreshLogger = logger?.child({ operation: 'market_refresh' });
@@ -153,7 +154,7 @@ export async function runMarketRefreshOnce(
 
   refreshLogger?.debug({ exchanges: exchangeIds }, 'starting market refresh');
 
-  await syncCoinCatalogFromExchanges(database, exchangeIds, refreshLogger);
+  await syncCoinCatalogFromExchanges(database, exchangeIds, refreshLogger, config.providerFanoutConcurrency);
 
   const symbolIndex = buildRequestedSymbolIndex(database);
   const requestedSymbols = [...symbolIndex.keys()];
@@ -165,8 +166,10 @@ export async function runMarketRefreshOnce(
   );
 
   // Fetch all exchange tickers in parallel
-  const tickerResults = await Promise.allSettled(
-    exchangeIds.map((exchangeId) => fetchExchangeTickers(exchangeId, requestedSymbols)),
+  const tickerResults = await mapWithConcurrency(
+    exchangeIds,
+    config.providerFanoutConcurrency,
+    async (exchangeId) => Promise.allSettled([fetchExchangeTickers(exchangeId, requestedSymbols)]).then(([result]) => result),
   );
 
   for (let i = 0; i < exchangeIds.length; i++) {

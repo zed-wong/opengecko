@@ -68,6 +68,7 @@ describe('market runtime', () => {
     marketRefreshIntervalSeconds: 60,
     searchRebuildIntervalSeconds: 900,
     marketFreshnessThresholdSeconds: 300,
+    providerFanoutConcurrency: 2,
   };
 
   it('runs initial sync before starting refresh loop', async () => {

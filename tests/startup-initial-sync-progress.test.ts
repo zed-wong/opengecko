@@ -92,7 +92,7 @@ describe('initial sync startup progress', () => {
 
     await runInitialMarketSync(
       database,
-      { ccxtExchanges: ['binance'], marketFreshnessThresholdSeconds: 300 },
+      { ccxtExchanges: ['binance'], marketFreshnessThresholdSeconds: 300, providerFanoutConcurrency: 2 },
       undefined,
       {
         onStepChange: (stepId: string) => {

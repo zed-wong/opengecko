@@ -68,6 +68,7 @@ describe('live data integration', () => {
         databaseUrl: join(tempDir, 'test.db'),
         logLevel: 'silent',
         marketFreshnessThresholdSeconds: 300,
+        providerFanoutConcurrency: 2,
       },
       startBackgroundJobs: true,
     });
