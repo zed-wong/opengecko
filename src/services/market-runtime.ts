@@ -26,6 +26,10 @@ function clearRecoveredDegradedState(state: MarketDataRuntimeState) {
   state.providerFailureCooldownUntil = null;
 }
 
+function enableFallbackFromExistingSnapshots(state: MarketDataRuntimeState) {
+  state.allowStaleLiveService = true;
+}
+
 function createSerializedJob(name: string, logger: RuntimeLogger, state: MarketDataRuntimeState, runner: JobRunner) {
   let inFlight: Promise<void> | null = null;
 
@@ -111,7 +115,7 @@ export function createMarketRuntime(
     const snapshotCount = queryDb.select().from(marketSnapshots).all().length;
 
     if (snapshotCount > 0) {
-      state.allowStaleLiveService = true;
+      enableFallbackFromExistingSnapshots(state);
       logger.warn('using residual stale data while bootstrap is still running');
     }
   }
@@ -148,7 +152,7 @@ export function createMarketRuntime(
                 onOhlcvBackfillProgress: (current, total) => {
                   startupProgress?.updateOhlcvProgress(current, total);
                 },
-              });
+              }, state);
 
           await initialSync();
           startupProgress?.begin('start_ohlcv_worker');
@@ -175,6 +179,9 @@ export function createMarketRuntime(
           state.syncFailureReason = reason;
           logger.error({ error: reason }, 'initial market sync failed');
           await enableResidualStaleDataIfAvailable();
+          if (state.allowStaleLiveService) {
+            enableFallbackFromExistingSnapshots(state);
+          }
           bumpHotDataRevision(state);
         }
 

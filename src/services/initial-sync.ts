@@ -8,6 +8,7 @@ import { fetchExchangeMarkets, isValidExchangeId, type ExchangeId } from '../pro
 import { syncCoinCatalogFromExchanges } from './coin-catalog-sync';
 import { syncChainCatalogFromExchanges } from './chain-catalog-sync';
 import { runMarketRefreshOnce } from './market-refresh';
+import type { MarketDataRuntimeState } from './market-runtime-state';
 
 export type InitialSyncProgressHandlers = {
   onStepChange?: (stepId: 'sync_exchange_metadata' | 'sync_coin_catalog' | 'sync_chain_catalog' | 'build_market_snapshots' | 'start_ohlcv_worker') => void;
@@ -87,6 +88,7 @@ export async function runInitialMarketSync(
   config: Pick<AppConfig, 'ccxtExchanges' | 'marketFreshnessThresholdSeconds' | 'providerFanoutConcurrency'>,
   logger?: Logger,
   progress?: InitialSyncProgressHandlers,
+  runtimeState?: MarketDataRuntimeState,
 ): Promise<InitialSyncResult> {
   const syncLogger = logger?.child({ operation: 'initial_sync' }) ?? createLogger({ level: 'info' }).child({ operation: 'initial_sync' });
   const startTime = Date.now();
@@ -127,7 +129,7 @@ export async function runInitialMarketSync(
   await runMarketRefreshOnce(database, {
     ccxtExchanges: exchangeIds,
     providerFanoutConcurrency: config.providerFanoutConcurrency,
-  }, syncLogger);
+  }, syncLogger, runtimeState);
 
   // Step 4: Count live snapshots
   const { marketSnapshots } = await import('../db/schema');

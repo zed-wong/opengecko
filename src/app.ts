@@ -147,7 +147,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         onOhlcvBackfillProgress: (current, total) => {
           options.startupProgress?.updateOhlcvProgress(current, total);
         },
-      });
+      }, marketDataRuntimeState);
       const newlyExposedHotData = !hotDataWasVisible;
       marketDataRuntimeState.initialSyncCompleted = true;
       marketDataRuntimeState.allowStaleLiveService = false;

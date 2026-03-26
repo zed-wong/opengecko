@@ -13,6 +13,7 @@ import { getCategories, getChartSeries, getCoinByContract, getCoinById, getCoins
 import { downsampleTimeSeries, getChartGranularityMs, getRangeDurationMs } from './chart-semantics';
 import { getSnapshotAccessPolicy, type SnapshotAccessPolicy, getUsableSnapshot } from './market-freshness';
 import { getCanonicalCandles } from '../services/candle-store';
+import { getSnapshotOwnership } from '../services/market-snapshots';
 
 const coinsListQuerySchema = z.object({
   include_platform: z.enum(['true', 'false']).optional(),
@@ -362,6 +363,7 @@ function buildMarketRow(
   options: { sparkline: boolean; precision: number | 'full'; priceChangePercentages: string[] },
 ) {
   const snapshot = row.snapshot;
+  const isSeededBootstrapSnapshot = snapshot !== null && getSnapshotOwnership(snapshot) === 'seeded';
   const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const chartSeries = getChartSeries(database, row.coin.id, 'usd');
   const prices = chartSeries.map((point) => point.price * rate);
@@ -375,11 +377,11 @@ function buildMarketRow(
     market_cap: toNumberOrNull(snapshot?.marketCap ? snapshot.marketCap * rate : null, options.precision),
     market_cap_rank: snapshot?.marketCapRank ?? row.coin.marketCapRank,
     fully_diluted_valuation: toNumberOrNull(snapshot?.fullyDilutedValuation ? snapshot.fullyDilutedValuation * rate : null, options.precision),
-    total_volume: toNumberOrNull(snapshot?.totalVolume ? snapshot.totalVolume * rate : null, options.precision),
-    high_24h: prices.length === 0 ? null : toNumberOrNull(Math.max(...prices), options.precision),
-    low_24h: prices.length === 0 ? null : toNumberOrNull(Math.min(...prices), options.precision),
-    price_change_24h: toNumberOrNull(snapshot?.priceChange24h ? snapshot.priceChange24h * rate : null, options.precision),
-    price_change_percentage_24h: toNumberOrNull(snapshot?.priceChangePercentage24h, options.precision),
+    total_volume: isSeededBootstrapSnapshot ? null : toNumberOrNull(snapshot?.totalVolume ? snapshot.totalVolume * rate : null, options.precision),
+    high_24h: isSeededBootstrapSnapshot || prices.length === 0 ? null : toNumberOrNull(Math.max(...prices), options.precision),
+    low_24h: isSeededBootstrapSnapshot || prices.length === 0 ? null : toNumberOrNull(Math.min(...prices), options.precision),
+    price_change_24h: isSeededBootstrapSnapshot ? null : toNumberOrNull(snapshot?.priceChange24h ? snapshot.priceChange24h * rate : null, options.precision),
+    price_change_percentage_24h: isSeededBootstrapSnapshot ? null : toNumberOrNull(snapshot?.priceChangePercentage24h, options.precision),
     market_cap_change_24h: null,
     market_cap_change_percentage_24h: null,
     circulating_supply: toNumberOrNull(snapshot?.circulatingSupply, options.precision),
@@ -393,7 +395,24 @@ function buildMarketRow(
     atl_date: snapshot?.atlDate?.toISOString() ?? null,
     roi: null,
     last_updated: snapshot?.lastUpdated?.toISOString() ?? null,
-    ...buildMarketPriceChangeFields(chartSeries, rate, options.priceChangePercentages, options.precision),
+    ...(
+      isSeededBootstrapSnapshot
+        ? Object.fromEntries(
+          options.priceChangePercentages.map((window) => {
+            const field = {
+              '24h': 'price_change_percentage_24h_in_currency',
+              '7d': 'price_change_percentage_7d_in_currency',
+              '14d': 'price_change_percentage_14d_in_currency',
+              '30d': 'price_change_percentage_30d_in_currency',
+              '200d': 'price_change_percentage_200d_in_currency',
+              '1y': 'price_change_percentage_1y_in_currency',
+            }[window];
+
+            return field ? [field, null] : [window, null];
+          }).filter((entry): entry is [string, null] => entry[0] !== undefined),
+        )
+        : buildMarketPriceChangeFields(chartSeries, rate, options.priceChangePercentages, options.precision)
+    ),
     ...(options.sparkline ? { sparkline_in_7d: buildSparkline(chartSeries, rate) } : {}),
   };
 }

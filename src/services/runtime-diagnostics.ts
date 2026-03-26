@@ -42,7 +42,18 @@ export function buildRuntimeDiagnostics(
   marketFreshnessThresholdSeconds: number,
   now = Date.now(),
 ): RuntimeDiagnostics {
-  const degradedActive = runtimeState.allowStaleLiveService || runtimeState.syncFailureReason !== null;
+  const latestSnapshotOwnership = latestUsdSnapshot ? getSnapshotOwnership(latestUsdSnapshot) : null;
+  const latestSnapshotFreshness = latestUsdSnapshot && latestSnapshotOwnership === 'live'
+    ? getSnapshotFreshness(latestUsdSnapshot, marketFreshnessThresholdSeconds, now)
+    : null;
+  const seededBootstrapFallbackActive = (
+    runtimeState.initialSyncCompleted === false
+    && latestSnapshotOwnership === 'seeded'
+    && runtimeState.syncFailureReason !== null
+  );
+  const staleLiveFallbackActive = runtimeState.allowStaleLiveService
+    || (runtimeState.syncFailureReason !== null && latestSnapshotFreshness?.isStale === true);
+  const degradedActive = staleLiveFallbackActive || seededBootstrapFallbackActive;
   const cooldownUntil = runtimeState.providerFailureCooldownUntil;
   const injectedProviderFailure = runtimeState.forcedProviderFailure ?? {
     active: false,
@@ -50,20 +61,17 @@ export function buildRuntimeDiagnostics(
   };
   const sourceClass = latestUsdSnapshot
     ? (() => {
-      const ownership = getSnapshotOwnership(latestUsdSnapshot);
-      if (ownership === 'seeded') {
+      if (latestSnapshotOwnership === 'seeded') {
         return 'seeded_bootstrap' as const;
       }
 
-      const freshness = getSnapshotFreshness(latestUsdSnapshot, marketFreshnessThresholdSeconds, now);
-
-      return freshness.isStale ? 'stale_live' as const : 'fresh_live' as const;
+      return latestSnapshotFreshness?.isStale ? 'stale_live' as const : 'fresh_live' as const;
     })()
     : 'unavailable' as const;
 
   const hotPathSnapshot = latestUsdSnapshot
     ? (() => {
-      const freshness = getSnapshotFreshness(latestUsdSnapshot, marketFreshnessThresholdSeconds, now);
+      const freshness = latestSnapshotFreshness ?? getSnapshotFreshness(latestUsdSnapshot, marketFreshnessThresholdSeconds, now);
 
       return {
         available: true,
