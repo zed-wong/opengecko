@@ -225,7 +225,7 @@ describe('stale market snapshot behavior', () => {
       }),
       app!.inject({
         method: 'GET',
-        url: '/coins/markets?vs_currency=usd&ids=bitcoin',
+        url: '/coins/markets?vs_currency=usd&ids=bitcoin&price_change_percentage=24h',
       }),
       app!.inject({
         method: 'GET',
@@ -252,6 +252,10 @@ describe('stale market snapshot behavior', () => {
       price_change_percentage_24h: null,
       last_updated: bootstrapSourceTime.toISOString(),
     });
+    expect(marketsResponse.json()[0]).toMatchObject({
+      price_change_percentage_24h_in_currency: null,
+    });
+    expect(marketsResponse.json()[0].price_change_percentage_24h_in_currency).toBeNull();
 
     expect(diagnosticsResponse.statusCode).toBe(200);
     expect(diagnosticsResponse.json()).toMatchObject({

@@ -155,6 +155,25 @@ export function buildMarketPriceChangeFields(
   );
 }
 
+function buildNullMarketPriceChangeFields(requestedWindows: string[]) {
+  return Object.fromEntries(
+    requestedWindows
+      .map((window) => {
+        const field = {
+          '24h': 'price_change_percentage_24h_in_currency',
+          '7d': 'price_change_percentage_7d_in_currency',
+          '14d': 'price_change_percentage_14d_in_currency',
+          '30d': 'price_change_percentage_30d_in_currency',
+          '200d': 'price_change_percentage_200d_in_currency',
+          '1y': 'price_change_percentage_1y_in_currency',
+        }[window];
+
+        return field ? [field, null] : null;
+      })
+      .filter((entry): entry is [string, null] => entry !== null),
+  );
+}
+
 export function buildMarketRow(
   database: AppDatabase,
   row: { coin: CoinRow; snapshot: MarketSnapshotRow | null },
@@ -198,20 +217,7 @@ export function buildMarketRow(
     last_updated: snapshot?.lastUpdated?.toISOString() ?? null,
     ...(
       seededBootstrapSnapshot
-        ? Object.fromEntries(
-          options.priceChangePercentages.map((window) => {
-            const field = {
-              '24h': 'price_change_percentage_24h_in_currency',
-              '7d': 'price_change_percentage_7d_in_currency',
-              '14d': 'price_change_percentage_14d_in_currency',
-              '30d': 'price_change_percentage_30d_in_currency',
-              '200d': 'price_change_percentage_200d_in_currency',
-              '1y': 'price_change_percentage_1y_in_currency',
-            }[window];
-
-            return field ? [field, null] : [window, null];
-          }).filter((entry): entry is [string, null] => entry[0] !== undefined),
-        )
+        ? buildNullMarketPriceChangeFields(options.priceChangePercentages)
         : buildMarketPriceChangeFields(chartSeries, rate, options.priceChangePercentages, options.precision)
     ),
     ...(options.sparkline ? { sparkline_in_7d: buildSparkline(chartSeries, rate) } : {}),
