@@ -14,6 +14,44 @@ export type SnapshotAccessPolicy = {
   allowStaleLiveService: boolean;
 };
 
+function applyValidationSnapshotOverride<T extends Pick<MarketSnapshotRow, 'lastUpdated' | 'sourceCount'>>(
+  snapshot: T,
+  runtimeState: MarketDataRuntimeState,
+): T {
+  const validationOverride = runtimeState.validationOverride;
+
+  if (!validationOverride || validationOverride.mode === 'off') {
+    return snapshot;
+  }
+
+  const nextLastUpdated = validationOverride.snapshotTimestampOverride
+    ? new Date(validationOverride.snapshotTimestampOverride)
+    : snapshot.lastUpdated;
+  const nextSourceCount = validationOverride.snapshotSourceCountOverride ?? snapshot.sourceCount;
+
+  if (nextLastUpdated === snapshot.lastUpdated && nextSourceCount === snapshot.sourceCount) {
+    return snapshot;
+  }
+
+  const overriddenSnapshot = {
+    ...snapshot,
+    lastUpdated: nextLastUpdated,
+    sourceCount: nextSourceCount,
+  };
+
+  if (validationOverride.mode !== 'degraded_seeded_bootstrap') {
+    return overriddenSnapshot;
+  }
+
+  return {
+    ...overriddenSnapshot,
+    marketCap: null,
+    totalVolume: null,
+    priceChange24h: null,
+    priceChangePercentage24h: null,
+  };
+}
+
 export function isLiveSnapshot(snapshot: Pick<MarketSnapshotRow, 'sourceCount'>) {
   return getSnapshotOwnership(snapshot) === 'live';
 }
@@ -94,4 +132,15 @@ export function getUsableSnapshot<T extends Pick<MarketSnapshotRow, 'lastUpdated
   }
 
   return null;
+}
+
+export function getEffectiveSnapshot<T extends Pick<MarketSnapshotRow, 'lastUpdated' | 'sourceProvidersJson' | 'sourceCount'>>(
+  snapshot: T | null,
+  runtimeState: MarketDataRuntimeState,
+) {
+  if (!snapshot) {
+    return null;
+  }
+
+  return applyValidationSnapshotOverride(snapshot, runtimeState);
 }

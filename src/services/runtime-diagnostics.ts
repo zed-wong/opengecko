@@ -1,7 +1,7 @@
 import type { MarketSnapshotRow } from '../db/schema';
 import type { MarketDataRuntimeState } from './market-runtime-state';
 import { getSnapshotOwnership } from './market-snapshots';
-import { getSnapshotFreshness } from '../modules/market-freshness';
+import { getEffectiveSnapshot, getSnapshotFreshness } from '../modules/market-freshness';
 
 export type RuntimeDiagnostics = {
   readiness: {
@@ -47,9 +47,10 @@ export function buildRuntimeDiagnostics(
   marketFreshnessThresholdSeconds: number,
   now = Date.now(),
 ): RuntimeDiagnostics {
-  const latestSnapshotOwnership = latestUsdSnapshot ? getSnapshotOwnership(latestUsdSnapshot) : null;
-  const latestSnapshotFreshness = latestUsdSnapshot && latestSnapshotOwnership === 'live'
-    ? getSnapshotFreshness(latestUsdSnapshot, marketFreshnessThresholdSeconds, now)
+  const effectiveLatestUsdSnapshot = getEffectiveSnapshot(latestUsdSnapshot, runtimeState);
+  const latestSnapshotOwnership = effectiveLatestUsdSnapshot ? getSnapshotOwnership(effectiveLatestUsdSnapshot) : null;
+  const latestSnapshotFreshness = effectiveLatestUsdSnapshot && latestSnapshotOwnership === 'live'
+    ? getSnapshotFreshness(effectiveLatestUsdSnapshot, marketFreshnessThresholdSeconds, now)
     : null;
   const seededBootstrapFallbackActive = (
     runtimeState.initialSyncCompleted === false
@@ -90,7 +91,7 @@ export function buildRuntimeDiagnostics(
     || effectiveAllowStaleLiveService
     || (effectiveFailureReason !== null && latestSnapshotFreshness?.isStale === true);
   const effectiveDegradedActive = effectiveStaleLiveFallbackActive || effectiveSeededBootstrapFallbackActive;
-  const sourceClass = latestUsdSnapshot
+  const sourceClass = effectiveLatestUsdSnapshot
     ? (() => {
       if (validationOverride.mode === 'degraded_seeded_bootstrap') {
         return 'degraded_seeded_bootstrap' as const;
@@ -112,14 +113,14 @@ export function buildRuntimeDiagnostics(
     })()
     : 'unavailable' as const;
 
-  const hotPathSnapshot = latestUsdSnapshot
+  const hotPathSnapshot = effectiveLatestUsdSnapshot
     ? (() => {
-      const freshness = latestSnapshotFreshness ?? getSnapshotFreshness(latestUsdSnapshot, marketFreshnessThresholdSeconds, now);
+      const freshness = latestSnapshotFreshness ?? getSnapshotFreshness(effectiveLatestUsdSnapshot, marketFreshnessThresholdSeconds, now);
 
       return {
         available: true,
         source_class: sourceClass,
-        last_successful_live_refresh_at: latestUsdSnapshot.sourceCount > 0 ? latestUsdSnapshot.lastUpdated.toISOString() : null,
+        last_successful_live_refresh_at: effectiveLatestUsdSnapshot.sourceCount > 0 ? effectiveLatestUsdSnapshot.lastUpdated.toISOString() : null,
         freshness: {
           threshold_seconds: marketFreshnessThresholdSeconds,
           age_seconds: freshness.ageSeconds,

@@ -169,9 +169,22 @@ export function registerDiagnosticsRoutes(
         ? body.reason.trim()
         : 'validation degraded state override');
 
+    const snapshotTimestampOverride = mode === 'stale_disallowed' || mode === 'stale_allowed'
+      ? new Date(0).toISOString()
+      : mode === 'degraded_seeded_bootstrap'
+        ? new Date().toISOString()
+        : null;
+    const snapshotSourceCountOverride = mode === 'degraded_seeded_bootstrap'
+      ? 0
+      : mode === 'stale_disallowed' || mode === 'stale_allowed'
+        ? 1
+        : null;
+
     app.marketDataRuntimeState.validationOverride = {
       mode,
       reason,
+      snapshotTimestampOverride,
+      snapshotSourceCountOverride,
     };
     app.marketDataRuntimeState.hotDataRevision += 1;
 

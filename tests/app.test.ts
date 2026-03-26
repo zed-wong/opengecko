@@ -324,18 +324,27 @@ describe('OpenGecko app scaffold', () => {
           current_price: null,
           market_cap: null,
           total_volume: null,
+          high_24h: null,
+          low_24h: null,
+          price_change_24h: null,
           price_change_percentage_24h: null,
           price_change_percentage_24h_in_currency: null,
         }),
       ]);
       expect(staleDisallowedDiagnostics.json().data.degraded).toMatchObject({
-        active: false,
+        active: true,
         stale_live_enabled: false,
         reason: 'validator stale-live disallowed',
         validation_override: {
           active: true,
           mode: 'stale_disallowed',
           reason: 'validator stale-live disallowed',
+        },
+      });
+      expect(staleDisallowedDiagnostics.json().data.hot_paths.shared_market_snapshot).toMatchObject({
+        source_class: 'stale_live',
+        freshness: {
+          is_stale: true,
         },
       });
 
@@ -382,6 +391,12 @@ describe('OpenGecko app scaffold', () => {
           active: true,
           mode: 'stale_allowed',
           reason: 'validator stale-live allowed',
+        },
+      });
+      expect(staleAllowedDiagnostics.json().data.hot_paths.shared_market_snapshot).toMatchObject({
+        source_class: 'stale_live',
+        freshness: {
+          is_stale: true,
         },
       });
 
@@ -456,6 +471,9 @@ describe('OpenGecko app scaffold', () => {
         hot_paths: {
           shared_market_snapshot: {
             source_class: 'degraded_seeded_bootstrap',
+            freshness: {
+              is_stale: false,
+            },
           },
         },
       });
@@ -871,6 +889,8 @@ describe('OpenGecko app scaffold', () => {
       validationOverride: {
         mode: 'off',
         reason: null,
+        snapshotTimestampOverride: null,
+        snapshotSourceCountOverride: null,
       },
       providerFailureCooldownUntil: null,
       forcedProviderFailure: {

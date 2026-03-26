@@ -13,6 +13,8 @@ function createState(overrides: Partial<MarketDataRuntimeState> = {}): MarketDat
     validationOverride: {
       mode: 'off',
       reason: null,
+      snapshotTimestampOverride: null,
+      snapshotSourceCountOverride: null,
     },
     providerFailureCooldownUntil: null,
     forcedProviderFailure: {
@@ -264,6 +266,8 @@ describe('runtime diagnostics', () => {
         validationOverride: {
           mode: 'stale_allowed',
           reason: 'validator stale-live allowed',
+          snapshotTimestampOverride: null,
+          snapshotSourceCountOverride: null,
         },
       }),
       {
@@ -293,6 +297,8 @@ describe('runtime diagnostics', () => {
         validationOverride: {
           mode: 'degraded_seeded_bootstrap',
           reason: 'validator degraded boot',
+          snapshotTimestampOverride: null,
+          snapshotSourceCountOverride: null,
         },
       }),
       {

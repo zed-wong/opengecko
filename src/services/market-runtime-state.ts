@@ -7,6 +7,8 @@ export type MarketDataRuntimeState = {
   validationOverride: {
     mode: 'off' | 'stale_disallowed' | 'stale_allowed' | 'degraded_seeded_bootstrap';
     reason: string | null;
+    snapshotTimestampOverride: string | null;
+    snapshotSourceCountOverride: number | null;
   };
   providerFailureCooldownUntil: number | null;
   forcedProviderFailure: {
@@ -51,6 +53,8 @@ export function createMarketDataRuntimeState(): MarketDataRuntimeState {
     validationOverride: {
       mode: 'off',
       reason: null,
+      snapshotTimestampOverride: null,
+      snapshotSourceCountOverride: null,
     },
     providerFailureCooldownUntil: null,
     forcedProviderFailure: {
