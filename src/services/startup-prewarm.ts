@@ -30,7 +30,10 @@ function normalizePrewarmQueryValue(value: string) {
 }
 
 function normalizePrewarmQueryValues(values: string[]) {
-  return [...new Set(values.map(normalizePrewarmQueryValue).filter((value) => value.length > 0))].sort();
+  return values
+    .map(normalizePrewarmQueryValue)
+    .filter((value) => value.length > 0)
+    .sort();
 }
 
 function normalizePrewarmUrl(url: string) {

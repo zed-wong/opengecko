@@ -486,6 +486,133 @@ describe('OpenGecko app scaffold', () => {
     }
   });
 
+  it('treats repeated query keys and duplicate selector values as semantically significant for startup prewarm attribution', async () => {
+    const prewarmApp = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'prewarm-duplicate-selector-attribution.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      await prewarmApp.ready();
+
+      const repeatedKeyMismatch = await prewarmApp.inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin&ids=bitcoin&vs_currencies=usd',
+      });
+
+      expect(repeatedKeyMismatch.statusCode).toBe(400);
+
+      let diagnostics = await prewarmApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(diagnostics.statusCode).toBe(200);
+      expect(diagnostics.json().data.startup_prewarm.firstRequestWarmBenefitsObserved).toBe(false);
+
+      const prewarmStateAfterRepeatedKeyMismatch = diagnostics.json().data.startup_prewarm;
+      const simplePriceTargetAfterRepeatedKeyMismatch = prewarmStateAfterRepeatedKeyMismatch.targetResults.find(
+        (target: { id: string }) => target.id === 'simple_price_bitcoin_usd',
+      );
+
+      if (simplePriceTargetAfterRepeatedKeyMismatch?.status === 'completed') {
+        expect(simplePriceTargetAfterRepeatedKeyMismatch).toMatchObject({
+          id: 'simple_price_bitcoin_usd',
+          firstObservedRequest: null,
+        });
+      } else {
+        expect(simplePriceTargetAfterRepeatedKeyMismatch).toMatchObject({
+          id: 'simple_price_bitcoin_usd',
+          status: 'timeout',
+          firstObservedRequest: {
+            cacheHit: false,
+            durationMs: expect.any(Number),
+          },
+        });
+      }
+
+      const duplicateValueMismatch = await prewarmApp.inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin,bitcoin&vs_currencies=usd',
+      });
+
+      expect(duplicateValueMismatch.statusCode).toBe(200);
+
+      diagnostics = await prewarmApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(diagnostics.statusCode).toBe(200);
+      expect(diagnostics.json().data.startup_prewarm.firstRequestWarmBenefitsObserved).toBe(false);
+
+      const simplePriceTargetAfterDuplicateValueMismatch = diagnostics.json().data.startup_prewarm.targetResults.find(
+        (target: { id: string }) => target.id === 'simple_price_bitcoin_usd',
+      );
+
+      if (simplePriceTargetAfterDuplicateValueMismatch?.status === 'completed') {
+        expect(simplePriceTargetAfterDuplicateValueMismatch).toMatchObject({
+          id: 'simple_price_bitcoin_usd',
+          firstObservedRequest: null,
+        });
+      } else {
+        expect(simplePriceTargetAfterDuplicateValueMismatch).toMatchObject({
+          id: 'simple_price_bitcoin_usd',
+          status: 'timeout',
+          firstObservedRequest: {
+            cacheHit: false,
+            durationMs: expect.any(Number),
+          },
+        });
+      }
+
+      if (simplePriceTargetAfterDuplicateValueMismatch?.status === 'completed') {
+        const matchingRequest = await prewarmApp.inject({
+          method: 'GET',
+          url: '/simple/price?ids=bitcoin&vs_currencies=usd',
+        });
+
+        expect(matchingRequest.statusCode).toBe(200);
+
+        diagnostics = await prewarmApp.inject({
+          method: 'GET',
+          url: '/diagnostics/runtime',
+        });
+
+        expect(diagnostics.statusCode).toBe(200);
+        expect(diagnostics.json().data.startup_prewarm.firstRequestWarmBenefitsObserved).toBe(true);
+
+        const simplePriceTargetAfterMatch = diagnostics.json().data.startup_prewarm.targetResults.find(
+          (target: { id: string }) => target.id === 'simple_price_bitcoin_usd',
+        );
+
+        expect(simplePriceTargetAfterMatch).toMatchObject({
+          id: 'simple_price_bitcoin_usd',
+          warmCacheRevision: expect.any(Number),
+          firstObservedRequest: {
+            cacheHit: true,
+            durationMs: expect.any(Number),
+          },
+        });
+
+        const metricsAfterMatch = await prewarmApp.inject({
+          method: 'GET',
+          url: '/metrics',
+        });
+
+        expect(metricsAfterMatch.statusCode).toBe(200);
+        expect(metricsAfterMatch.body).toContain('opengecko_startup_prewarm_first_requests_total{cache_hit="true",cache_surface="simple_price",target="simple_price_bitcoin_usd"} 1');
+        expect(metricsAfterMatch.body).not.toContain('opengecko_startup_prewarm_first_requests_total{cache_hit="false",cache_surface="simple_price",target="simple_price_bitcoin_usd"}');
+      }
+    } finally {
+      await prewarmApp.close();
+    }
+  });
+
   it('classifies non-2xx startup prewarm failures distinctly and still attempts later targets', async () => {
     const injectMock = vi.fn(async (request: { method: string; url: string }) => {
       if (request.url === '/simple/price?ids=bitcoin&vs_currencies=usd') {
