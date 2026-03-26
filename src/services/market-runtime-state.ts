@@ -5,6 +5,10 @@ export type MarketDataRuntimeState = {
   listenerBound: boolean;
   hotDataRevision: number;
   providerFailureCooldownUntil: number | null;
+  forcedProviderFailure: {
+    active: boolean;
+    reason: string | null;
+  };
 };
 
 export function createMarketDataRuntimeState(): MarketDataRuntimeState {
@@ -15,5 +19,9 @@ export function createMarketDataRuntimeState(): MarketDataRuntimeState {
     listenerBound: false,
     hotDataRevision: 0,
     providerFailureCooldownUntil: null,
+    forcedProviderFailure: {
+      active: false,
+      reason: null,
+    },
   };
 }

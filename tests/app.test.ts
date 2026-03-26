@@ -139,6 +139,10 @@ describe('OpenGecko app scaffold', () => {
           active: false,
           stale_live_enabled: false,
           reason: null,
+          injected_provider_failure: {
+            active: false,
+            reason: null,
+          },
         },
         hot_paths: {
           shared_market_snapshot: {
@@ -154,6 +158,79 @@ describe('OpenGecko app scaffold', () => {
     });
     expect(typeof response.json().data.hot_paths.shared_market_snapshot.freshness.age_seconds).toBe('number');
     expect(Array.isArray(response.json().data.hot_paths.shared_market_snapshot.providers)).toBe(true);
+  });
+
+  it('exposes provider failure injection only on the validation port and reports the injected state', async () => {
+    const nonValidationResponse = await getApp().inject({
+      method: 'POST',
+      url: '/diagnostics/runtime/provider_failure',
+      payload: {
+        active: true,
+        reason: 'validator forced outage',
+      },
+    });
+
+    expect(nonValidationResponse.statusCode).toBe(404);
+
+    const validationApp = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'validation.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+        port: 3102,
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      await validationApp.listen({ host: '127.0.0.1', port: 3102 });
+      const enableResponse = await validationApp.inject({
+        method: 'POST',
+        url: '/diagnostics/runtime/provider_failure',
+        payload: {
+          active: true,
+          reason: 'validator forced outage',
+        },
+      });
+
+      expect(enableResponse.statusCode).toBe(200);
+      expect(enableResponse.json()).toEqual({
+        data: {
+          active: true,
+          reason: 'validator forced outage',
+        },
+      });
+
+      const diagnosticsResponse = await validationApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(diagnosticsResponse.statusCode).toBe(200);
+      expect(diagnosticsResponse.json().data.degraded.active).toBe(false);
+      expect(diagnosticsResponse.json().data.degraded.injected_provider_failure).toEqual({
+        active: true,
+        reason: 'validator forced outage',
+      });
+
+      const clearResponse = await validationApp.inject({
+        method: 'POST',
+        url: '/diagnostics/runtime/provider_failure',
+        payload: {
+          active: false,
+        },
+      });
+
+      expect(clearResponse.statusCode).toBe(200);
+      expect(clearResponse.json()).toEqual({
+        data: {
+          active: false,
+          reason: null,
+        },
+      });
+    } finally {
+      await validationApp.close();
+    }
   });
 
   it('returns supported quote currencies', async () => {

@@ -11,6 +11,10 @@ function createState(overrides: Partial<MarketDataRuntimeState> = {}): MarketDat
     listenerBound: false,
     hotDataRevision: 0,
     providerFailureCooldownUntil: null,
+    forcedProviderFailure: {
+      active: false,
+      reason: null,
+    },
     ...overrides,
   };
 }
@@ -39,6 +43,10 @@ describe('runtime diagnostics', () => {
         stale_live_enabled: false,
         reason: null,
         provider_failure_cooldown_until: null,
+        injected_provider_failure: {
+          active: false,
+          reason: null,
+        },
       },
       hot_paths: {
         cache_revision: 0,
@@ -85,6 +93,10 @@ describe('runtime diagnostics', () => {
         stale_live_enabled: true,
         reason: 'provider timeout',
         provider_failure_cooldown_until: null,
+        injected_provider_failure: {
+          active: false,
+          reason: null,
+        },
       },
       hot_paths: {
         cache_revision: 4,
@@ -131,6 +143,10 @@ describe('runtime diagnostics', () => {
         stale_live_enabled: false,
         reason: null,
         provider_failure_cooldown_until: null,
+        injected_provider_failure: {
+          active: false,
+          reason: null,
+        },
       },
       hot_paths: {
         cache_revision: 2,
@@ -172,6 +188,10 @@ describe('runtime diagnostics', () => {
       stale_live_enabled: false,
       reason: null,
       provider_failure_cooldown_until: null,
+      injected_provider_failure: {
+        active: false,
+        reason: null,
+      },
     });
     expect(diagnostics.hot_paths.cache_revision).toBe(6);
     expect(diagnostics.hot_paths.shared_market_snapshot.source_class).toBe('fresh_live');
@@ -206,6 +226,10 @@ describe('runtime diagnostics', () => {
         stale_live_enabled: true,
         reason: 'provider timeout',
         provider_failure_cooldown_until: null,
+        injected_provider_failure: {
+          active: false,
+          reason: null,
+        },
       },
       hot_paths: {
         cache_revision: 5,
@@ -249,6 +273,43 @@ describe('runtime diagnostics', () => {
       stale_live_enabled: true,
       reason: 'provider failure cooldown active after exchange refresh failure',
       provider_failure_cooldown_until: '2026-03-26T00:05:00.000Z',
+      injected_provider_failure: {
+        active: false,
+        reason: null,
+      },
+    });
+  });
+
+  it('reports injected provider failure state alongside degraded recovery fields', () => {
+    const diagnostics = buildRuntimeDiagnostics(
+      createState({
+        initialSyncCompleted: true,
+        allowStaleLiveService: true,
+        syncFailureReason: 'validator forced outage',
+        listenerBound: true,
+        forcedProviderFailure: {
+          active: true,
+          reason: 'validator forced outage',
+        },
+      }),
+      {
+        lastUpdated: new Date('2026-03-26T00:00:00.000Z'),
+        sourceProvidersJson: '["binance"]',
+        sourceCount: 1,
+      },
+      300,
+      new Date('2026-03-26T00:02:00.000Z').getTime(),
+    );
+
+    expect(diagnostics.degraded).toEqual({
+      active: true,
+      stale_live_enabled: true,
+      reason: 'validator forced outage',
+      provider_failure_cooldown_until: null,
+      injected_provider_failure: {
+        active: true,
+        reason: 'validator forced outage',
+      },
     });
   });
 });

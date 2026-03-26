@@ -365,4 +365,20 @@ describe('market refresh service', () => {
     expect(mockedFetchExchangeTickers).toHaveBeenCalledTimes(4);
     expect(runtimeState.providerFailureCooldownUntil).toBeNull();
   });
+
+  it('fails fast without hitting providers when validator-forced provider failure is active', async () => {
+    const runtimeState = createMarketDataRuntimeState();
+    runtimeState.forcedProviderFailure = {
+      active: true,
+      reason: 'validator forced outage',
+    };
+
+    await expect(runMarketRefreshOnce(database, {
+      ccxtExchanges: ['binance', 'coinbase'],
+      providerFanoutConcurrency: 2,
+    }, undefined, runtimeState)).rejects.toThrow('validator forced outage');
+
+    expect(mockedFetchExchangeTickers).not.toHaveBeenCalled();
+    expect(mockedFetchExchangeMarkets).not.toHaveBeenCalled();
+  });
 });

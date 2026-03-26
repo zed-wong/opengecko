@@ -14,6 +14,10 @@ export type RuntimeDiagnostics = {
     stale_live_enabled: boolean;
     reason: string | null;
     provider_failure_cooldown_until: string | null;
+    injected_provider_failure: {
+      active: boolean;
+      reason: string | null;
+    };
   };
   hot_paths: {
     shared_market_snapshot: {
@@ -40,6 +44,10 @@ export function buildRuntimeDiagnostics(
 ): RuntimeDiagnostics {
   const degradedActive = runtimeState.allowStaleLiveService || runtimeState.syncFailureReason !== null;
   const cooldownUntil = runtimeState.providerFailureCooldownUntil;
+  const injectedProviderFailure = runtimeState.forcedProviderFailure ?? {
+    active: false,
+    reason: null,
+  };
   const sourceClass = latestUsdSnapshot
     ? (() => {
       const ownership = getSnapshotOwnership(latestUsdSnapshot);
@@ -100,6 +108,10 @@ export function buildRuntimeDiagnostics(
       stale_live_enabled: runtimeState.allowStaleLiveService,
       reason: runtimeState.syncFailureReason,
       provider_failure_cooldown_until: cooldownUntil === null ? null : new Date(cooldownUntil).toISOString(),
+      injected_provider_failure: {
+        active: injectedProviderFailure.active,
+        reason: injectedProviderFailure.reason,
+      },
     },
     hot_paths: {
       shared_market_snapshot: hotPathSnapshot,

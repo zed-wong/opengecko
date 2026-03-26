@@ -157,6 +157,10 @@ export async function runMarketRefreshOnce(
     return;
   }
 
+  if (runtimeState?.forcedProviderFailure.active) {
+    throw new Error(runtimeState.forcedProviderFailure.reason ?? 'forced provider failure active');
+  }
+
   if (cooldownUntil !== null && cooldownUntil > startTime) {
     refreshLogger?.warn({
       cooldownUntil: new Date(cooldownUntil).toISOString(),
