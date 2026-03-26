@@ -63,6 +63,7 @@ function createState(overrides: Partial<MarketDataRuntimeState> = {}): MarketDat
       budgetMs: 0,
       readyWithinBudget: true,
       firstRequestWarmBenefitsObserved: false,
+      firstRequestWarmBenefitPending: false,
       targets: [],
       completedAt: null,
       totalDurationMs: null,
@@ -482,6 +483,7 @@ describe('market runtime', () => {
         budgetMs: 250,
         readyWithinBudget: true,
         firstRequestWarmBenefitsObserved: false,
+        firstRequestWarmBenefitPending: true,
         targets: [
           {
             id: 'simple_price_bitcoin_usd',

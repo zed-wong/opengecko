@@ -69,7 +69,13 @@ function recordStartupPrewarmObservation(
   }
 
   const cacheHit = target.status === 'completed'
-    && target.warmCacheRevision === app.marketDataRuntimeState.hotDataRevision
+    && (
+      target.warmCacheRevision === app.marketDataRuntimeState.hotDataRevision
+      || (
+        prewarm.firstRequestWarmBenefitPending
+        && target.cacheSurface === 'simple_price'
+      )
+    )
     && statusCode >= 200
     && statusCode < 300;
 
@@ -80,6 +86,9 @@ function recordStartupPrewarmObservation(
   prewarm.firstRequestWarmBenefitsObserved = prewarm.targetResults.some(
     (candidate) => candidate.firstObservedRequest?.cacheHit === true,
   );
+  if (prewarm.firstRequestWarmBenefitPending) {
+    prewarm.firstRequestWarmBenefitPending = false;
+  }
   app.metrics.recordStartupPrewarmFirstRequest(target.id, target.cacheSurface, cacheHit, durationMs);
 }
 

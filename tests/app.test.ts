@@ -892,6 +892,7 @@ describe('OpenGecko app scaffold', () => {
         budgetMs: 0,
         readyWithinBudget: true,
         firstRequestWarmBenefitsObserved: false,
+        firstRequestWarmBenefitPending: false,
         targets: [],
         completedAt: null,
         totalDurationMs: null,
@@ -999,6 +1000,76 @@ describe('OpenGecko app scaffold', () => {
     }
   });
 
+  it('preserves the first startup prewarm warm-hit observation across the deferred post-bind refresh revision bump', async () => {
+    const prewarmApp = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'prewarm-first-hit-revision-window.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+        startupPrewarmBudgetMs: 250,
+        marketRefreshIntervalSeconds: 3600,
+        currencyRefreshIntervalSeconds: 3600,
+        searchRebuildIntervalSeconds: 3600,
+      },
+      startBackgroundJobs: true,
+    });
+
+    try {
+      await prewarmApp.ready();
+
+      const beforeRequestDiagnostics = await prewarmApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(beforeRequestDiagnostics.statusCode).toBe(200);
+      expect(beforeRequestDiagnostics.json().data.startup_prewarm.targetResults[0]).toMatchObject({
+        id: 'simple_price_bitcoin_usd',
+        status: 'completed',
+        warmCacheRevision: expect.any(Number),
+        firstObservedRequest: null,
+      });
+
+      expect(beforeRequestDiagnostics.json().data.startup_prewarm.firstRequestWarmBenefitPending).toBe(true);
+
+      prewarmApp.marketRuntime?.markListenerBound();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const firstWarmRequest = await prewarmApp.inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin&vs_currencies=usd',
+      });
+
+      expect(firstWarmRequest.statusCode).toBe(200);
+
+      const afterRequestDiagnostics = await prewarmApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(afterRequestDiagnostics.statusCode).toBe(200);
+      expect(afterRequestDiagnostics.json().data.startup_prewarm.firstRequestWarmBenefitsObserved).toBe(true);
+      expect(afterRequestDiagnostics.json().data.startup_prewarm.firstRequestWarmBenefitPending).toBe(false);
+      expect(afterRequestDiagnostics.json().data.startup_prewarm.targetResults[0]).toMatchObject({
+        id: 'simple_price_bitcoin_usd',
+        firstObservedRequest: {
+          cacheHit: true,
+          durationMs: expect.any(Number),
+        },
+      });
+
+      const metricsResponse = await prewarmApp.inject({
+        method: 'GET',
+        url: '/metrics',
+      });
+
+      expect(metricsResponse.statusCode).toBe(200);
+      expect(metricsResponse.body).toContain('opengecko_startup_prewarm_first_requests_total{cache_hit="true",cache_surface="simple_price",target="simple_price_bitcoin_usd"} 1');
+    } finally {
+      await prewarmApp.close();
+    }
+  });
+
   it('skips trailing startup prewarm targets once an earlier target has exhausted the remaining budget', async () => {
     const prewarmApp = buildApp({
       config: {
@@ -1028,6 +1099,7 @@ describe('OpenGecko app scaffold', () => {
         warmCacheRevision: 0,
       });
       expect(prewarmApp.marketDataRuntimeState.startupPrewarm.targetResults).toHaveLength(1);
+      expect(prewarmApp.marketDataRuntimeState.startupPrewarm.firstRequestWarmBenefitPending).toBe(true);
       expect(injectMock).toHaveBeenCalledTimes(0);
     } finally {
       await prewarmApp.close();
@@ -1064,6 +1136,7 @@ describe('OpenGecko app scaffold', () => {
           warmCacheRevision: 0,
         },
       ]);
+      expect(prewarmApp.marketDataRuntimeState.startupPrewarm.firstRequestWarmBenefitPending).toBe(true);
       expect(injectMock).toHaveBeenCalledTimes(0);
     } finally {
       dateNowSpy.mockRestore();
@@ -1139,6 +1212,7 @@ describe('OpenGecko app scaffold', () => {
         budgetMs: 500,
         readyWithinBudget: true,
         firstRequestWarmBenefitsObserved: false,
+        firstRequestWarmBenefitPending: false,
         targets: [
           {
             id: 'simple_price_bitcoin_usd',

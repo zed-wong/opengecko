@@ -20,6 +20,7 @@ export type MarketDataRuntimeState = {
     budgetMs: number;
     readyWithinBudget: boolean;
     firstRequestWarmBenefitsObserved: boolean;
+    firstRequestWarmBenefitPending: boolean;
     targets: Array<{
       id: string;
       label: string;
@@ -66,6 +67,7 @@ export function createMarketDataRuntimeState(): MarketDataRuntimeState {
       budgetMs: 0,
       readyWithinBudget: true,
       firstRequestWarmBenefitsObserved: false,
+      firstRequestWarmBenefitPending: false,
       targets: [],
       completedAt: null,
       totalDurationMs: null,

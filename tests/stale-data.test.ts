@@ -235,6 +235,7 @@ describe('stale market snapshot behavior', () => {
       budgetMs: 0,
       readyWithinBudget: true,
       firstRequestWarmBenefitsObserved: false,
+      firstRequestWarmBenefitPending: false,
       targets: [],
       completedAt: null,
       totalDurationMs: null,

@@ -241,6 +241,7 @@ export async function runStartupPrewarm(
     budgetMs,
     readyWithinBudget: true,
     firstRequestWarmBenefitsObserved: false,
+    firstRequestWarmBenefitPending: false,
     targets,
     completedAt: null,
     totalDurationMs: null,
@@ -269,6 +270,9 @@ export async function runStartupPrewarm(
       warmCacheRevision: status === 'completed' ? runtimeState.hotDataRevision : null,
       firstObservedRequest: null,
     });
+    if (status === 'completed') {
+      runtimeState.startupPrewarm.firstRequestWarmBenefitPending = true;
+    }
     metrics.recordStartupPrewarmTarget(target.id, status === 'skipped_budget' ? 'timeout' : status, durationMs);
 
     if (status === 'timeout') {
