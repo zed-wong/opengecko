@@ -3721,14 +3721,18 @@ describe('OpenGecko app scaffold', () => {
     expect(body.top_gainers.map((row: { price_change_percentage_24h: number | null }) => row.price_change_percentage_24h)).toEqual([5, 4, 3.5, 3, 2.56, 2, 1.8, 0.01]);
   });
 
-  it('supports mover duration and validates invalid mover params explicitly', async () => {
+  it('supports mover duration, tolerates trailing-empty mover windows, and validates invalid mover params explicitly', async () => {
     const validResponse = await getApp().inject({
       method: 'GET',
       url: '/coins/top_gainers_losers?vs_currency=usd&duration=24h&top_coins=300&price_change_percentage=24h',
     });
-    const invalidPriceChangePercentageResponse = await getApp().inject({
+    const trailingCommaResponse = await getApp().inject({
       method: 'GET',
       url: '/coins/top_gainers_losers?vs_currency=usd&price_change_percentage=24h,',
+    });
+    const invalidPriceChangePercentageResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/top_gainers_losers?vs_currency=usd&price_change_percentage=24h,,7d',
     });
     const invalidDurationResponse = await getApp().inject({
       method: 'GET',
@@ -3743,10 +3747,14 @@ describe('OpenGecko app scaffold', () => {
     expect(validResponse.json().top_gainers.length).toBeLessThanOrEqual(30);
     expect(validResponse.json().top_losers).toEqual([]);
 
+    expect(trailingCommaResponse.statusCode).toBe(200);
+    expect(trailingCommaResponse.json().top_gainers.length).toBeGreaterThan(0);
+    expect(trailingCommaResponse.json().top_gainers[0]).toHaveProperty('price_change_percentage_24h');
+
     expect(invalidPriceChangePercentageResponse.statusCode).toBe(400);
     expect(invalidPriceChangePercentageResponse.json()).toEqual({
       error: 'invalid_parameter',
-      message: 'Unsupported price_change_percentage value: 24h,',
+      message: 'Unsupported price_change_percentage value: 24h,,7d',
     });
 
     expect(invalidDurationResponse.statusCode).toBe(400);
