@@ -73,6 +73,7 @@ function createState(overrides: Partial<MarketDataRuntimeState> = {}): MarketDat
 }
 
 describe('market runtime', () => {
+  const injectedResponse = { statusCode: 200 };
   const logger = {
     info: vi.fn(),
     warn: vi.fn(),
@@ -109,7 +110,7 @@ describe('market runtime', () => {
     const runSearchRebuildOnce = vi.fn().mockResolvedValue(undefined);
     const startOhlcvRuntime = vi.fn().mockResolvedValue(undefined);
     const state = createState();
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, {} as never, baseConfig as never, logger, state, metrics, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, baseConfig as never, logger, state, metrics, {
       runInitialMarketSync,
       runCurrencyRefreshOnce,
       runMarketRefreshOnce,
@@ -118,9 +119,10 @@ describe('market runtime', () => {
     });
 
     await runtime.start();
+    await runtime.whenReady();
     await eventually(() => {
       expect(runCurrencyRefreshOnce).toHaveBeenCalledTimes(1);
-      expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
+      expect(runMarketRefreshOnce).toHaveBeenCalledTimes(0);
     });
 
     expect(runInitialMarketSync).toHaveBeenCalledTimes(1);
@@ -128,8 +130,16 @@ describe('market runtime', () => {
     expect(state.initialSyncCompleted).toBe(true);
     expect(state.listenerBound).toBe(false);
     expect(state.syncFailureReason).toBeNull();
-    expect(state.hotDataRevision).toBe(4);
+    expect(state.hotDataRevision).toBe(2);
     expect(runSearchRebuildOnce).toHaveBeenCalledTimes(0);
+
+    runtime.markListenerBound();
+    await eventually(() => {
+      expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
+    });
+    await eventually(() => {
+      expect(state.hotDataRevision).toBe(3);
+    });
 
     await eventually(() => {
       vi.advanceTimersByTime(60_000);
@@ -163,7 +173,7 @@ describe('market runtime', () => {
     const startOhlcvRuntime = vi.fn().mockResolvedValue(undefined);
     const stopOhlcvRuntime = vi.fn().mockResolvedValue(undefined);
     const state = createState();
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, {} as never, baseConfig as never, logger, state, metrics, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, baseConfig as never, logger, state, metrics, {
       runInitialMarketSync,
       runCurrencyRefreshOnce,
       runMarketRefreshOnce,
@@ -193,10 +203,18 @@ describe('market runtime', () => {
     expect(readySettled).toBe(true);
     expect(startOhlcvRuntime).toHaveBeenCalledTimes(1);
     expect(state.initialSyncCompleted).toBe(true);
-    expect(state.hotDataRevision).toBe(4);
+    expect(state.hotDataRevision).toBe(2);
     await eventually(() => {
       expect(runCurrencyRefreshOnce).toHaveBeenCalledTimes(1);
+      expect(runMarketRefreshOnce).toHaveBeenCalledTimes(0);
+    });
+
+    runtime.markListenerBound();
+    await eventually(() => {
       expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
+    });
+    await eventually(() => {
+      expect(state.hotDataRevision).toBe(3);
     });
 
     const stopPromise = runtime.stop();
@@ -213,7 +231,7 @@ describe('market runtime', () => {
       releaseInitialSync = resolve;
     }));
     const stopOhlcvRuntime = vi.fn().mockResolvedValue(undefined);
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, {} as never, baseConfig as never, logger, createState(), metrics, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, baseConfig as never, logger, createState(), metrics, {
       runInitialMarketSync,
       runCurrencyRefreshOnce: vi.fn().mockResolvedValue(undefined),
       runMarketRefreshOnce: vi.fn().mockResolvedValue(undefined),
@@ -250,7 +268,7 @@ describe('market runtime', () => {
         }),
       },
     };
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, mockDb as never, baseConfig as never, logger, state, metrics, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, mockDb as never, baseConfig as never, logger, state, metrics, {
       runInitialMarketSync,
       runCurrencyRefreshOnce,
       runMarketRefreshOnce,
@@ -287,7 +305,7 @@ describe('market runtime', () => {
 
       return Promise.resolve();
     });
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, {} as never, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, {
       ...baseConfig,
       currencyRefreshIntervalSeconds: 1,
     } as never, logger, createState(), metrics, {
@@ -324,7 +342,7 @@ describe('market runtime', () => {
     const runMarketRefreshOnce = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
       releaseMarketRefresh = resolve;
     }));
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, {} as never, baseConfig as never, logger, createState(), metrics, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, baseConfig as never, logger, createState(), metrics, {
       runInitialMarketSync: vi.fn().mockResolvedValue({}),
       runCurrencyRefreshOnce: vi.fn().mockResolvedValue(undefined),
       runMarketRefreshOnce,
@@ -337,7 +355,11 @@ describe('market runtime', () => {
     await eventually(() => {
       expect(logger.info).toHaveBeenCalledWith('background job completed job=currency_refresh');
     });
-    expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
+    expect(runMarketRefreshOnce).toHaveBeenCalledTimes(0);
+    runtime.markListenerBound();
+    await eventually(() => {
+      expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
+    });
     releaseMarketRefresh();
     await flushAsyncWork();
     await eventually(() => {
@@ -361,7 +383,7 @@ describe('market runtime', () => {
 
       return Promise.resolve();
     });
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, {} as never, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, {
       ...baseConfig,
       marketRefreshIntervalSeconds: 1,
     } as never, logger, createState(), metrics, {
@@ -374,6 +396,8 @@ describe('market runtime', () => {
     });
 
     await runtime.start();
+    await runtime.whenReady();
+    runtime.markListenerBound();
     await eventually(() => {
       expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
     });
@@ -395,7 +419,7 @@ describe('market runtime', () => {
 
   it('tracks listener bind state separately from initial sync readiness and clears it on stop', async () => {
     const state = createState();
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, {} as never, baseConfig as never, logger, state, metrics, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, baseConfig as never, logger, state, metrics, {
       runInitialMarketSync: vi.fn().mockResolvedValue({}),
       runCurrencyRefreshOnce: vi.fn().mockResolvedValue(undefined),
       runMarketRefreshOnce: vi.fn().mockResolvedValue(undefined),
@@ -420,10 +444,11 @@ describe('market runtime', () => {
     const state = createState();
     const app = { inject: vi.fn().mockResolvedValue({ statusCode: 200 }) };
     const prewarmSpy = vi.spyOn(startupPrewarmModule, 'runStartupPrewarm').mockResolvedValue(undefined);
+    const runMarketRefreshOnce = vi.fn().mockResolvedValue(undefined);
     const runtime = createMarketRuntime(app as never, {} as never, baseConfig as never, logger, state, metrics, {
       runInitialMarketSync: vi.fn().mockResolvedValue({}),
       runCurrencyRefreshOnce: vi.fn().mockResolvedValue(undefined),
-      runMarketRefreshOnce: vi.fn().mockResolvedValue(undefined),
+      runMarketRefreshOnce,
       runSearchRebuildOnce: vi.fn().mockResolvedValue(undefined),
       startOhlcvRuntime: vi.fn().mockResolvedValue(undefined),
       stopOhlcvRuntime: vi.fn().mockResolvedValue(undefined),
@@ -436,6 +461,12 @@ describe('market runtime', () => {
       expect(prewarmSpy).toHaveBeenCalledTimes(1);
       expect(prewarmSpy).toHaveBeenCalledWith(app, state, metrics, baseConfig.startupPrewarmBudgetMs);
       expect(state.listenerBound).toBe(false);
+      expect(runMarketRefreshOnce).toHaveBeenCalledTimes(0);
+
+      runtime.markListenerBound();
+      await eventually(() => {
+        expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
+      });
     } finally {
       prewarmSpy.mockRestore();
       await runtime.stop();
@@ -535,7 +566,7 @@ describe('market runtime', () => {
       initialSyncCompleted: true,
       hotDataRevision: 2,
     });
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, {} as never, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, {
       ...baseConfig,
       marketRefreshIntervalSeconds: 1,
     } as never, logger, state, metrics, {
@@ -550,11 +581,20 @@ describe('market runtime', () => {
     await runtime.start();
     await runtime.whenReady();
 
-    expect(state.syncFailureReason).toBe('provider timeout');
-    expect(state.allowStaleLiveService).toBe(true);
+    expect(state.syncFailureReason).toBeNull();
+    expect(state.allowStaleLiveService).toBe(false);
     expect(state.providerFailureCooldownUntil).toBeNull();
     expect(state.initialSyncCompleted).toBe(true);
-    expect(state.hotDataRevision).toBe(6);
+    expect(state.hotDataRevision).toBe(4);
+
+    runtime.markListenerBound();
+    await eventually(() => {
+      expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
+    });
+    await eventually(() => {
+      expect(state.syncFailureReason).toBe('provider timeout');
+      expect(state.allowStaleLiveService).toBe(true);
+    });
 
     shouldFailRefresh = false;
     await eventually(() => {
@@ -590,7 +630,7 @@ describe('market runtime', () => {
 
       state.providerFailureCooldownUntil = null;
     });
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, {} as never, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, {
       ...baseConfig,
       marketRefreshIntervalSeconds: 1,
     } as never, logger, state, metrics, {
@@ -605,9 +645,19 @@ describe('market runtime', () => {
     await runtime.start();
     await runtime.whenReady();
 
-    expect(state.providerFailureCooldownUntil).toBe(firstCooldownUntil);
-    expect(state.syncFailureReason).toBe('provider failure cooldown active after exchange refresh failure');
-    expect(state.allowStaleLiveService).toBe(true);
+    expect(state.providerFailureCooldownUntil).toBeNull();
+    expect(state.syncFailureReason).toBeNull();
+    expect(state.allowStaleLiveService).toBe(false);
+
+    runtime.markListenerBound();
+    await eventually(() => {
+      expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
+    });
+    await eventually(() => {
+      expect(state.providerFailureCooldownUntil).toBe(firstCooldownUntil);
+      expect(state.syncFailureReason).toBe('provider failure cooldown active after exchange refresh failure');
+      expect(state.allowStaleLiveService).toBe(true);
+    });
 
     shouldFailRefresh = false;
     await eventually(() => {
@@ -642,7 +692,7 @@ describe('market runtime', () => {
       syncFailureReason: 'provider timeout',
       hotDataRevision: 7,
     });
-    const runtime = createMarketRuntime({ inject: vi.fn() } as never, {} as never, baseConfig as never, logger, state, metrics, {
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, baseConfig as never, logger, state, metrics, {
       runInitialMarketSync: vi.fn().mockResolvedValue({}),
       runCurrencyRefreshOnce: vi.fn().mockResolvedValue(undefined),
       runMarketRefreshOnce: vi.fn().mockResolvedValue(undefined),
@@ -656,7 +706,12 @@ describe('market runtime', () => {
 
     expect(state.syncFailureReason).toBeNull();
     expect(state.allowStaleLiveService).toBe(false);
-    expect(state.hotDataRevision).toBe(11);
+    expect(state.hotDataRevision).toBe(9);
+
+    runtime.markListenerBound();
+    await eventually(() => {
+      expect(state.hotDataRevision).toBe(10);
+    });
 
     await runtime.stop();
   });

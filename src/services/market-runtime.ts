@@ -106,6 +106,7 @@ export function createMarketRuntime(
   let currencyTimer: NodeJS.Timeout | null = null;
   let marketTimer: NodeJS.Timeout | null = null;
   let searchTimer: NodeJS.Timeout | null = null;
+  let listenerBoundDeferredMarketRefreshPending = false;
   let startupTask: Promise<void> | null = null;
   let readinessTask: Promise<void> | null = null;
   let startupSettled = true;
@@ -200,7 +201,7 @@ export function createMarketRuntime(
         }
 
         await runCurrencyJob.run();
-        await runMarketJob.run();
+        listenerBoundDeferredMarketRefreshPending = true;
 
         if (stopRequested) {
           return;
@@ -230,6 +231,14 @@ export function createMarketRuntime(
     },
     markListenerBound() {
       state.listenerBound = true;
+      if (listenerBoundDeferredMarketRefreshPending && !stopRequested) {
+        listenerBoundDeferredMarketRefreshPending = false;
+        queueMicrotask(() => {
+          if (!stopRequested) {
+            void runMarketJob.run();
+          }
+        });
+      }
     },
     async stop() {
       stopRequested = true;
