@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gunzipSync } from 'node:zlib';
 
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -255,6 +256,35 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json().data.usdt).toBeDefined();
     expect(response.json().data.usdt.type).toBe('fiat');
     expect(typeof response.json().data.usdt.value).toBe('number');
+  });
+
+  it('exposes the configured request timeout budget through runtime diagnostics', async () => {
+    const configuredApp = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'timeout-budget.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+        requestTimeoutMs: 4321,
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      const response = await configuredApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().data.transport).toEqual({
+        request_timeout_ms: 4321,
+        compression: {
+          threshold_bytes: 1024,
+        },
+      });
+    } finally {
+      await configuredApp.close();
+    }
   });
 
   it('returns simple prices with optional market fields', async () => {
@@ -2620,6 +2650,51 @@ describe('OpenGecko app scaffold', () => {
         symbol: 'link',
       },
     ]));
+  });
+
+  it('negotiates gzip compression for responses above the threshold without changing body semantics', async () => {
+    const compressedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/list?include_platform=true',
+      headers: {
+        'accept-encoding': 'gzip',
+      },
+    });
+    const uncompressedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/coins/list?include_platform=true',
+    });
+
+    expect(compressedResponse.statusCode).toBe(200);
+    expect(uncompressedResponse.statusCode).toBe(200);
+    const encoding = compressedResponse.headers['content-encoding'];
+    if (encoding === 'gzip') {
+      expect(Number(compressedResponse.headers['content-length'] ?? 0)).toBeGreaterThan(0);
+      expect(String(compressedResponse.headers.vary ?? '')).toContain('Accept-Encoding');
+      expect(JSON.parse(gunzipSync(compressedResponse.rawPayload).toString('utf8'))).toEqual(uncompressedResponse.json());
+    } else {
+      expect(encoding).toBeUndefined();
+      expect(compressedResponse.json()).toEqual(uncompressedResponse.json());
+    }
+  });
+
+  it('keeps unrelated non-hot endpoint bodies stable when compression is not negotiated', async () => {
+    const compressedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/exchange_rates',
+      headers: {
+        'accept-encoding': 'gzip',
+      },
+    });
+    const baselineResponse = await getApp().inject({
+      method: 'GET',
+      url: '/exchange_rates',
+    });
+
+    expect(compressedResponse.statusCode).toBe(200);
+    expect(baselineResponse.statusCode).toBe(200);
+    expect(compressedResponse.headers['content-encoding']).toBeUndefined();
+    expect(compressedResponse.json()).toEqual(baselineResponse.json());
   });
 
   it('returns market search results', async () => {

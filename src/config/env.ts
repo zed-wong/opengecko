@@ -23,6 +23,8 @@ const envSchema = z.object({
   CURRENCY_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().positive().default(DEFAULT_CURRENCY_REFRESH_INTERVAL_SECONDS),
   SEARCH_REBUILD_INTERVAL_SECONDS: z.coerce.number().int().positive().default(DEFAULT_SEARCH_REBUILD_INTERVAL_SECONDS),
   PROVIDER_FANOUT_CONCURRENCY: z.coerce.number().int().positive().default(DEFAULT_PROVIDER_FANOUT_CONCURRENCY),
+  REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
+  RESPONSE_COMPRESSION_THRESHOLD_BYTES: z.coerce.number().int().nonnegative().default(1024),
 });
 
 export type AppConfig = {
@@ -38,6 +40,8 @@ export type AppConfig = {
   currencyRefreshIntervalSeconds: number;
   searchRebuildIntervalSeconds: number;
   providerFanoutConcurrency: number;
+  requestTimeoutMs: number;
+  responseCompressionThresholdBytes: number;
 };
 
 export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -56,6 +60,8 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
     currencyRefreshIntervalSeconds: env.CURRENCY_REFRESH_INTERVAL_SECONDS,
     searchRebuildIntervalSeconds: env.SEARCH_REBUILD_INTERVAL_SECONDS,
     providerFanoutConcurrency: env.PROVIDER_FANOUT_CONCURRENCY,
+    requestTimeoutMs: env.REQUEST_TIMEOUT_MS,
+    responseCompressionThresholdBytes: env.RESPONSE_COMPRESSION_THRESHOLD_BYTES,
   };
 }
 

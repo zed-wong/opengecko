@@ -11,6 +11,10 @@ export function registerDiagnosticsRoutes(
   app: FastifyInstance,
   database: AppDatabase,
   marketFreshnessThresholdSeconds: number,
+  transport: {
+    requestTimeoutMs: number;
+    responseCompressionThresholdBytes: number;
+  },
 ) {
   app.get('/diagnostics/chain_coverage', async () => {
     const totalPlatforms = database.db.select().from(assetPlatforms).all().length;
@@ -65,7 +69,15 @@ export function registerDiagnosticsRoutes(
       .at(-1) ?? null;
 
     return {
-      data: buildRuntimeDiagnostics(app.marketDataRuntimeState, latestUsdSnapshot, marketFreshnessThresholdSeconds),
+      data: {
+        ...buildRuntimeDiagnostics(app.marketDataRuntimeState, latestUsdSnapshot, marketFreshnessThresholdSeconds),
+        transport: {
+          request_timeout_ms: transport.requestTimeoutMs,
+          compression: {
+            threshold_bytes: transport.responseCompressionThresholdBytes,
+          },
+        },
+      },
     };
   });
 

@@ -4,6 +4,7 @@ import { mergeConfig, type AppConfig } from './config/env';
 import { createDatabase, migrateDatabase, seedStaticReferenceData, rebuildSearchIndex } from './db/client';
 import { registerErrorHandler } from './http/errors';
 import { formatHttpCompactPLog } from './http/http-log-style';
+import { registerTransportControls } from './http/transport';
 import { registerAssetPlatformRoutes } from './modules/assets';
 import { registerCoinRoutes } from './modules/coins';
 import { registerDiagnosticsRoutes } from './modules/diagnostics';
@@ -67,6 +68,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     logger: loggerOpts,
     ...(useEmojiCompactHttpLogs ? { disableRequestLogging: true } : {}),
     ...(options.pluginTimeout ? { pluginTimeout: options.pluginTimeout } : {}),
+    connectionTimeout: config.requestTimeoutMs,
+    requestTimeout: config.requestTimeoutMs,
   });
 
   if (useEmojiCompactHttpLogs) {
@@ -98,8 +101,19 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   options.startupProgress?.complete('connect_database');
 
   registerErrorHandler(app);
+  registerTransportControls(app, {
+    responseCompressionThresholdBytes: config.responseCompressionThresholdBytes,
+  });
   registerHealthRoutes(app);
-  registerDiagnosticsRoutes(app, database, config.marketFreshnessThresholdSeconds);
+  registerDiagnosticsRoutes(
+    app,
+    database,
+    config.marketFreshnessThresholdSeconds,
+    {
+      requestTimeoutMs: config.requestTimeoutMs,
+      responseCompressionThresholdBytes: config.responseCompressionThresholdBytes,
+    },
+  );
   registerSimpleRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
   registerAssetPlatformRoutes(app, database);
   registerCoinRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);

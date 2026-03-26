@@ -46,6 +46,10 @@ function createState(overrides: Partial<MarketDataRuntimeState> = {}): MarketDat
     listenerBound: false,
     hotDataRevision: 0,
     providerFailureCooldownUntil: null,
+    forcedProviderFailure: {
+      active: false,
+      reason: null,
+    },
     ...overrides,
   };
 }
