@@ -199,7 +199,7 @@ echo -e "${BOLD}OpenGecko Endpoint Tester${NC}"
 echo -e "Target: ${CYAN}${BASE_URL}${NC}"
 echo -e "Time:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo -e "Verbose:${CYAN} ${VERBOSE}${NC} (set VERBOSE=1 for timing/info on passing checks)"
-echo -e "Body:   ${CYAN}max ${MAX_BODY_CHARS} chars on failures${NC}"
+echo -e "Body:   ${CYAN}full responses on pass/fail checks${NC}"
 hr
 
 wait_for_market_data 30 || true
@@ -233,13 +233,18 @@ echo -e "${BOLD}🔍 Search${NC}"
 check "GET /search?query=bitcoin" "/search?query=bitcoin"
 check "GET /search?query=eth" "/search?query=eth"
 check "GET /search?query=stable" "/search?query=stable"
+check "GET /search/trending" "/search/trending"
+check "GET /search/trending?show_max=1" "/search/trending?show_max=1"
 
 peek "search results" "/search?query=bitcoin" '{ coins: (.coins | length), exchanges: (.exchanges | length), categories: (.categories | length), nfts: (.nfts | length) }'
+peek "search trending" "/search/trending?show_max=1" '{ coins: (.coins | length), categories: (.categories | length), nfts: (.nfts | length) }'
 
 # ─────────────────────────────────────────────────
 echo
 echo -e "${BOLD}🌍 Global${NC}"
 check "GET /global" "/global"
+check "GET /global/market_cap_chart?days=7" "/global/market_cap_chart?vs_currency=usd&days=7"
+check "GET /global/decentralized_finance_defi" "/global/decentralized_finance_defi"
 
 peek "global structure" "/global" '.data | { active_cryptocurrencies, markets, total_market_cap: (.total_market_cap | keys), total_volume: (.total_volume | keys) }'
 
@@ -282,6 +287,11 @@ check "GET /coins/bitcoin/market_chart?days=max" "/coins/bitcoin/market_chart?vs
 check "GET /coins/bitcoin/market_chart/range" "/coins/bitcoin/market_chart/range?vs_currency=usd&from=1773446400&to=1773964800"
 check "GET /coins/bitcoin/ohlc?days=7" "/coins/bitcoin/ohlc?vs_currency=usd&days=7&interval=daily"
 check "GET /coins/bitcoin/ohlc?days=30" "/coins/bitcoin/ohlc?vs_currency=usd&days=30&interval=daily"
+check "GET /coins/bitcoin/ohlc/range" "/coins/bitcoin/ohlc/range?vs_currency=usd&from=1773446400&to=1773964800&interval=daily"
+check "GET /coins/bitcoin/circulating_supply_chart?days=30" "/coins/bitcoin/circulating_supply_chart?days=30"
+check "GET /coins/bitcoin/circulating_supply_chart/range" "/coins/bitcoin/circulating_supply_chart/range?from=1773446400&to=1773964800"
+check "GET /coins/bitcoin/total_supply_chart?days=30" "/coins/bitcoin/total_supply_chart?days=30"
+check "GET /coins/bitcoin/total_supply_chart/range" "/coins/bitcoin/total_supply_chart/range?from=1773446400&to=1773964800"
 check "GET /coins/not-a-coin/market_chart (404)" "/coins/not-a-coin/market_chart?vs_currency=usd&days=7" "404"
 check "GET /coins/not-a-coin/ohlc (404)" "/coins/not-a-coin/ohlc?vs_currency=usd&days=7" "404"
 
@@ -329,6 +339,7 @@ check "GET /exchanges/binance/tickers?coin_ids=ethereum" "/exchanges/binance/tic
 check "GET /exchanges/binance/tickers?depth=true" "/exchanges/binance/tickers?depth=true"
 check "GET /exchanges/binance/tickers?order=volume_asc" "/exchanges/binance/tickers?order=volume_asc"
 check "GET /exchanges/binance/volume_chart?days=7" "/exchanges/binance/volume_chart?days=7"
+check "GET /exchanges/binance/volume_chart/range" "/exchanges/binance/volume_chart/range?from=0&to=4102444800"
 check "GET /exchanges/not-an-exchange (404)" "/exchanges/not-an-exchange" "404"
 
 peek "exchanges[0]" "/exchanges?per_page=1" '.[0] | { id, name, trade_volume_24h_btc, tickers_count: (.tickers | length) }'
@@ -341,6 +352,7 @@ check "GET /derivatives" "/derivatives"
 check "GET /derivatives/exchanges" "/derivatives/exchanges"
 check "GET /derivatives/exchanges?order=trade_volume_24h_btc_desc&per_page=1&page=1" "/derivatives/exchanges?order=trade_volume_24h_btc_desc&per_page=1&page=1"
 check "GET /derivatives/exchanges/list" "/derivatives/exchanges/list"
+check "GET /derivatives/exchanges/binance_futures?include_tickers=true" "/derivatives/exchanges/binance_futures?include_tickers=true"
 
 peek "derivatives[0]" "/derivatives" '.[0] | { market, symbol, price, basis }'
 peek "derivatives_exchanges[0]" "/derivatives/exchanges?per_page=1" '.[0] | { id, name, trade_volume_24h_btc }'
@@ -369,7 +381,13 @@ echo -e "${BOLD}⛓️ Onchain${NC}"
 check "GET /onchain/networks" "/onchain/networks?page=1"
 check "GET /onchain/networks/eth/dexes" "/onchain/networks/eth/dexes?page=1"
 check "GET /onchain/networks/eth/pools" "/onchain/networks/eth/pools?page=1"
+check "GET /onchain/networks/eth/dexes/uniswap_v3/pools" "/onchain/networks/eth/dexes/uniswap_v3/pools?page=1"
 check "GET /onchain/networks/eth/new_pools" "/onchain/networks/eth/new_pools?page=1"
+check "GET /onchain/networks/new_pools" "/onchain/networks/new_pools?page=1"
+check "GET /onchain/networks/trending_pools" "/onchain/networks/trending_pools?page=1"
+check "GET /onchain/networks/eth/trending_pools" "/onchain/networks/eth/trending_pools?page=1"
+check "GET /onchain/search/pools?query=usdc" "/onchain/search/pools?query=usdc&page=1"
+check "GET /onchain/pools/megafilter" "/onchain/pools/megafilter?networks=eth&dexes=uniswap_v3&sort=volume_usd_h24_desc&page=1"
 check "GET /onchain/networks/eth/pools/0x... (404)" "/onchain/networks/eth/pools/0x0000000000000000000000000000000000000000" "404"
 check "GET /onchain/networks/not-a-network/dexes (404)" "/onchain/networks/not-a-network/dexes?page=1" "404"
 
@@ -400,6 +418,7 @@ check "GET /search without query" "/search" "400"
 echo
 echo -e "${BOLD}🧪 Diagnostics${NC}"
 check "GET /diagnostics/chain_coverage" "/diagnostics/chain_coverage"
+check "GET /diagnostics/ohlcv_sync" "/diagnostics/ohlcv_sync"
 
 # ─────────────────────────────────────────────────
 echo

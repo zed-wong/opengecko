@@ -49,6 +49,10 @@ check_status "GET /coins/:id/ohlc/range responds" "/coins/${COIN_ID}/ohlc/range?
 check_json_expr "ohlc range keeps the candle-array contract shape" "/coins/${COIN_ID}/ohlc/range?vs_currency=${VS_CURRENCY}&from=${MARKET_CHART_RANGE_FROM}&to=${MARKET_CHART_RANGE_TO}&interval=daily" 'type == "array"' "ohlc/range preserves the candle-array payload even when the range is empty"
 check_status "GET /coins/:id/circulating_supply_chart responds" "/coins/${COIN_ID}/circulating_supply_chart?days=30"
 check_json_expr "supply charts return named series envelopes" "/coins/${COIN_ID}/circulating_supply_chart?days=30" 'has("circulating_supply") and (.circulating_supply | type) == "array"' "circulating supply chart returns a named series"
+check_status "GET /coins/:id/circulating_supply_chart/range responds" "/coins/${COIN_ID}/circulating_supply_chart/range?from=${MARKET_CHART_RANGE_FROM}&to=${MARKET_CHART_RANGE_TO}"
+check_json_expr "circulating supply chart range returns named series envelopes" "/coins/${COIN_ID}/circulating_supply_chart/range?from=${MARKET_CHART_RANGE_FROM}&to=${MARKET_CHART_RANGE_TO}" 'has("circulating_supply") and (.circulating_supply | type) == "array"' "circulating supply chart range returns a named series"
+check_status "GET /coins/:id/total_supply_chart responds" "/coins/${COIN_ID}/total_supply_chart?days=30"
+check_json_expr "total supply chart returns named series envelopes" "/coins/${COIN_ID}/total_supply_chart?days=30" 'has("total_supply") and (.total_supply | type) == "array"' "total supply chart returns a named series"
 check_status "GET /coins/:id/total_supply_chart/range responds" "/coins/${COIN_ID}/total_supply_chart/range?from=${MARKET_CHART_RANGE_FROM}&to=${MARKET_CHART_RANGE_TO}"
 check_json_expr "total supply chart range returns named series envelopes" "/coins/${COIN_ID}/total_supply_chart/range?from=${MARKET_CHART_RANGE_FROM}&to=${MARKET_CHART_RANGE_TO}" 'has("total_supply") and (.total_supply | type) == "array"' "total supply chart range returns a named series"
 

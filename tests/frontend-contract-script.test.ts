@@ -200,7 +200,24 @@ describe('module contract verification scripts', () => {
       [
         'coin list includes platform data when requested',
         'coin detail includes market data and ticker arrays by default',
+        'circulating supply chart range returns named series envelopes',
+        'total supply chart returns named series envelopes',
         'contract route resolves the seeded USDC contract',
+      ],
+    );
+  });
+
+  it('passes broad endpoint smoke checks for current endpoint families', async () => {
+    await expectScriptToPass(
+      'scripts/test-endpoints.sh',
+      'OpenGecko Endpoint Tester',
+      [
+        'GET /exchange_rates',
+        'GET /coins/bitcoin/ohlc?days=30',
+        'GET /derivatives/exchanges/list',
+        'GET /public_treasury/strategy/transaction_history?order=date_desc',
+        'GET /onchain/networks/eth/new_pools',
+        'GET /diagnostics/chain_coverage',
       ],
     );
   });

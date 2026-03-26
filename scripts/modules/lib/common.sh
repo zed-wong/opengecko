@@ -69,6 +69,23 @@ log_sample() {
   echo -e "     ${CYAN}${label}:${NC} ${value}"
 }
 
+log_response() {
+  local body_file="$1"
+
+  if [[ ! -s "$body_file" ]]; then
+    echo -e "     ${CYAN}response:${NC} <empty>"
+    return
+  fi
+
+  echo -e "     ${CYAN}response:${NC}"
+  if jq . "$body_file" >/dev/null 2>&1; then
+    jq . "$body_file" 2>/dev/null | sed 's/^/       /'
+  else
+    sed 's/^/       /' "$body_file"
+  fi
+  echo
+}
+
 check_status() {
   local desc="$1"
   local path="$2"
@@ -100,6 +117,7 @@ check_status() {
     echo -e "  ${GREEN}PASS${NC} ${desc}"
     log_request "$path" "HTTP ${expected_status}"
     log_detail "state" "status=${http_code} time=${time_total}s type=${content_type:-unknown}"
+    log_response "$body_file"
     PASS=$((PASS + 1))
     return 0
   fi
@@ -107,11 +125,7 @@ check_status() {
   echo -e "  ${RED}FAIL${NC} ${desc}"
   log_request "$path" "HTTP ${expected_status}"
   echo -e "     ${YELLOW}state:   status=${http_code} time=${time_total}s type=${content_type:-unknown}${NC}"
-  if [[ -s "$body_file" ]]; then
-    echo -e "     ${YELLOW}Body:${NC}"
-    head -c "$MAX_BODY_CHARS" "$body_file" | sed 's/^/       /'
-    echo
-  fi
+  log_response "$body_file"
   FAIL=$((FAIL + 1))
   return 1
 }
@@ -123,8 +137,11 @@ check_json() {
   local expected="$4"
   TOTAL=$((TOTAL + 1))
 
+  local call_id="${TOTAL}"
+  local body_file="$TMP_DIR/body-json-${call_id}.txt"
   local body
   body=$(curl -sS --max-time 10 "${BASE_URL}${path}") || body=""
+  printf '%s' "$body" > "$body_file"
 
   local actual
   actual=$(printf '%s' "$body" | jq -r "$jq_filter" 2>/dev/null) || actual="JQ_ERROR"
@@ -133,6 +150,7 @@ check_json() {
     echo -e "  ${GREEN}PASS${NC} ${desc}"
     log_request "$path" "jq ${jq_filter} == ${expected}"
     log_detail "state" "actual=${actual}"
+    log_response "$body_file"
     PASS=$((PASS + 1))
     return 0
   fi
@@ -140,11 +158,7 @@ check_json() {
   echo -e "  ${RED}FAIL${NC} ${desc}"
   log_request "$path" "jq ${jq_filter} == ${expected}"
   echo -e "     ${YELLOW}state:   actual=${actual}${NC}"
-  if [[ -n "$body" ]]; then
-    echo -e "     ${YELLOW}Body:${NC}"
-    printf '%s' "$body" | head -c "$MAX_BODY_CHARS" | sed 's/^/       /'
-    echo
-  fi
+  log_response "$body_file"
   FAIL=$((FAIL + 1))
   return 1
 }
@@ -156,8 +170,11 @@ check_json_expr() {
   local expectation="$4"
   TOTAL=$((TOTAL + 1))
 
+  local call_id="${TOTAL}"
+  local body_file="$TMP_DIR/body-json-expr-${call_id}.txt"
   local body
   body=$(curl -sS --max-time 10 "${BASE_URL}${path}") || body=""
+  printf '%s' "$body" > "$body_file"
 
   local actual
   actual=$(printf '%s' "$body" | jq -r "$jq_filter" 2>/dev/null) || actual="JQ_ERROR"
@@ -166,6 +183,7 @@ check_json_expr() {
     echo -e "  ${GREEN}PASS${NC} ${desc}"
     log_request "$path" "$expectation"
     log_detail "state" "actual=${actual}"
+    log_response "$body_file"
     PASS=$((PASS + 1))
     return 0
   fi
@@ -173,11 +191,7 @@ check_json_expr() {
   echo -e "  ${RED}FAIL${NC} ${desc}"
   log_request "$path" "$expectation"
   echo -e "     ${YELLOW}state:   actual=${actual}${NC}"
-  if [[ -n "$body" ]]; then
-    echo -e "     ${YELLOW}Body:${NC}"
-    printf '%s' "$body" | head -c "$MAX_BODY_CHARS" | sed 's/^/       /'
-    echo
-  fi
+  log_response "$body_file"
   FAIL=$((FAIL + 1))
   return 1
 }
