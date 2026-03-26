@@ -23,6 +23,7 @@ None.
 
 1. Read `mission.md`, `AGENTS.md`, the assigned feature, and the relevant validation assertions that the refactor must preserve indirectly.
 2. Before changing production code, write or tighten characterization tests that pin the exact behavior the refactor touches. The tests must fail if behavior drifts.
+   - If you extract or centralize parser/normalization helpers, include malformed-input characterization explicitly (for example invalid CSV/query token handling), not just happy-path coverage.
 3. Identify natural extraction seams. Favor small, reversible moves over sweeping rewrites.
 4. Do not redesign public behavior during a refactor feature. If you discover a real behavior bug, record it and return to the orchestrator unless the feature explicitly includes that bug fix.
 5. Keep the diff mechanically understandable:
