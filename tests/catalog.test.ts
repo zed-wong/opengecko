@@ -88,12 +88,6 @@ describe('catalog repository helpers', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'opengecko-catalog-'));
     database = createDatabase(join(tempDir, 'test.db'));
     migrateDatabase(database);
-    database.client.exec(`
-      CREATE INDEX IF NOT EXISTS coins_status_market_cap_rank_id_idx
-      ON coins (status, market_cap_rank, id);
-      CREATE INDEX IF NOT EXISTS market_snapshots_vs_currency_market_cap_rank_coin_id_idx
-      ON market_snapshots (vs_currency, market_cap_rank, coin_id);
-    `);
     seedStaticReferenceData(database);
     seedCatalogData(database);
     rebuildSearchIndex(database);
