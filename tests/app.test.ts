@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildApp, getDatabaseStartupLogContext } from '../src/app';
 import * as candleStore from '../src/services/candle-store';
+import * as catalogModule from '../src/modules/catalog';
 import contractFixtures from './fixtures/contract-fixtures.json';
 
 vi.mock('../src/providers/ccxt', () => ({
@@ -180,6 +181,77 @@ describe('OpenGecko app scaffold', () => {
     expect(baselineResponse.statusCode).toBe(200);
     expect(reorderedResponse.statusCode).toBe(200);
     expect(reorderedResponse.json()).toEqual(baselineResponse.json());
+  });
+
+  it('caches equivalent simple price requests across query ordering without widening selector semantics', async () => {
+    const getMarketRowsSpy = vi.spyOn(catalogModule, 'getMarketRows');
+    const baselineSelectorCalls = () => getMarketRowsSpy.mock.calls.filter(
+      ([, vsCurrency, filters]) => vsCurrency === 'usd'
+        && Array.isArray(filters?.ids)
+        && filters.ids.length === 2
+        && filters.ids.includes('bitcoin')
+        && filters.ids.includes('ethereum'),
+    ).length;
+
+    const baselineResponse = await getApp().inject({
+      method: 'GET',
+      url: '/simple/price?ids=bitcoin,ethereum&vs_currencies=usd,eur&include_market_cap=true&include_24hr_change=true',
+    });
+    const afterBaselineCalls = baselineSelectorCalls();
+
+    const reorderedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/simple/price?include_24hr_change=true&vs_currencies=eur,usd&include_market_cap=true&ids=ethereum,bitcoin',
+    });
+
+    expect(baselineResponse.statusCode).toBe(200);
+    expect(reorderedResponse.statusCode).toBe(200);
+    expect(reorderedResponse.json()).toEqual(baselineResponse.json());
+    expect(afterBaselineCalls).toBe(1);
+    expect(baselineSelectorCalls()).toBe(1);
+  });
+
+  it('isolates simple price cache entries by precision and include flags', async () => {
+    const baselineResponse = await getApp().inject({
+      method: 'GET',
+      url: '/simple/price?ids=bitcoin&vs_currencies=usd',
+    });
+    const repeatedBaselineResponse = await getApp().inject({
+      method: 'GET',
+      url: '/simple/price?vs_currencies=usd&ids=bitcoin',
+    });
+    const precisionResponse = await getApp().inject({
+      method: 'GET',
+      url: '/simple/price?ids=bitcoin&vs_currencies=usd&precision=2',
+    });
+    const includeResponse = await getApp().inject({
+      method: 'GET',
+      url: '/simple/price?ids=bitcoin&vs_currencies=usd&include_market_cap=true',
+    });
+
+    expect(baselineResponse.statusCode).toBe(200);
+    expect(repeatedBaselineResponse.statusCode).toBe(200);
+    expect(precisionResponse.statusCode).toBe(200);
+    expect(includeResponse.statusCode).toBe(200);
+
+    expect(repeatedBaselineResponse.json()).toEqual(baselineResponse.json());
+    expect(baselineResponse.json()).toEqual({
+      bitcoin: {
+        usd: 85000,
+      },
+    });
+    expect(precisionResponse.json()).toEqual({
+      bitcoin: {
+        usd: 85000,
+      },
+    });
+    expect(includeResponse.json()).toEqual({
+      bitcoin: {
+        usd: 85000,
+        usd_market_cap: null,
+      },
+    });
+    expect('usd_market_cap' in baselineResponse.json().bitcoin).toBe(false);
   });
 
   it('returns token prices by contract address', async () => {
