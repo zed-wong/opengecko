@@ -1,6 +1,7 @@
 {
   "milestone": "availability-polish-refactor",
-  "round": 5,
+  "round": 6,
+  "generatedAt": "2026-03-26T17:08:42.531091+00:00",
   "status": "fail",
   "validatorsRun": {
     "test": {
@@ -20,60 +21,40 @@
     }
   },
   "reviewsSummary": {
-    "total": 9,
-    "passed": 5,
-    "failed": 4,
+    "total": 14,
+    "passed": 12,
+    "failed": 2,
     "failedFeatures": [
-      "startup-prewarm-hot-endpoints",
-      "refactor-coins-module-with-characterization",
-      "startup-prewarm-finalization",
-      "prewarm-target-attribution-hardening"
+      "degraded-serving-and-boot-fallback",
+      "stale-serving-and-degraded-fallback-coherence"
     ]
   },
   "blockingIssues": [
     {
-      "featureId": "startup-prewarm-hot-endpoints",
+      "featureId": "degraded-serving-and-boot-fallback",
       "severity": "blocking",
-      "description": "The handoff declares commit `c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665` as the implementation commit for this feature, but `git show` proves that commit only adds `.factory/validation/operational-controls/user-testing/*` files and does not touch any startup-prewarm source or tests. The feature therefore lacks a reliable reviewed diff/commit trail tying the claimed implementation to the reviewed session."
+      "description": "When bootstrap fails with residual seeded snapshots, diagnostics always report `source_class: \"seeded_bootstrap\"` for any seeded snapshot and never distinguish failed degraded boot from ordinary startup. The feature description requires hot endpoints and `/diagnostics/runtime` to agree on one declared degraded-boot policy with stable source-class evidence. After this commit, readiness becomes `degraded`, but the response still exposes the same source class and `stale_live_enabled` flag shape used for non-failed startup, so the diagnostics surface does not actually carry distinct degraded-boot evidence for VAL-CROSS-001/feature expectations."
     },
     {
-      "featureId": "refactor-coins-module-with-characterization",
+      "featureId": "stale-serving-and-degraded-fallback-coherence",
       "severity": "blocking",
-      "description": "`parseMoverPriceChangePercentage()` no longer uses the existing CSV parser and now tolerates trailing empty entries, so `/coins/top_gainers_losers?...&price_change_percentage=24h,` is accepted instead of preserving the pre-refactor invalid-parameter behavior. The existing characterization suite only pinned `24h,,7d` (tests/app.test.ts:3757), so this refactor introduced contract drift without first characterizing the trailing-comma case."
-    },
-    {
-      "featureId": "startup-prewarm-finalization",
-      "severity": "blocking",
-      "description": "This feature was supposed to finalize the pre-existing startup-prewarm working-tree slice only, but the commit also edits stale-data cache revision behavior by manually incrementing `app!.marketDataRuntimeState.hotDataRevision`. That change is unrelated to startup prewarm finalization, so the implementation does not satisfy the requirement to create a clean commit containing only startup-prewarm code and tests."
-    },
-    {
-      "featureId": "prewarm-target-attribution-hardening",
-      "severity": "blocking",
-      "description": "`normalizePrewarmQueryValues()` deduplicates query values with `new Set(...)` before comparison, so a request like `/simple/price?ids=bitcoin,bitcoin&vs_currencies=usd` normalizes to the same target signature as the declared prewarm target `/simple/price?ids=bitcoin&vs_currencies=usd`. The feature requires attribution only for requests truly equivalent to the prewarm target semantics, but duplicated selector values are not proven equivalent here and can still claim warm-path evidence."
+      "description": "When `/coins/markets` serves seeded-bootstrap fallback rows, only requested `price_change_percentage_*_in_currency` fields are nulled. The default `price_change_percentage_24h_in_currency` field is still produced by the surrounding row builder via the standard row contract, so degraded rows can continue exposing a market-change value even though the feature's chosen policy nulls degraded market-value fields. The new regression in `tests/stale-data.test.ts` only checks `price_change_percentage_24h`, not the always-present `price_change_percentage_24h_in_currency`, so this compatibility gap is untested and can leak fresh-looking degraded data."
     }
   ],
   "appliedUpdates": [],
   "suggestedGuidanceUpdates": [
     {
       "target": "skills",
-      "suggestion": "Clarify scrutiny/implementation skill guidance for sessions that inherit already-written code so handoffs must cite a feature-attributable diff or explain inherited commits explicitly.",
-      "evidence": "`worker-transcripts.jsonl` entry for session `87156602-5e6c-43db-a459-95a613c382e3` ends with `rev-parse HEAD` = `c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665`; the handoff repeats that commit, while `git show c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665` only contains operational-controls validation artifacts.",
+      "suggestion": "Clarify worker/handoff guidance for inherited-branch or fix-follow-up sessions so reported commit IDs must point to a feature-attributable diff or explicitly explain when current behavior depends on multiple prior commits.",
+      "evidence": "worker-transcripts.jsonl session 87156602-5e6c-43db-a459-95a613c382e3 ends with commit c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665, while `git show --stat c0c00e96768e00aa6ee85c9f5b913ec7b8a2d665` only contains .factory/validation/operational-controls/user-testing artifacts. The actual startup-prewarm implementation and fixes are attributable to f5bde92, 84c94b0, and fd3c6ff.",
       "isSystemic": false
     }
   ],
   "rejectedObservations": [
     {
-      "observation": "Mission shared state does not explain the repo README transition even though workers are required to start exploration from README.md. A previous worker hit ENOENT on /home/whoami/dev/openGecko/README.md, while the file exists in the current environment, so future workers may repeat that confusion without a note in shared state.",
-      "reason": "ambiguous"
-    },
-    {
-      "observation": "The mission's shared library documents that final refactors must be characterization-first, but it does not capture the important coins-module nuance that malformed CSV handling should keep using the shared HTTP param helpers rather than ad hoc parsing. This omission made it easier for the refactor to replace `parseCsvQuery()` with custom comma splitting in `parseMoverPriceChangePercentage()` and miss a compatibility edge case.",
-      "reason": "ambiguous"
-    },
-    {
-      "observation": "Runtime shared-state guidance documents the startup prewarm diagnostics and metrics surfaces, but it does not capture the feature-scoping rule that the startup-prewarm finalization slice must exclude unrelated working-tree changes like stale-data regression adjustments. Future cleanup/finalization workers could benefit from an explicit note that 'finalize existing working tree slice' tasks must restage only files directly belonging to that slice.",
+      "observation": "The mission/library guidance says fallback work should extend `src/modules/market-freshness.ts`, but this feature encoded degraded-bootstrap classification partly in `src/services/runtime-diagnostics.ts` using runtime failure reason plus snapshot ownership. That convention is not documented clearly enough for future workers deciding where fallback/source-class policy should live.",
       "reason": "ambiguous"
     }
   ],
-  "previousRound": ".factory/validation/availability-polish-refactor/scrutiny/synthesis.json"
+  "previousRound": "/home/whoami/dev/openGecko/.factory/validation/availability-polish-refactor/scrutiny/synthesis.json"
 }

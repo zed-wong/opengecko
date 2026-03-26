@@ -1,21 +1,22 @@
 {
   "featureId": "degraded-serving-and-boot-fallback",
-  "reviewedAt": "2026-03-26T16:28:04Z",
-  "commitId": "b0e5fba583cead53f88ae70768d488b6b3cc8794",
+  "reviewedAt": "2026-03-26T17:05:24.661710+00:00",
+  "commitId": "b0e5fba",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "pass",
+  "status": "fail",
   "codeReview": {
-    "summary": "Reviewed the handoff, transcript skeleton, skill guidance, and commit b0e5fba. The implementation now routes bootstrap refresh through shared runtime state, keeps degraded seeded-bootstrap /coins/markets rows compatible by nulling market-value fields, and aligns runtime diagnostics with the selected degraded-boot policy covered by targeted stale-data regressions.",
-    "issues": []
+    "summary": "The feature improves degraded boot coherence, but diagnostics still fail to provide the stable source-class evidence the feature requires in the seeded residual boot-failure path.",
+    "issues": [
+      {
+        "file": "src/services/runtime-diagnostics.ts",
+        "line": 63,
+        "severity": "blocking",
+        "description": "When bootstrap fails with residual seeded snapshots, diagnostics always report `source_class: \"seeded_bootstrap\"` for any seeded snapshot and never distinguish failed degraded boot from ordinary startup. The feature description requires hot endpoints and `/diagnostics/runtime` to agree on one declared degraded-boot policy with stable source-class evidence. After this commit, readiness becomes `degraded`, but the response still exposes the same source class and `stale_live_enabled` flag shape used for non-failed startup, so the diagnostics surface does not actually carry distinct degraded-boot evidence for VAL-CROSS-001/feature expectations."
+      }
+    ]
   },
-  "sharedStateObservations": [
-    {
-      "area": "knowledge",
-      "observation": "Mission shared state does not explain the repo README transition even though workers are required to start exploration from README.md. A previous worker hit ENOENT on /home/whoami/dev/openGecko/README.md, while the file exists in the current environment, so future workers may repeat that confusion without a note in shared state.",
-      "evidence": "Worker transcript skeleton for session 80d04f19-aa6c-45c5-82dd-07e07790d605 shows early README-first exploration and related project context reads; an earlier sibling session in the same mission hit ENOENT for /home/whoami/dev/openGecko/README.md, while the current repo root now contains README.md and neither mission AGENTS.md nor .factory/library mention that movement."
-    }
-  ],
+  "sharedStateObservations": [],
   "addressesFailureFrom": null,
-  "summary": "Pass. The reviewed change set makes /simple/price, /coins/markets, and /diagnostics/runtime agree on degraded serving semantics for residual bootstrap snapshots, and I found no blocking or non-blocking code issues in scope."
+  "summary": "Fail: `/simple/price` and `/coins/markets` were tightened for degraded boot, but `/diagnostics/runtime` still lacks distinct source-class evidence for residual-seeded bootstrap failure, so the feature does not fully satisfy its declared diagnostics contract."
 }

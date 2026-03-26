@@ -1,28 +1,15 @@
 {
   "featureId": "startup-prewarm-finalization",
-  "reviewedAt": "2026-03-26T16:27:22.504840+00:00",
+  "reviewedAt": "2026-03-26T17:05:28.301864+00:00",
   "commitId": "f5bde92",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "fail",
+  "status": "pass",
   "codeReview": {
-    "summary": "The commit captures the intended startup-prewarm slice and includes focused diagnostics/metrics/tests, but it fails the feature contract because it also commits an unrelated stale-data cache-revision change outside the prewarm file set and its scope.",
-    "issues": [
-      {
-        "file": "tests/stale-data.test.ts",
-        "line": 78,
-        "severity": "blocking",
-        "description": "This feature was supposed to finalize the pre-existing startup-prewarm working-tree slice only, but the commit also edits stale-data cache revision behavior by manually incrementing `app!.marketDataRuntimeState.hotDataRevision`. That change is unrelated to startup prewarm finalization, so the implementation does not satisfy the requirement to create a clean commit containing only startup-prewarm code and tests."
-      }
-    ]
+    "summary": "The finalization commit introduced startup prewarm diagnostics, metrics, and bootstrap-time warming, and the later fix commits 84c94b0 and fd3c6ff corrected the original pathname-only attribution and non-2xx-as-timeout misclassification issues. In the current combined branch state, startup prewarm target matching is semantic, failed targets are reported distinctly from budget exhaustion, later targets still run after non-timeout failures, and the exposed diagnostics/metrics surfaces align with the validation contract.",
+    "issues": []
   },
-  "sharedStateObservations": [
-    {
-      "area": "knowledge",
-      "observation": "Runtime shared-state guidance documents the startup prewarm diagnostics and metrics surfaces, but it does not capture the feature-scoping rule that the startup-prewarm finalization slice must exclude unrelated working-tree changes like stale-data regression adjustments. Future cleanup/finalization workers could benefit from an explicit note that 'finalize existing working tree slice' tasks must restage only files directly belonging to that slice.",
-      "evidence": "Feature description in /home/whoami/.factory/missions/535b983d-b72a-4bff-ba31-9473c53ea1ce/features.json requires 'a clean implementation commit containing only the startup-prewarm code and tests', while commit f5bde92 also changes tests/stale-data.test.ts:78."
-    }
-  ],
+  "sharedStateObservations": [],
   "addressesFailureFrom": null,
-  "summary": "Reviewed handoff, transcript skeleton, skill, and commit f5bde92 for startup-prewarm-finalization. The prewarm implementation itself looks coherent, but the feature must fail scrutiny because the commit is not cleanly scoped: it includes an unrelated stale-data cache-revision test change despite the mission requiring only the existing startup-prewarm file set."
+  "summary": "Pass. Reviewed startup-prewarm-finalization together with follow-up fixes 84c94b0 and fd3c6ff; no current material blocking issue remains in startup prewarm behavior or in the finalization slice once those mandated follow-up fixes are considered."
 }

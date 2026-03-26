@@ -1,15 +1,15 @@
 {
   "featureId": "refactor-market-refresh-runtime-with-characterization",
-  "reviewedAt": "2026-03-26T16:27:18Z",
+  "reviewedAt": "2026-03-27T00:00:00Z",
   "commitId": "c4df63d94a7e4b18f61043ab1296f943b7a467b2",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The refactor cleanly splits `src/services/market-refresh.ts` into smaller helper responsibilities while preserving refresh sequencing, provider failure/cooldown semantics, snapshot/ticker persistence, and runtime metrics behavior. The added characterization test covers the key multi-step refresh outcomes promised by the feature and I did not find contract or runtime regressions in the reviewed diff.",
+    "summary": "The refactor cleanly extracts market-refresh responsibilities into helper functions without changing refresh sequencing, cooldown behavior, forced-failure handling, snapshot/ticker persistence, or metric recording. The added characterization test covers the newly extracted seam across forced failure, cooldown skip, partial failure, and successful recovery, and the resulting code still matches the parent implementation behavior.",
     "issues": []
   },
   "sharedStateObservations": [],
   "addressesFailureFrom": null,
-  "summary": "Reviewed the feature handoff, transcript skeleton, skill procedure, committed diff, and the current `market-refresh`/metrics/runtime code paths. The implementation matches the characterization-first refactor goal and no blocking or non-blocking issues were identified."
+  "summary": "Pass: the market refresh refactor remained behavior-preserving, followed the safe-refactor procedure, and I found no blocking or non-blocking code issues."
 }
