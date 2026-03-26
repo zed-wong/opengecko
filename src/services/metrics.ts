@@ -56,6 +56,8 @@ export type MetricsRegistry = {
   recordCacheHit: (surface: string) => void;
   recordCacheMiss: (surface: string) => void;
   recordProviderRefresh: (outcome: 'success' | 'partial_failure' | 'cooldown_skip' | 'forced_failure' | 'failure', exchangeCount: number, failedExchangeCount: number) => void;
+  recordStartupPrewarmTarget: (target: string, outcome: 'completed' | 'timeout', durationMs: number) => void;
+  recordStartupPrewarmFirstRequest: (target: string, cacheSurface: string, cacheHit: boolean, durationMs: number) => void;
   renderPrometheus: () => string;
 };
 
@@ -147,6 +149,30 @@ export function createMetricsRegistry(): MetricsRegistry {
     setGauge('opengecko_provider_failed_exchange_count', {}, failedExchangeCount);
   }
 
+  function recordStartupPrewarmTarget(target: string, outcome: 'completed' | 'timeout', durationMs: number) {
+    incrementCounter('opengecko_startup_prewarm_targets_total', {
+      target,
+      outcome,
+    });
+    observeHistogram('opengecko_startup_prewarm_duration_ms', {
+      target,
+      outcome,
+    }, durationMs);
+  }
+
+  function recordStartupPrewarmFirstRequest(target: string, cacheSurface: string, cacheHit: boolean, durationMs: number) {
+    incrementCounter('opengecko_startup_prewarm_first_requests_total', {
+      target,
+      cache_surface: cacheSurface,
+      cache_hit: String(cacheHit),
+    });
+    observeHistogram('opengecko_startup_prewarm_first_request_duration_ms', {
+      target,
+      cache_surface: cacheSurface,
+      cache_hit: String(cacheHit),
+    }, durationMs);
+  }
+
   function renderPrometheus() {
     const blocks = new Map<string, string[]>();
 
@@ -180,6 +206,8 @@ export function createMetricsRegistry(): MetricsRegistry {
     recordCacheHit,
     recordCacheMiss,
     recordProviderRefresh,
+    recordStartupPrewarmTarget,
+    recordStartupPrewarmFirstRequest,
     renderPrometheus,
   };
 }

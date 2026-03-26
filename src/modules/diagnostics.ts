@@ -80,6 +80,7 @@ export function registerDiagnosticsRoutes(
             threshold_bytes: transport.responseCompressionThresholdBytes,
           },
         },
+        startup_prewarm: app.marketDataRuntimeState.startupPrewarm,
       },
     };
   });

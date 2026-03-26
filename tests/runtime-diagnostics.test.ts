@@ -15,6 +15,16 @@ function createState(overrides: Partial<MarketDataRuntimeState> = {}): MarketDat
       active: false,
       reason: null,
     },
+    startupPrewarm: {
+      enabled: false,
+      budgetMs: 0,
+      readyWithinBudget: true,
+      firstRequestWarmBenefitsObserved: false,
+      targets: [],
+      completedAt: null,
+      totalDurationMs: null,
+      targetResults: [],
+    },
     ...overrides,
   };
 }

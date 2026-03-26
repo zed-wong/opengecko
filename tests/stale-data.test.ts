@@ -75,6 +75,7 @@ describe('stale market snapshot behavior', () => {
       })
       .where(eq(marketSnapshots.coinId, 'bitcoin'))
       .run();
+    app!.marketDataRuntimeState.hotDataRevision += 1;
 
     const simplePriceResponse = await app!.inject({
       method: 'GET',

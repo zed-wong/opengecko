@@ -25,6 +25,7 @@ const envSchema = z.object({
   PROVIDER_FANOUT_CONCURRENCY: z.coerce.number().int().positive().default(DEFAULT_PROVIDER_FANOUT_CONCURRENCY),
   REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
   RESPONSE_COMPRESSION_THRESHOLD_BYTES: z.coerce.number().int().nonnegative().default(1024),
+  STARTUP_PREWARM_BUDGET_MS: z.coerce.number().int().nonnegative().default(250),
 });
 
 export type AppConfig = {
@@ -42,6 +43,7 @@ export type AppConfig = {
   providerFanoutConcurrency: number;
   requestTimeoutMs: number;
   responseCompressionThresholdBytes: number;
+  startupPrewarmBudgetMs: number;
 };
 
 export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -62,6 +64,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
     providerFanoutConcurrency: env.PROVIDER_FANOUT_CONCURRENCY,
     requestTimeoutMs: env.REQUEST_TIMEOUT_MS,
     responseCompressionThresholdBytes: env.RESPONSE_COMPRESSION_THRESHOLD_BYTES,
+    startupPrewarmBudgetMs: env.STARTUP_PREWARM_BUDGET_MS,
   };
 }
 

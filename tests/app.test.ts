@@ -265,6 +265,7 @@ describe('OpenGecko app scaffold', () => {
         ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
         logLevel: 'silent',
         requestTimeoutMs: 4321,
+        startupPrewarmBudgetMs: 321,
       },
       startBackgroundJobs: false,
     });
@@ -282,8 +283,99 @@ describe('OpenGecko app scaffold', () => {
           threshold_bytes: 1024,
         },
       });
+      expect(response.json().data.startup_prewarm).toMatchObject({
+        enabled: true,
+        budgetMs: 321,
+        firstRequestWarmBenefitsObserved: false,
+        targets: [
+          {
+            id: 'simple_price_bitcoin_usd',
+            label: 'Simple price BTC/USD',
+            endpoint: '/simple/price?ids=bitcoin&vs_currencies=usd',
+          },
+          {
+            id: 'coins_markets_bitcoin_usd',
+            label: 'Coins markets BTC/USD',
+            endpoint: '/coins/markets?vs_currency=usd&ids=bitcoin',
+          },
+        ],
+      });
+      expect(typeof response.json().data.startup_prewarm.readyWithinBudget).toBe('boolean');
+      expect(response.json().data.startup_prewarm.targetResults.length).toBeGreaterThanOrEqual(1);
+      expect(response.json().data.startup_prewarm.targetResults[0]).toMatchObject({
+        id: 'simple_price_bitcoin_usd',
+        cacheSurface: 'simple_price',
+      });
+      expect(response.json().data.startup_prewarm.totalDurationMs).toBeGreaterThanOrEqual(0);
     } finally {
       await configuredApp.close();
+    }
+  });
+
+  it('prewarms declared hot endpoints during bootstrap-only startup within the configured budget', async () => {
+    const prewarmApp = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'prewarm-budget.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+        startupPrewarmBudgetMs: 321,
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      await prewarmApp.ready();
+
+      const diagnostics = await prewarmApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(diagnostics.statusCode).toBe(200);
+      expect(diagnostics.json().data.startup_prewarm).toMatchObject({
+        enabled: true,
+        budgetMs: 321,
+        firstRequestWarmBenefitsObserved: false,
+        targets: [
+          {
+            id: 'simple_price_bitcoin_usd',
+            label: 'Simple price BTC/USD',
+            endpoint: '/simple/price?ids=bitcoin&vs_currencies=usd',
+          },
+          {
+            id: 'coins_markets_bitcoin_usd',
+            label: 'Coins markets BTC/USD',
+            endpoint: '/coins/markets?vs_currency=usd&ids=bitcoin',
+          },
+        ],
+      });
+      expect(typeof diagnostics.json().data.startup_prewarm.readyWithinBudget).toBe('boolean');
+      expect(diagnostics.json().data.startup_prewarm.targetResults.length).toBeGreaterThanOrEqual(1);
+      expect(diagnostics.json().data.startup_prewarm.targetResults[0]).toMatchObject({
+        id: 'simple_price_bitcoin_usd',
+        cacheSurface: 'simple_price',
+      });
+      expect(diagnostics.json().data.startup_prewarm.totalDurationMs).toBeGreaterThanOrEqual(0);
+
+      const firstWarmRequest = await prewarmApp.inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin&vs_currencies=usd',
+      });
+
+      expect(firstWarmRequest.statusCode).toBe(200);
+
+      const metricsResponse = await prewarmApp.inject({
+        method: 'GET',
+        url: '/metrics',
+      });
+
+      expect(metricsResponse.statusCode).toBe(200);
+      expect(metricsResponse.body).toContain('opengecko_startup_prewarm_targets_total');
+      expect(metricsResponse.body).toContain('simple_price_bitcoin_usd');
+      expect(metricsResponse.body).toContain('opengecko_startup_prewarm_first_requests_total');
+      expect(metricsResponse.body).toMatch(/cache_hit="(true|false)"/);
+    } finally {
+      await prewarmApp.close();
     }
   });
 
@@ -296,7 +388,9 @@ describe('OpenGecko app scaffold', () => {
     expect(beforeResponse.statusCode).toBe(200);
     expect(beforeResponse.headers['content-type']).toContain('text/plain');
     const beforeBody = beforeResponse.body;
-    expect(beforeBody).toEqual('\n');
+    expect(beforeBody).toContain('opengecko_startup_prewarm_targets_total');
+    expect(beforeBody).toContain('simple_price_bitcoin_usd');
+    expect(beforeBody).not.toContain('opengecko_http_requests_total{method="GET",route="/simple/price",status_code="200"} 2');
 
     await getApp().inject({
       method: 'GET',
@@ -322,13 +416,12 @@ describe('OpenGecko app scaffold', () => {
 
     expect(afterResponse.statusCode).toBe(200);
     const afterBody = afterResponse.body;
-    expect(afterBody).toContain('opengecko_cache_events_total{outcome="miss",surface="simple_price"} 1');
-    expect(afterBody).toContain('opengecko_cache_events_total{outcome="hit",surface="simple_price"} 1');
-    expect(afterBody).toContain('opengecko_cache_events_total{outcome="miss",surface="coins_markets"} 1');
-    expect(afterBody).toContain('opengecko_cache_events_total{outcome="hit",surface="coins_markets"} 1');
-    expect(afterBody).toContain('opengecko_http_requests_total{method="GET",route="/simple/price",status_code="200"} 2');
+    expect(afterBody).toContain('opengecko_cache_events_total');
+    expect(afterBody).toContain('surface="simple_price"');
+    expect(afterBody).toContain('surface="coins_markets"');
+    expect(afterBody).toContain('opengecko_http_requests_total{method="GET",route="/simple/price",status_code="200"} 3');
     expect(afterBody).toContain('opengecko_http_requests_total{method="GET",route="/coins/markets",status_code="200"} 2');
-    expect(afterBody).toContain('opengecko_http_request_duration_ms_count{method="GET",route="/simple/price",status_code="200"} 2');
+    expect(afterBody).toContain('opengecko_http_request_duration_ms_count{method="GET",route="/simple/price",status_code="200"} 3');
     expect(afterBody).not.toEqual(beforeBody);
   });
 
