@@ -991,6 +991,8 @@ describe('OpenGecko app scaffold', () => {
           durationMs: expect.any(Number),
         },
       });
+      expect(updatedDiagnostics.json().data.startup_prewarm.targetResults[0].warmCacheRevision)
+        .toBe(updatedDiagnostics.json().data.hot_paths.cache_revision);
     } finally {
       injectSpy.mockRestore();
       await prewarmApp.close();

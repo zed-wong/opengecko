@@ -21,6 +21,10 @@ function bumpHotDataRevision(state: MarketDataRuntimeState) {
   state.hotDataRevision += 1;
 }
 
+function finalizeStartupHotDataRevision(state: MarketDataRuntimeState) {
+  bumpHotDataRevision(state);
+}
+
 function clearRecoveredDegradedState(state: MarketDataRuntimeState) {
   state.syncFailureReason = null;
   state.allowStaleLiveService = false;
@@ -173,6 +177,7 @@ export function createMarketRuntime(
           startupProgress?.begin('rebuild_search_index');
           rebuildSearchIndex(database);
           startupProgress?.complete('rebuild_search_index');
+          finalizeStartupHotDataRevision(state);
           readinessTask = runStartupPrewarm(app as never, state, metrics, config.startupPrewarmBudgetMs);
           await readinessTask;
           startupProgress?.begin('start_http_listener');

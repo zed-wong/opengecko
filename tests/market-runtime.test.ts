@@ -128,7 +128,7 @@ describe('market runtime', () => {
     expect(state.initialSyncCompleted).toBe(true);
     expect(state.listenerBound).toBe(false);
     expect(state.syncFailureReason).toBeNull();
-    expect(state.hotDataRevision).toBe(3);
+    expect(state.hotDataRevision).toBe(4);
     expect(runSearchRebuildOnce).toHaveBeenCalledTimes(0);
 
     await eventually(() => {
@@ -193,7 +193,7 @@ describe('market runtime', () => {
     expect(readySettled).toBe(true);
     expect(startOhlcvRuntime).toHaveBeenCalledTimes(1);
     expect(state.initialSyncCompleted).toBe(true);
-    expect(state.hotDataRevision).toBe(3);
+    expect(state.hotDataRevision).toBe(4);
     await eventually(() => {
       expect(runCurrencyRefreshOnce).toHaveBeenCalledTimes(1);
       expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
@@ -554,7 +554,7 @@ describe('market runtime', () => {
     expect(state.allowStaleLiveService).toBe(true);
     expect(state.providerFailureCooldownUntil).toBeNull();
     expect(state.initialSyncCompleted).toBe(true);
-    expect(state.hotDataRevision).toBe(4);
+    expect(state.hotDataRevision).toBe(6);
 
     shouldFailRefresh = false;
     await eventually(() => {
@@ -656,7 +656,7 @@ describe('market runtime', () => {
 
     expect(state.syncFailureReason).toBeNull();
     expect(state.allowStaleLiveService).toBe(false);
-    expect(state.hotDataRevision).toBe(10);
+    expect(state.hotDataRevision).toBe(11);
 
     await runtime.stop();
   });
