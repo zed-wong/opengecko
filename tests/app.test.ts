@@ -3022,6 +3022,92 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('prefers live aggregate fields for onchain simple token prices when live pricing succeeds', async () => {
+    vi.spyOn(defillamaProvider, 'fetchDefillamaTokenPrices').mockResolvedValue({
+      'ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': {
+        price: 1.1111,
+        symbol: 'USDC',
+        decimals: 6,
+        confidence: 0.99,
+        timestamp: 1710000000,
+      },
+    });
+    vi.spyOn(defillamaProvider, 'fetchDefillamaPoolData').mockResolvedValue({
+      protocols: [],
+      pools: [
+        {
+          chain: 'Ethereum',
+          project: 'uniswap-v3',
+          symbol: 'USDC-WETH',
+          tvlUsd: 123456789,
+          pool: 'live-usdc-weth',
+          underlyingTokens: [
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+          ],
+          volumeUsd1d: 22222222,
+          volumeUsd7d: 0,
+        },
+        {
+          chain: 'Ethereum',
+          project: 'curve',
+          symbol: 'USDC-USDT',
+          tvlUsd: 98765432,
+          pool: 'live-usdc-usdt',
+          underlyingTokens: [
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            '0xdac17f958d2ee523a2206206994597c13d831ec7',
+          ],
+          volumeUsd1d: 33333333,
+          volumeUsd7d: 0,
+        },
+      ],
+    });
+    vi.spyOn(defillamaProvider, 'fetchDefillamaDexVolumes').mockResolvedValue({
+      total24h: 166666665,
+      total7d: null,
+      total30d: null,
+      totalAllTime: null,
+      protocols: [
+        {
+          name: 'Uniswap V3',
+          total24h: 88888888,
+        },
+        {
+          name: 'Curve',
+          total24h: 77777777,
+        },
+      ],
+    });
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/simple/networks/eth/token_price/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48?include_market_cap=true&include_24hr_vol=true&include_total_reserve_in_usd=true',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      data: {
+        id: 'eth',
+        type: 'simple_token_price',
+        attributes: {
+          token_prices: {
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': '1.1111',
+          },
+          market_cap_usd: {
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': '423765432',
+          },
+          h24_volume_usd: {
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': '122222221',
+          },
+          total_reserve_in_usd: {
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': '423765432',
+          },
+        },
+      },
+    });
+  });
+
   it('returns onchain holder and trader analytics with deterministic ordering, count limits, enrichment gating, and holders chart windows', async () => {
     const topHoldersResponse = await getApp().inject({
       method: 'GET',

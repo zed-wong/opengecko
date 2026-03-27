@@ -1268,8 +1268,16 @@ async function fetchLiveSimpleTokenPrice(
     return null;
   }
 
-  const liveVolume24h = tokenPools.reduce((sum, pool) => sum + (pool.volume24hUsd ?? 0), 0);
-  const liveReserveUsd = tokenPools.reduce((sum, pool) => sum + (pool.reserveUsd ?? 0), 0);
+  const liveCatalog = await buildLiveOnchainCatalog(database);
+  const livePoolRows = tokenPools
+    .map((pool) => patchPoolRow(pool, liveCatalog.poolsByAddress.get(pool.address)))
+    .filter((pool, index) => {
+      const patch = liveCatalog.poolsByAddress.get(tokenPools[index]!.address);
+      return patch?.source === 'live';
+    });
+  const aggregatePools = livePoolRows.length > 0 ? livePoolRows : tokenPools;
+  const liveVolume24h = aggregatePools.reduce((sum, pool) => sum + (pool.volume24hUsd ?? 0), 0);
+  const liveReserveUsd = aggregatePools.reduce((sum, pool) => sum + (pool.reserveUsd ?? 0), 0);
 
   return {
     priceUsd: Number(livePrice.toFixed(6)),
