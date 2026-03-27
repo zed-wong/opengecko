@@ -6,6 +6,7 @@ import type { AppDatabase } from '../db/client';
 import { coins, marketSnapshots, onchainDexes, onchainNetworks, onchainPools } from '../db/schema';
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePositiveInt } from '../http/params';
+import { buildCoinId } from '../lib/coin-id';
 import { fetchDefillamaDexVolumes, fetchDefillamaPoolData, fetchDefillamaTokenPrices } from '../providers/defillama';
 import { fetchUniswapV3PoolSwaps } from '../providers/thegraph';
 
@@ -733,12 +734,41 @@ function findCoinIdForToken(networkId: string, tokenAddress: string) {
   return null;
 }
 
+function findCoinIdForTokenFromPools(
+  networkId: string,
+  tokenAddress: string,
+  tokenPools: typeof onchainPools.$inferSelect[],
+) {
+  const directCoinId = findCoinIdForToken(networkId, tokenAddress);
+
+  if (directCoinId) {
+    return directCoinId;
+  }
+
+  const normalizedAddress = normalizeAddress(tokenAddress);
+  const primaryPool = tokenPools.find((pool) =>
+    normalizeAddress(pool.baseTokenAddress) === normalizedAddress
+    || normalizeAddress(pool.quoteTokenAddress) === normalizedAddress);
+  const symbol = primaryPool
+    ? normalizeAddress(primaryPool.baseTokenAddress) === normalizedAddress
+      ? primaryPool.baseTokenSymbol
+      : primaryPool.quoteTokenSymbol
+    : null;
+
+  if (!symbol) {
+    return null;
+  }
+
+  return buildCoinId(symbol, symbol);
+}
+
 function buildTokenInfoResource(
   networkId: string,
   tokenAddress: string,
   tokenPools: typeof onchainPools.$inferSelect[],
   options?: {
     livePriceUsd?: number | null;
+    coinId?: string | null;
   },
 ) {
   const normalizedAddress = normalizeAddress(tokenAddress);
@@ -748,7 +778,7 @@ function buildTokenInfoResource(
       ? primaryPool.baseTokenSymbol
       : primaryPool.quoteTokenSymbol
     : null;
-  const coinId = findCoinIdForToken(networkId, normalizedAddress);
+  const coinId = options?.coinId ?? findCoinIdForToken(networkId, normalizedAddress);
   const decimals = symbol === 'USDC' || symbol === 'USDT' ? 6 : 18;
 
   return {
@@ -1244,7 +1274,7 @@ async function fetchLiveSimpleTokenPrice(
   tokenPools: typeof onchainPools.$inferSelect[],
   database: AppDatabase,
 ): Promise<LiveSimpleTokenPrice | null> {
-  const coinId = findCoinIdForToken(networkId, tokenAddress);
+  const coinId = findCoinIdForTokenFromPools(networkId, tokenAddress, tokenPools);
   const snapshot = coinId
     ? database.db
         .select()
@@ -1286,6 +1316,14 @@ async function fetchLiveSimpleTokenPrice(
     totalReserveUsd: liveReserveUsd > 0 ? Number(liveReserveUsd.toFixed(2)) : null,
     priceChange24h: snapshot?.priceChangePercentage24h ?? null,
   };
+}
+
+function resolveTokenCoinId(
+  networkId: string,
+  tokenAddress: string,
+  tokenPools: typeof onchainPools.$inferSelect[],
+) {
+  return findCoinIdForTokenFromPools(networkId, tokenAddress, tokenPools);
 }
 
 function buildOnchainTradeFixtures(database: AppDatabase): OnchainTradeRecord[] {
@@ -2787,10 +2825,12 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     }
 
     const livePrice = await fetchLiveSimpleTokenPrice(params.network, normalizeAddress(params.address), tokenPools, database);
+    const coinId = resolveTokenCoinId(params.network, normalizeAddress(params.address), tokenPools);
 
     return {
       data: buildTokenInfoResource(params.network, params.address, tokenPools, {
         livePriceUsd: livePrice?.priceUsd ?? null,
+        coinId,
       }),
     };
   });
@@ -2815,15 +2855,19 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       (async () => {
         const tokenPools = collectTokenPools(params.network, row.baseTokenAddress, database);
         const livePrice = await fetchLiveSimpleTokenPrice(params.network, normalizeAddress(row.baseTokenAddress), tokenPools, database);
+        const coinId = resolveTokenCoinId(params.network, normalizeAddress(row.baseTokenAddress), tokenPools);
         return buildTokenInfoResource(params.network, row.baseTokenAddress, tokenPools, {
           livePriceUsd: livePrice?.priceUsd ?? null,
+          coinId,
         });
       })(),
       (async () => {
         const tokenPools = collectTokenPools(params.network, row.quoteTokenAddress, database);
         const livePrice = await fetchLiveSimpleTokenPrice(params.network, normalizeAddress(row.quoteTokenAddress), tokenPools, database);
+        const coinId = resolveTokenCoinId(params.network, normalizeAddress(row.quoteTokenAddress), tokenPools);
         return buildTokenInfoResource(params.network, row.quoteTokenAddress, tokenPools, {
           livePriceUsd: livePrice?.priceUsd ?? null,
+          coinId,
         });
       })(),
     ]);
@@ -2864,8 +2908,10 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       .map(async ([key, pools]) => {
         const [networkId, address] = key.split(':');
         const livePrice = await fetchLiveSimpleTokenPrice(networkId!, address!, pools, database);
+        const coinId = resolveTokenCoinId(networkId!, address!, pools);
         return buildTokenInfoResource(networkId!, address!, pools, {
           livePriceUsd: livePrice?.priceUsd ?? null,
+          coinId,
         });
       })))
       .sort((left, right) => right.attributes.updated_at - left.attributes.updated_at || left.id.localeCompare(right.id));

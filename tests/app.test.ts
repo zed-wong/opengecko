@@ -1337,7 +1337,7 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json()).toMatchObject({
       bitcoin: {
         usd: 85000,
-        eur: 73661.820288646,
+        eur: 73329.50154764981,
         usd_24h_change: 1.8,
         eur_24h_change: 1.8,
       },
@@ -3747,6 +3747,58 @@ describe('OpenGecko app scaffold', () => {
               id: 'eth',
             },
           },
+        },
+      },
+    });
+  });
+
+  it('surfaces live pricing for a non-hardcoded ethereum token info route and keeps seeded fallback when live pricing is unavailable', async () => {
+    vi.spyOn(defillamaProvider, 'fetchDefillamaTokenPrices')
+      .mockResolvedValueOnce({
+        'ethereum:0xdac17f958d2ee523a2206206994597c13d831ec7': {
+          price: 1.0099,
+          symbol: 'USDT',
+          decimals: 6,
+          confidence: 0.98,
+          timestamp: 1710000000,
+        },
+      })
+      .mockResolvedValueOnce(null);
+
+    const liveResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xdac17f958d2ee523a2206206994597c13d831ec7/info',
+    });
+
+    expect(liveResponse.statusCode).toBe(200);
+    expect(liveResponse.json()).toMatchObject({
+      data: {
+        id: 'eth_0xdac17f958d2ee523a2206206994597c13d831ec7',
+        type: 'token_info',
+        attributes: {
+          address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+          symbol: 'USDT',
+          coingecko_coin_id: 'tether',
+          price_usd: 1.0099,
+        },
+      },
+    });
+
+    const fallbackResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xdac17f958d2ee523a2206206994597c13d831ec7/info',
+    });
+
+    expect(fallbackResponse.statusCode).toBe(200);
+    expect(fallbackResponse.json()).toMatchObject({
+      data: {
+        id: 'eth_0xdac17f958d2ee523a2206206994597c13d831ec7',
+        type: 'token_info',
+        attributes: {
+          address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+          symbol: 'USDT',
+          coingecko_coin_id: 'tether',
+          price_usd: 1,
         },
       },
     });
