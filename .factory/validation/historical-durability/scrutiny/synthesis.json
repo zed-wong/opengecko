@@ -1,0 +1,66 @@
+{
+  "milestone": "historical-durability",
+  "round": 2,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "bun run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "bun run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "echo \"no lint configured\"",
+      "exitCode": 0,
+      "note": "services.yaml defines lint as a no-op placeholder."
+    }
+  },
+  "reviewsSummary": {
+    "total": 3,
+    "passed": 1,
+    "failed": 2,
+    "failedFeatures": [
+      "ohlcv-gap-detection-repair",
+      "fix-ohlcv-gap-repair-partial-window-closure"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "ohlcv-gap-detection-repair",
+      "severity": "blocking",
+      "description": "OHLCV gap detection/repair remains helper-only and is not wired into the production sync/backfill flows, so interior missed windows are not automatically repaired during runtime behavior."
+    },
+    {
+      "featureId": "fix-ohlcv-gap-repair-partial-window-closure",
+      "severity": "blocking",
+      "description": "The added repair test still stops with a deliberately unresolved gap and therefore does not prove the required end state that a post-repair re-scan can become gap-free when upstream data is available."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skills",
+      "suggestion": "Relax or qualify mandatory curl verification in core-api-worker for internal-only service features that have no direct HTTP surface.",
+      "evidence": "The ohlcv-gap-detection-repair review again surfaced that durability-helper features are forced to document a justified curl-skip because the skill requires API verification even when no route changes exist.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Clarify scrutiny/review guidance for rerun features so reviewers explicitly prioritize current HEAD behavior over stale handoff commit references.",
+      "evidence": "The ohlcv-worker-hardening review had to reconcile a rerun feature description with a handoff commit reference from earlier work; the current process leaves that precedence implicit.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Add a library note that gap repair is helper-only today.",
+      "reason": "Rejected for now because the current milestone is failing on that exact behavior; documenting the limitation as settled knowledge would risk normalizing an unresolved defect."
+    }
+  ],
+  "previousRound": "/home/whoami/dev/openGecko/.factory/validation/historical-durability/scrutiny/synthesis.json"
+}

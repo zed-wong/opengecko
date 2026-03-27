@@ -1,0 +1,22 @@
+{
+  "featureId": "fix-ohlcv-gap-repair-partial-window-closure",
+  "reviewedAt": "2026-03-27T13:02:45.576575+00:00",
+  "commitId": "45cce2e101d37d9cd517442539f211c7c8267478",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The fix improves `repairOhlcvGaps` by re-detecting gaps after each partial fetch, which addresses the original blocking flaw where a partial upstream response could leave smaller interior gaps hidden behind the original range. However, the new proof test is internally inconsistent with the implementation and still does not demonstrate the contract that a re-scan becomes gap-free after repair.",
+    "issues": [
+      {
+        "file": "tests/ohlcv-gap-repair.test.ts",
+        "line": 150,
+        "severity": "blocking",
+        "description": "The new partial-window test still leaves a remaining gap by design and asserts that `detectOhlcvGaps(...)` returns one unresolved slot, but the feature contract and original scrutiny failure require proving that rerunning detection after repair returns no gaps for the repaired range. This means the fix review still lacks a characterization that the repaired range becomes gap-free when the upstream eventually provides the missing candles."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": "/home/whoami/dev/openGecko/.factory/validation/historical-durability/scrutiny/synthesis.json",
+  "summary": "Reviewed the fix feature against the prior `ohlcv-gap-detection-repair` failure using the handoff, transcript skeleton, commit diff, and current HEAD. The code change correctly adds iterative re-detection so partial upstream fills can expose narrower remaining gaps, but the added test still stops short of validating the promised end state (`detectOhlcvGaps` returning no gaps after repair), so I am marking the fix as failing scrutiny. No additional shared-state/documentation gaps stood out from this worker's transcript."
+}

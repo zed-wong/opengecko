@@ -1,0 +1,45 @@
+{
+  "featureId": "ohlcv-gap-detection-repair",
+  "reviewedAt": "2026-03-27T13:03:42Z",
+  "commitId": "8a069d4c979452677cee2ad1125fdbff2300bf56",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "Current HEAD still does not fully satisfy the original feature contract. The later partial-window fix prevents one class of unresolved gaps inside `repairOhlcvGaps`, but the feature never integrated gap detection/repair into the actual OHLCV sync or backfill flows, so missed interior windows are not automatically repaired in runtime behavior. In addition, the original repair test asserted the wrong fetch boundary and only passed because a broad seeded dataset masked the intended sparse-gap scenario.",
+    "issues": [
+      {
+        "file": "src/services/ohlcv-sync.ts",
+        "line": 33,
+        "severity": "blocking",
+        "description": "`syncRecentOhlcvWindow` only fetches forward from `latestSyncedAt` and persists returned candles; it never calls `detectOhlcvGaps` or `repairOhlcvGaps`. The feature contract says missed interior windows should be detected and repaired so a re-scan becomes gap-free, but the production sync path still leaves historical interior gaps untouched unless some external caller manually invokes the helper."
+      },
+      {
+        "file": "src/services/ohlcv-backfill.ts",
+        "line": 8,
+        "severity": "blocking",
+        "description": "The backfill flow likewise only bulk-fetches from a single `since` timestamp and enforces retention. It does not scan persisted candles for interior holes or repair them, so the delivered runtime behavior does not actually provide the contract's promised gap-repair capability beyond standalone helper functions/tests."
+      },
+      {
+        "file": "tests/ohlcv-gap-repair.test.ts",
+        "line": 80,
+        "severity": "non_blocking",
+        "description": "The original repair test described a sparse series missing both 2026-03-20 and 2026-03-21, but the mocked fetch only handled `since === 2026-03-21` and the assertion expected a call with that later timestamp. This mismatch meant the test did not faithfully prove the original gap-window contract and helped mask the partial-window bug later fixed by `fix-ohlcv-gap-repair-partial-window-closure`."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The `core-api-worker` skill still pushes a mandatory curl verification step even for internal historical-durability helper features with no HTTP surface. The reviewed worker skipped that step and recorded a justified deviation.",
+      "evidence": ".factory/skills/core-api-worker/SKILL.md step 7 requires starting the API and curling routes; handoff `2026-03-27T12-28-12-233Z__ohlcv-gap-detection-repair__e8570a20-0798-4494-9044-fefb4582a492.json` says the worker skipped curl verification because the feature only touched internal OHLCV durability helpers."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The architecture/library docs still describe boot/live refresh flows but do not capture that OHLCV gap detection/repair currently exists only as helper exports and is not wired into the runtime sync/backfill pipeline. That missing note would help future workers/reviewers reason about historical-durability boundaries faster.",
+      "evidence": ".factory/library/architecture.md describes boot/live refresh flows but does not mention any gap-repair stage, while current HEAD shows `repairOhlcvGaps` only exported from `src/services/ohlcv-sync.ts` and never invoked by `src/services/ohlcv-runtime.ts` or `src/services/ohlcv-backfill.ts`."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed the feature handoff, commit `8a069d4`, transcript skeleton, skill guidance, and current HEAD implementation. Current HEAD still fails the original feature contract because gap detection/repair remains an unwired helper rather than part of the actual OHLCV sync/backfill behavior; the later partial-window fix improves helper behavior but does not close that integration gap."
+}
