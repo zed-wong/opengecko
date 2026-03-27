@@ -24,14 +24,19 @@ The result: a decentralized, open market data layer that anyone can deploy, audi
 
 ## What You Get
 
-| | |
-|---|---|
-| **CoinGecko-compatible surface** | Same routes, params, response shapes. Switch the base URL and go. |
-| **Zero vendor lock-in** | No API keys. No rate limits. No subscription. Own your infrastructure. |
-| **Deploy in one command** | `bun install && bun run dev`. SQLite under the hood. No external services required. |
-| **60-second fresh data** | Hot market snapshots refresh continuously. No stale cache surprises. |
-| **Fully auditable** | Every intentional divergence from CoinGecko is documented. No black-box surprises. |
-| **Built on open data** | CCXT, TrustWallet, public on-chain sources. No proprietary data lock-in. |
+
+- **CoinGecko-compatible surface**  
+Same routes, params, response shapes. Switch the base URL and go. 
+- **Zero vendor lock-in**  
+No API keys. No rate limits. No subscription. Own your infrastructure.
+- **Deploy in one command**
+ `bun install && bun run dev`. SQLite under the hood. No external services required.
+- **60-second fresh data** 
+Hot market snapshots refresh continuously. No stale cache surprises.
+- **Fully auditable** 
+Every intentional divergence from CoinGecko is documented. No black-box surprises.
+- **Built on open data**
+ CCXT, TrustWallet, public on-chain sources. No proprietary data lock-in.
 
 ## Quick Start
 
@@ -72,23 +77,23 @@ bun run test:endpoint:search
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    Compatibility API                      │
-│           CoinGecko-compatible REST surface               │
-│           (same routes, params, field names)               │
+│                    Compatibility API                     │
+│           CoinGecko-compatible REST surface              │
+│           (same routes, params, field names)             │
 └──────────────────────────┬───────────────────────────────┘
                            │
 ┌──────────────────────────▼───────────────────────────────┐
-│                    Domain Services                        │
-│         validation · freshness policy · shaping           │
+│                    Domain Services                       │
+│         validation · freshness policy · shaping          │
 └──────────────────────────┬───────────────────────────────┘
                            │
-         ┌─────────────────┴─────────────────┐
+         ┌─────────────────┴──────────────────┐
          │                                    │
 ┌────────▼────────┐              ┌────────────▼────────────┐
-│     SQLite      │              │          CCXT             │
-│  hot snapshot  │              │   Binance · Coinbase    │
+│     SQLite      │              │          CCXT           │
+│  hot snapshot   │              │   Binance · Coinbase    │
 │  60s refresh    │              │   Kraken · OKX · ...    │
-└─────────────────┘              └──────────────────────────┘
+└─────────────────┘              └─────────────────────────┘
 ```
 
 Three layers:
@@ -101,17 +106,78 @@ A background OHLCV worker runs continuously, prioritizing top-100 coins for rece
 
 ## API Coverage
 
-Rolled out by endpoint family (R0 → R4):
+### Simple & General
 
-| Family | Phase | Representative Endpoints | Status |
-|---|---|---|---|
-| Simple + General | R0 | `/ping`, `/simple/*`, `/asset_platforms`, `/search`, `/global`, `/exchange_rates` | Stable |
-| Coins + Contracts | R1 | `/coins/*`, `/coins/{platform}/contract/{address}/*` | Stable |
-| Exchanges + Derivatives | R2 | `/exchanges/*`, `/derivatives/*` | Stable |
-| Public Treasury | R3 | `/entities/*`, `/public_treasury/*` | Stable |
-| Onchain DEX | R4 | `/onchain/networks`, `/onchain/{network}/dexes` | Expanding |
+Fast price lookups and foundational endpoints.
 
-For detailed endpoint-level compatibility status and known gaps, see `docs/status/implementation-tracker.md` and `docs/plans/2026-03-20-opengecko-endpoint-parity-matrix.md`.
+| Endpoint | Description |
+|---|---|
+| `GET /ping` | API liveness check |
+| `GET /simple/price` | Price for one or more coins vs one or more currencies |
+| `GET /simple/token_price/{id}` | Token prices by contract address on a specific chain |
+| `GET /simple/supported_vs_currencies` | List of supported quote currencies |
+| `GET /asset_platforms` | List of all supported asset platforms (chains) |
+| `GET /exchange_rates` | BTC-to-fiat and BTC-to-crypto conversion rates |
+| `GET /search` | Full-text search across coins, exchanges, and categories |
+| `GET /global` | Global market overview (total cap, volume, dominance) |
+
+### Coins & Markets
+
+Coin listings, market data, historical charts, and contract resolution.
+
+| Endpoint | Description |
+|---|---|
+| `GET /coins/list` | Full list of all supported coins with platform mappings |
+| `GET /coins/markets` | Market data for coins (price, cap, volume, ATH/ATL, sparklines) |
+| `GET /coins/{id}` | Detailed coin info — metadata, links, community data, market data |
+| `GET /coins/{id}/history` | Point-in-time snapshot of a coin on a specific date |
+| `GET /coins/{id}/market_chart` | Historical prices, market caps, and volumes |
+| `GET /coins/{id}/market_chart/range` | Historical chart data for a specific time range |
+| `GET /coins/{id}/ohlc` | OHLC candlestick data |
+| `GET /coins/{id}/tickers` | Ticker data from exchanges and DEXs |
+| `GET /coins/categories` | Coin categories ranked by market cap |
+| `GET /coins/categories/list` | List of all coin categories |
+| `GET /coins/{platform_id}/contract/{contract_address}` | Coin detail resolved by chain and contract address |
+| `GET /coins/{platform_id}/contract/{contract_address}/market_chart` | Token chart by contract address |
+| `GET /coins/{platform_id}/contract/{contract_address}/market_chart/range` | Token chart by contract address and time range |
+
+### Exchanges & Derivatives
+
+Exchange listings, volumes, and derivatives venues.
+
+| Endpoint | Description |
+|---|---|
+| `GET /exchanges/list` | List of all exchanges |
+| `GET /exchanges` | Exchange data with trust scores and volumes |
+| `GET /exchanges/{id}` | Detailed exchange info with top tickers |
+| `GET /exchanges/{id}/tickers` | All tickers for a specific exchange |
+| `GET /exchanges/{id}/volume_chart` | Exchange 24h volume history in BTC |
+| `GET /derivatives/exchanges/list` | List of derivatives exchanges |
+| `GET /derivatives/exchanges` | Derivatives exchange data with OI and funding |
+| `GET /derivatives` | All derivatives contracts with funding, spread, and expiry |
+
+### Public Treasury
+
+On-chain treasury data from public disclosures.
+
+| Endpoint | Description |
+|---|---|
+| `GET /entities/list` | List of tracked entities (companies, governments) |
+| `GET /{entity}/public_treasury/{coin_id}` | Treasury holdings for a specific entity and coin |
+| `GET /public_treasury/{entity_id}` | Full treasury profile for an entity |
+| `GET /public_treasury/{entity_id}/{coin_id}/holding_chart` | Historical holding value and amount over time |
+| `GET /public_treasury/{entity_id}/transaction_history` | Treasury transaction ledger |
+
+### Onchain DEX
+
+DEX pools, tokens, trades, and OHLCV on supported networks. **Expanding.**
+
+| Endpoint | Description |
+|---|---|
+| `GET /onchain/networks` | List of supported networks |
+| `GET /onchain/networks/{network}/dexes` | List of DEXs on a specific network |
+
+For detailed compatibility status and known gaps, see `docs/status/implementation-tracker.md` and `docs/plans/2026-03-20-opengecko-endpoint-parity-matrix.md`.
 
 ## Configuration
 
