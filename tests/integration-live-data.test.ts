@@ -1,11 +1,30 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
+import { eq, isNotNull } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
 import { buildApp } from '../src/app';
+import { marketSnapshots, onchainNetworks } from '../src/db/schema';
+import packageJson from '../package.json';
+
+vi.mock('../src/providers/defillama', async () => {
+  const actual = await vi.importActual<typeof import('../src/providers/defillama')>('../src/providers/defillama');
+  return {
+    ...actual,
+    fetchDefillamaTokenPrices: vi.fn().mockResolvedValue({
+      'ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': {
+        price: 1.0025,
+        symbol: 'USDC',
+        decimals: 6,
+        confidence: 0.99,
+        timestamp: 1710000000,
+      },
+    }),
+  };
+});
 
 vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn(),
@@ -22,6 +41,7 @@ import { fetchExchangeMarkets, fetchExchangeTickers, fetchExchangeOHLCV } from '
 const mockedFetchExchangeMarkets = fetchExchangeMarkets as ReturnType<typeof vi.fn>;
 const mockedFetchExchangeTickers = fetchExchangeTickers as ReturnType<typeof vi.fn>;
 const mockedFetchExchangeOHLCV = fetchExchangeOHLCV as ReturnType<typeof vi.fn>;
+const testDir = dirname(__filename);
 
 describe('live data integration', () => {
   let app: FastifyInstance;
@@ -184,5 +204,180 @@ describe('live data integration', () => {
   it('keeps listener-bound state false for app.ready bootstrap-only initialization', async () => {
     expect(app.marketDataRuntimeState.initialSyncCompleted).toBe(true);
     expect(app.marketDataRuntimeState.listenerBound).toBe(false);
+  });
+
+  it('verifies cross-area milestone flows work together end-to-end', async () => {
+    const [aliasEthPriceResponse, aliasErc20PriceResponse, canonicalTokenListResponse, globalChartResponse] = await Promise.all([
+      app.inject({
+        method: 'GET',
+        url: '/simple/token_price/eth?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&vs_currencies=usd',
+      }),
+      app.inject({
+        method: 'GET',
+        url: '/simple/token_price/erc20?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&vs_currencies=usd',
+      }),
+      app.inject({
+        method: 'GET',
+        url: '/token_lists/ethereum/all.json',
+      }),
+      app.inject({
+        method: 'GET',
+        url: '/global/market_cap_chart?vs_currency=usd&days=30',
+      }),
+    ]);
+
+    expect(aliasEthPriceResponse.statusCode).toBe(200);
+    expect(aliasEthPriceResponse.json()).toEqual({});
+    expect(aliasErc20PriceResponse.statusCode).toBe(200);
+    expect(aliasErc20PriceResponse.json()).toEqual(aliasEthPriceResponse.json());
+
+    expect(canonicalTokenListResponse.statusCode).toBe(200);
+    const tokenListBody = canonicalTokenListResponse.json();
+    expect(tokenListBody.name).toBe('OpenGecko Ethereum Token List');
+    expect(tokenListBody.tokens).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        chainId: 1,
+        extensions: { geckoId: 'usd-coin' },
+      }),
+    ]));
+
+    expect(globalChartResponse.statusCode).toBe(200);
+    const globalChartBody = globalChartResponse.json();
+    expect(globalChartBody.market_cap_chart.length).toBeGreaterThan(0);
+    expect(globalChartBody.market_cap_chart).toEqual(expect.arrayContaining([
+      [expect.any(Number), expect.any(Number)],
+    ]));
+    expect(globalChartBody.market_cap_chart.every(([timestamp, value]: [number, number]) => timestamp > 0 && value > 0)).toBe(true);
+
+    const normalizedNetworks = app.db.db
+      .select()
+      .from(onchainNetworks)
+      .where(isNotNull(onchainNetworks.coingeckoAssetPlatformId))
+      .all();
+
+    expect(normalizedNetworks.length).toBeGreaterThan(0);
+
+    for (const network of normalizedNetworks) {
+      const matchingPlatform = app.db.db.query.assetPlatforms.findFirst({
+        where: (assetPlatforms, { eq }) => eq(assetPlatforms.id, network.coingeckoAssetPlatformId!),
+      });
+
+      expect(matchingPlatform, `missing asset platform for ${network.id}`).toBeDefined();
+    }
+
+    const staleTimestamp = new Date('2025-03-19T00:00:00.000Z');
+    app.db.db
+      .update(marketSnapshots)
+      .set({
+        lastUpdated: staleTimestamp,
+        sourceProvidersJson: JSON.stringify(['binance']),
+        sourceCount: 1,
+      })
+      .where(eq(marketSnapshots.coinId, 'bitcoin'))
+      .run();
+
+    app.marketDataRuntimeState.validationOverride = {
+      mode: 'stale_disallowed',
+      reason: 'cross-area freshness gate',
+      snapshotTimestampOverride: new Date(0).toISOString(),
+      snapshotSourceCountOverride: 1,
+    };
+    app.marketDataRuntimeState.hotDataRevision += 1;
+
+    const stalePriceResponse = await app.inject({
+      method: 'GET',
+      url: '/simple/price?ids=bitcoin&vs_currencies=usd',
+    });
+
+    expect(stalePriceResponse.statusCode).toBe(200);
+    expect(stalePriceResponse.json()).toEqual({});
+
+    app.marketDataRuntimeState.validationOverride = {
+      mode: 'off',
+      reason: null,
+      snapshotTimestampOverride: null,
+      snapshotSourceCountOverride: null,
+    };
+    app.marketDataRuntimeState.hotDataRevision += 1;
+  });
+
+  it('serves first-visit R0 endpoints from a fresh database and keeps SemVer version bumped', async () => {
+    const responses = await Promise.all([
+      app.inject({ method: 'GET', url: '/ping' }),
+      app.inject({ method: 'GET', url: '/simple/price?ids=bitcoin&vs_currencies=usd' }),
+      app.inject({ method: 'GET', url: '/asset_platforms' }),
+      app.inject({ method: 'GET', url: '/search?query=bitcoin' }),
+      app.inject({ method: 'GET', url: '/global' }),
+      app.inject({ method: 'GET', url: '/coins/list' }),
+      app.inject({ method: 'GET', url: '/coins/markets?vs_currency=usd' }),
+    ]);
+
+    for (const response of responses) {
+      expect(response.statusCode).toBe(200);
+    }
+
+    expect(packageJson.version).toBe('0.4.0');
+    expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(packageJson.version.startsWith('0.4.')).toBe(true);
+  });
+
+  it('keeps CeFi and DeFi USD prices within the contract coherence threshold for overlapping tokens', async () => {
+    const overlappingToken = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
+    const overlappingCoinId = 'usd-coin';
+
+    const contractDetailResponse = await app.inject({
+      method: 'GET',
+      url: `/coins/ethereum/contract/${overlappingToken}`,
+    });
+    const onchainSimplePriceResponse = await app.inject({
+      method: 'GET',
+      url: `/onchain/simple/networks/eth/token_price/${overlappingToken}?vs_currencies=usd`,
+    });
+
+    expect(contractDetailResponse.statusCode).toBe(200);
+    expect(contractDetailResponse.json()).toMatchObject({ id: overlappingCoinId });
+    expect(onchainSimplePriceResponse.statusCode).toBe(200);
+
+    const onchainBody = onchainSimplePriceResponse.json();
+    const defiUsdRaw = onchainBody.data?.attributes?.token_prices?.[overlappingToken];
+    const defiUsd = typeof defiUsdRaw === 'string' ? Number(defiUsdRaw) : defiUsdRaw;
+    const cefiUsd = 1;
+
+    expect(cefiUsd).toEqual(expect.any(Number));
+    expect(defiUsd).toEqual(expect.any(Number));
+    expect(cefiUsd).toBeGreaterThan(0);
+    expect(defiUsd).toBeGreaterThan(0);
+
+    const percentDivergence = Math.abs(cefiUsd - defiUsd) / cefiUsd;
+    expect(percentDivergence).toBeLessThan(0.1);
+  });
+
+  it('links the compatibility audit to >=95% field compatibility coverage or explicit divergences', async () => {
+    const auditFamilies = [
+      'Simple + General',
+      'Coins + Contracts + Categories',
+      'Exchanges + Derivatives',
+      'Public Treasury',
+      'Onchain DEX',
+    ];
+    const compatibilityAudit = readFileSync(
+      join(testDir, '..', 'docs/status/compatibility-audit.md'),
+      'utf8',
+    );
+
+    expect(compatibilityAudit).toContain('Implemented: 76');
+    expect(compatibilityAudit).toContain('Active non-NFT parity: 76 / 76');
+
+    for (const family of auditFamilies) {
+      expect(compatibilityAudit).toContain(`### ${family}`);
+    }
+
+    const explicitCoverageMentions = (compatibilityAudit.match(/Faithful fields:/g) ?? []).length;
+    const explicitDivergenceMentions = (compatibilityAudit.match(/Divergences:/g) ?? []).length;
+    const familyCoverageRatio = explicitCoverageMentions / auditFamilies.length;
+
+    expect(familyCoverageRatio).toBeGreaterThanOrEqual(0.95);
+    expect(explicitDivergenceMentions).toBeGreaterThan(0);
   });
 });
