@@ -12,6 +12,14 @@ type SqdRequestOptions = {
   skipHeightLookup?: boolean;
 };
 
+const SQD_BROWSER_HEADERS = {
+  accept: 'application/json',
+  'content-type': 'application/json',
+  origin: 'https://docs.sqd.ai',
+  referer: 'https://docs.sqd.ai/',
+  'user-agent': 'Mozilla/5.0 (compatible; OpenGecko/0.2; +https://github.com/zed-wong/OpenGecko)',
+} as const;
+
 type SqdWorkerLog = {
   data?: string;
   topics?: string[];
@@ -209,10 +217,7 @@ export async function fetchEthereumPoolSwapLogs(
         workerEndpoint.toString(),
         {
           method: 'POST',
-          headers: {
-            accept: 'application/json',
-            'content-type': 'application/json',
-          },
+          headers: SQD_BROWSER_HEADERS,
           body,
         },
         { ...options, fetchImpl },

@@ -13,6 +13,10 @@ export class HttpError extends Error {
 
 export function registerErrorHandler(app: FastifyInstance) {
   app.setErrorHandler((error, _request, reply) => {
+    if (reply.sent) {
+      return;
+    }
+
     if (error instanceof ZodError) {
       return reply.status(400).send({
         error: 'invalid_request',

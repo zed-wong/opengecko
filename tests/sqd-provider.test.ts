@@ -97,6 +97,15 @@ describe('sqd provider', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://v2.archive.subsquid.io/network/ethereum-mainnet/height', expect.objectContaining({ method: 'GET' }));
     expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://v2.archive.subsquid.io/network/ethereum-mainnet/100/worker', expect.objectContaining({ method: 'GET' }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, 'https://worker-1/', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({
+        accept: 'application/json',
+        'content-type': 'application/json',
+        origin: 'https://docs.sqd.ai',
+        referer: 'https://docs.sqd.ai/',
+      }),
+    }));
     expect(fetchMock).toHaveBeenNthCalledWith(4, 'https://v2.archive.subsquid.io/network/ethereum-mainnet/103/worker', expect.objectContaining({ method: 'GET' }));
   });
 
