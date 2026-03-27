@@ -23,10 +23,11 @@ None.
 4. Implement the changes to make tests pass. Follow existing code patterns (Fastify routes, Drizzle queries, Zod validation).
 5. Run the targeted tests until they pass.
 6. If the manifest-wide baseline test command fails only on issues already listed in `AGENTS.md` as pre-existing, continue with scoped work; record that baseline failure in the handoff.
-7. Start the local API (`PORT=3102 DATABASE_URL=:memory: CCXT_EXCHANGES='' LOG_LEVEL=error bun run src/server.ts`) and manually verify at least one valid + one invalid request with curl. Kill the server after. **Note:** Use `DATABASE_URL=:memory:` to avoid SQLite lock conflicts with any running dev server.
+7. If the feature changes an HTTP contract or route behavior, start the local API (`PORT=3102 DATABASE_URL=:memory: CCXT_EXCHANGES='' LOG_LEVEL=error bun run src/server.ts`) and manually verify at least one valid request plus one invalid/error-path request with curl. Kill the server after. **Note:** Use `DATABASE_URL=:memory:` to avoid SQLite lock conflicts with any running dev server. If the feature is internal-only helper/runtime/test work with no HTTP-surface change, you may skip curl verification and rely on targeted tests instead; explicitly say so in the handoff.
 8. Run `bun run typecheck` before finishing. If your changes affect shared modules, run the broader test suite too.
 9. **CRITICAL: Before committing, run `git diff --cached --stat` and verify ONLY your feature files are staged.** If you see unrelated files (especially `.factory/` deletions or modifications not from your feature), unstage them with `git reset HEAD <file>`. Never commit unrelated working-tree changes.
-10. In the handoff, record exact endpoints, parameters, and responses used in verification.
+10. If your feature needs proof in a large shared file that already has unrelated working-tree hunks and you cannot isolate hunks non-interactively, do not stage the whole shared file. Prefer one of these exec-safe options instead: (a) add a new focused test/file, (b) restore malformed drift in the shared file without staging it, or (c) return to orchestrator for a revised plan. Do not commit unrelated shared-file hunks just because `git add --patch` is unavailable.
+11. In the handoff, record exact endpoints, parameters, and responses used in verification.
 
 ## Example Handoff
 

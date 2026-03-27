@@ -1,22 +1,21 @@
 {
-  "featureId": "fix-ohlcv-gap-repair-partial-window-closure",
-  "reviewedAt": "2026-03-27T13:02:45.576575+00:00",
-  "commitId": "45cce2e101d37d9cd517442539f211c7c8267478",
+  "featureId": "tighten-ohlcv-gap-repair-helper-convergence",
+  "reviewedAt": "2026-03-27T14:22:40Z",
+  "commitId": "da928c1d074d8e52893385c3ea543ab769084785",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "fail",
+  "status": "pass",
   "codeReview": {
-    "summary": "The fix improves `repairOhlcvGaps` by re-detecting gaps after each partial fetch, which addresses the original blocking flaw where a partial upstream response could leave smaller interior gaps hidden behind the original range. However, the new proof test is internally inconsistent with the implementation and still does not demonstrate the contract that a re-scan becomes gap-free after repair.",
-    "issues": [
-      {
-        "file": "tests/ohlcv-gap-repair.test.ts",
-        "line": 150,
-        "severity": "blocking",
-        "description": "The new partial-window test still leaves a remaining gap by design and asserts that `detectOhlcvGaps(...)` returns one unresolved slot, but the feature contract and original scrutiny failure require proving that rerunning detection after repair returns no gaps for the repaired range. This means the fix review still lacks a characterization that the repaired range becomes gap-free when the upstream eventually provides the missing candles."
-      }
-    ]
+    "summary": "Current HEAD satisfies the helper-convergence fix contract. The repair loop in `src/services/candle-store.ts` now only marks a gap start exhausted after a fetch makes zero progress, so narrowed gaps are retried until closed or genuinely exhausted. The updated partial-window test clears preseeded bitcoin canonical candles, exercises the exact 19/4, 20/1, 22/1 fetch sequence, proves four candles are repaired into a contiguous 2026-03-18..2026-03-23 range, and confirms `detectOhlcvGaps(...)` returns an empty array.",
+    "issues": []
   },
-  "sharedStateObservations": [],
-  "addressesFailureFrom": "/home/whoami/dev/openGecko/.factory/validation/historical-durability/scrutiny/synthesis.json",
-  "summary": "Reviewed the fix feature against the prior `ohlcv-gap-detection-repair` failure using the handoff, transcript skeleton, commit diff, and current HEAD. The code change correctly adds iterative re-detection so partial upstream fills can expose narrower remaining gaps, but the added test still stops short of validating the promised end state (`detectOhlcvGaps` returning no gaps after repair), so I am marking the fix as failing scrutiny. No additional shared-state/documentation gaps stood out from this worker's transcript."
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The core-api-worker skill still pushes manual HTTP verification even for internal helper/test-only durability fixes that change no route behavior, which caused repeated low-value curl work across the original failure and this fix feature.",
+      "evidence": "`.factory/skills/core-api-worker/SKILL.md` step 7 requires starting the API and curling endpoints; the fix handoff for session `03f85aef-08bc-4533-a6db-a026ccdce1da` records `/ping` and `/coins/bitcoin/ohlc?...` checks even though the actual behavior under review lives in `src/services/candle-store.ts` and `tests/ohlcv-gap-repair.test.ts`. Prior synthesis already noted the same mismatch for this helper-level scrutiny thread."
+    }
+  ],
+  "addressesFailureFrom": "/home/whoami/dev/openGecko/.factory/validation/historical-durability/scrutiny/reviews/fix-ohlcv-gap-repair-partial-window-closure.json",
+  "summary": "Reviewed mission metadata, prior scrutiny synthesis/reviews, the worker handoff/transcript, commit `da928c1`, and current HEAD helper/test implementations. The previous blocking issue is resolved on current HEAD: helper repair convergence now retries narrowed interior gaps correctly, and the rewritten partial-window test provides the requested closure proof with a final gap-free re-scan."
 }

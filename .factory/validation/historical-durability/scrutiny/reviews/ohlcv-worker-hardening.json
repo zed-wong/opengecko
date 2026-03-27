@@ -1,21 +1,15 @@
 {
   "featureId": "ohlcv-worker-hardening",
-  "reviewedAt": "2026-03-27T13:02:38Z",
+  "reviewedAt": "2026-03-27T14:22:36Z",
   "commitId": "9877bbc",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "Current HEAD satisfies the reviewed OHLCV worker hardening contract. The commit cleanly isolates OHLCV runtime diagnostics plus worker/runtime state tests, and the surrounding implementation already provides persisted-history reads, target prioritization, restart recovery, and exponential backoff/reset behavior covered by current code and tests.",
+    "summary": "Current HEAD and commit 9877bbc cover the assigned worker-hardening behaviors without blocking defects. The runtime preserves configurable target history depth, restart recovery is exercised through persisted cursor/backoff scenarios, top-100 leasing priority and exponential backoff reset behavior are covered in worker-state tests, and diagnostics now expose backfill-health metrics with both HTTP-boundary and summary-level assertions.",
     "issues": []
   },
-  "sharedStateObservations": [
-    {
-      "area": "skills",
-      "observation": "The handoff metadata lists commitId `9877bbc`, but the review instructions' example sequence says to use `commitId` from the handoff while the feature rerun description still references a prior worker already having implemented the code. In practice, reviewers must verify current HEAD and may need to ignore stale/nonexistent commit references from earlier iterations.",
-      "evidence": "Mission handoff `/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/handoffs/2026-03-27T12-39-35-025Z__ohlcv-worker-hardening__2163bb00-66dd-40cd-bb32-35f6a0464ab0.json` reports commitId `9877bbc`, while the parent review prompt explicitly says to review against current HEAD because this feature was rerun from an existing working tree."
-    }
-  ],
+  "sharedStateObservations": [],
   "addressesFailureFrom": null,
-  "summary": "Reviewed the handoff, transcript skeleton, commit diff, and current HEAD implementation for `ohlcv-worker-hardening`. The feature passes review: the OHLCV runtime diagnostics additions are correct, the commit is scoped to the intended OHLCV files, and current code/tests cover rolling backfill depth, restart recovery, backoff/reset behavior, top-100 leasing priority, and `/diagnostics/ohlcv_sync` health reporting."
+  "summary": "Pass. Reviewed handoff, commit diff, transcript skeleton, current runtime/worker-state/diagnostics code, and relevant tests. No blocking issues found; no shared-state gaps noted."
 }

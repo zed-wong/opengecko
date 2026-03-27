@@ -1,0 +1,21 @@
+{
+  "featureId": "wire-ohlcv-gap-repair-into-runtime-sync",
+  "reviewedAt": "2026-03-27T14:22:36.663246+00:00",
+  "commitId": "c2831a6e142c316c3aad6254290272a0aea13459",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Runtime OHLCV sync and backfill now invoke gap repair after persisting fetched candles, and the added runtime test proves an interior gap is closed end-to-end once upstream data becomes available.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The feature was assigned to core-api-worker even though the changes are runtime-provider coordination work in the OHLCV runtime/backfill lifecycle. The dedicated runtime-provider-worker skill already documents the relevant runtime tracing and live-probe procedure, so feature-to-skill mapping appears misaligned.",
+      "evidence": "features.json:1567 assigns `skillName: \"core-api-worker\"` for this runtime wiring feature, while `.factory/skills/runtime-provider-worker/SKILL.md` says it should be used for provider/runtime coordination, startup lifecycle, and runtime-state changes."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Pass. The reviewed commit wires gap repair into both runtime sync and backfill flows and adds end-to-end runtime coverage showing the gap-repair loop closes once missing upstream candles appear. No blocking code issues found; one shared-state observation notes the feature was routed through core-api-worker instead of the more specific runtime-provider-worker skill."
+}

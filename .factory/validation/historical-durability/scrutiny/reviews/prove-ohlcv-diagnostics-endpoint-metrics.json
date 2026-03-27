@@ -1,0 +1,39 @@
+{
+  "featureId": "prove-ohlcv-diagnostics-endpoint-metrics",
+  "reviewedAt": "2026-03-27T14:23:03Z",
+  "commitId": "1c89fcf",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The new isolated diagnostics-route test correctly proves that `/diagnostics/ohlcv_sync` mirrors the summarizer output at the HTTP boundary, but the committed feature also bundled unrelated `tests/app.test.ts` onchain/SQD assertions that were outside this feature's scope and contradicted the feature requirement to avoid iterating inside the large shared app test file except for strictly necessary repair hunks.",
+    "issues": [
+      {
+        "file": "tests/app.test.ts",
+        "line": 1969,
+        "severity": "blocking",
+        "description": "This feature commit modifies unrelated onchain live-catalog assertions (`poolDataSpy`/`dexVolumesSpy`) even though the feature was supposed to add a focused `/diagnostics/ohlcv_sync` proof and only include strictly necessary app-test repair hunks. The commit therefore does not stay isolated to the claimed diagnostics proof."
+      },
+      {
+        "file": "tests/app.test.ts",
+        "line": 4011,
+        "severity": "blocking",
+        "description": "The commit adds multiple SQD-backed trades pagination/validation tests in the large shared app suite, which are unrelated to `/diagnostics/ohlcv_sync` and directly violate the feature instruction to implement the proof in a new focused diagnostics test surface rather than iterating further inside `tests/app.test.ts`."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The worker explicitly staged and committed all changes in `tests/app.test.ts` after attempting `git add --patch`, even though the feature description and the core-api-worker skill both require isolating staged files to the feature's own changes. The transcript shows the intended partial staging step was abandoned, but the skill does not give a concrete non-interactive alternative for isolating only repair hunks when `git add --patch` is unavailable in this environment.",
+      "evidence": "worker-transcripts.jsonl entry for session `74a5abdf-5b5b-41cc-8098-240c40485ad7` shows `git add --patch tests/app.test.ts`, then `git add tests/app.test.ts tests/ohlcv-diagnostics.test.ts && git commit ...`; commit `1c89fcf` includes unrelated `tests/app.test.ts` onchain hunks."
+    },
+    {
+      "area": "services",
+      "observation": "The worker treated port 3102 as occupied by a pre-existing `api-validation` service and relied on that server for manual curl verification, but `.factory/services.yaml` only documents a single `api` service entry. The shared service manifest does not capture the validation-server lifecycle the mission instructions and handoff refer to.",
+      "evidence": "AGENTS.md reserves port 3102 for validation; the handoff for session `74a5abdf-5b5b-41cc-8098-240c40485ad7` records `EADDRINUSE` on port 3102 and suggests stopping the manifest-managed `api-validation` service first, yet `.factory/services.yaml` only defines `api` on port 3102."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail: current HEAD has sufficient route-level proof for `/diagnostics/ohlcv_sync` via `tests/ohlcv-diagnostics.test.ts`, but feature commit `1c89fcf` also bundled unrelated shared-app onchain test changes, so the feature did not remain scoped to the claimed diagnostics proof."
+}
