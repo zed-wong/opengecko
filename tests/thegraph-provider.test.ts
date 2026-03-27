@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('thegraph provider', () => {
+  const originalApiKey = process.env.THEGRAPH_API_KEY;
+
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.unstubAllEnvs();
+    if (originalApiKey === undefined) {
+      delete process.env.THEGRAPH_API_KEY;
+    } else {
+      process.env.THEGRAPH_API_KEY = originalApiKey;
+    }
   });
 
   it('returns null for all requests when THEGRAPH_API_KEY is missing', async () => {
@@ -22,7 +28,7 @@ describe('thegraph provider', () => {
   });
 
   it('fetches pool details from the configured subgraph endpoint', async () => {
-    vi.stubEnv('THEGRAPH_API_KEY', 'test-key');
+    process.env.THEGRAPH_API_KEY = 'test-key';
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       data: {
         pool: {
@@ -174,7 +180,7 @@ describe('thegraph provider', () => {
   });
 
   it('returns null and logs when the graph responds with errors or http failures', async () => {
-    vi.stubEnv('THEGRAPH_API_KEY', 'error-key');
+    process.env.THEGRAPH_API_KEY = 'error-key';
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({
         errors: [{ message: 'subgraph unavailable' }],

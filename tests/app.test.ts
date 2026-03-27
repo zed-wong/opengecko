@@ -14,6 +14,7 @@ import type { MarketDataRuntimeState } from '../src/services/market-runtime-stat
 import * as candleStore from '../src/services/candle-store';
 import * as catalogModule from '../src/modules/catalog';
 import * as defillamaProvider from '../src/providers/defillama';
+import * as thegraphProvider from '../src/providers/thegraph';
 import * as startupPrewarmModule from '../src/services/startup-prewarm';
 import contractFixtures from './fixtures/contract-fixtures.json';
 
@@ -2919,6 +2920,23 @@ describe('OpenGecko app scaffold', () => {
   });
 
   it('returns onchain simple token prices with optional field gating and network scoping', async () => {
+    vi.spyOn(defillamaProvider, 'fetchDefillamaTokenPrices').mockResolvedValue({
+      'ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': {
+        price: 1.0025,
+        symbol: 'USDC',
+        decimals: 6,
+        confidence: 0.99,
+        timestamp: 1710000000,
+      },
+      'ethereum:0x2260fac5e5542a773aa44fbcfedf7c193bc2c599': {
+        price: 85250,
+        symbol: 'WBTC',
+        decimals: 8,
+        confidence: 0.98,
+        timestamp: 1710000000,
+      },
+    });
+
     const baselineResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/simple/networks/eth/token_price/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48,0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
@@ -2943,7 +2961,7 @@ describe('OpenGecko app scaffold', () => {
         type: 'simple_token_price',
         attributes: {
           token_prices: {
-            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': '1',
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': '1.0025',
           },
         },
       },
@@ -2960,7 +2978,7 @@ describe('OpenGecko app scaffold', () => {
         type: 'simple_token_price',
         attributes: {
           token_prices: {
-            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': '1',
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': '1.0025',
           },
           market_cap_usd: {
             '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': expect.any(String),
@@ -2985,7 +3003,7 @@ describe('OpenGecko app scaffold', () => {
         type: 'simple_token_price',
         attributes: {
           token_prices: {
-            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': '1',
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': '1.0025',
           },
         },
       },
@@ -3476,6 +3494,57 @@ describe('OpenGecko app scaffold', () => {
   });
 
   it('returns pool-scoped and token-aggregated onchain trades with threshold and token filtering semantics', async () => {
+    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockImplementation(async (poolAddress) => {
+      const normalized = poolAddress.toLowerCase();
+      if (normalized === '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b') {
+        return [
+          {
+            id: 'swap-live-1',
+            amount0: '-220000',
+            amount1: '62.85',
+            amountUSD: '220000',
+            timestamp: 1710000100,
+            sender: '0xsender1',
+            recipient: '0xrecipient1',
+            transaction: { id: '0xlivetx1', blockNumber: '100' },
+            token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
+            token1: { id: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', symbol: 'WETH', decimals: 18 },
+          },
+          {
+            id: 'swap-live-2',
+            amount0: '-151000',
+            amount1: '-27.1',
+            amountUSD: '151000',
+            timestamp: 1710000000,
+            sender: '0xsender2',
+            recipient: '0xrecipient2',
+            transaction: { id: '0xlivetx2', blockNumber: '99' },
+            token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
+            token1: { id: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', symbol: 'WETH', decimals: 18 },
+          },
+        ];
+      }
+
+      if (normalized === '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7') {
+        return [
+          {
+            id: 'swap-live-curve-1',
+            amount0: '-180000',
+            amount1: '180050',
+            amountUSD: '180000',
+            timestamp: 1709999200,
+            sender: '0xsender3',
+            recipient: '0xrecipient3',
+            transaction: { id: '0xlivetx3', blockNumber: '98' },
+            token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
+            token1: { id: '0xdac17f958d2ee523a2206206994597c13d831ec7', symbol: 'USDT', decimals: 6 },
+          },
+        ];
+      }
+
+      return null;
+    });
+
     const poolTradesResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/trades',
@@ -3497,6 +3566,7 @@ describe('OpenGecko app scaffold', () => {
     expect(poolTradesResponse.json().meta).toEqual({
       network: 'eth',
       pool_address: '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+      source: 'live',
     });
     expect(poolTradesResponse.json().data).toEqual(
       expect.arrayContaining([
@@ -3520,6 +3590,10 @@ describe('OpenGecko app scaffold', () => {
       ]),
     );
     expect(poolTradesResponse.json().data.length).toBeGreaterThanOrEqual(2);
+    expect(poolTradesResponse.json().data.map((trade: { attributes: { tx_hash: string } }) => trade.attributes.tx_hash)).toEqual([
+      '0xlivetx1',
+      '0xlivetx2',
+    ]);
     expect(poolTradesResponse.json().data.every((trade: { relationships: { pool: { data: { id: string } } } }) =>
       trade.relationships.pool.data.id === '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b')).toBe(true);
 
@@ -3537,6 +3611,7 @@ describe('OpenGecko app scaffold', () => {
     expect(tokenTradesResponse.json().meta).toEqual({
       network: 'eth',
       token_address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      source: 'live',
     });
     expect(tokenTradesResponse.json().data).toEqual(
       expect.arrayContaining([
@@ -3617,6 +3692,63 @@ describe('OpenGecko app scaffold', () => {
   });
 
   it('returns pool-level onchain OHLCV with timeframe controls and currency/token semantics', async () => {
+    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockImplementation(async (poolAddress) => {
+      if (poolAddress.toLowerCase() !== '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b') {
+        return null;
+      }
+
+      return [
+        {
+          id: 'ohlcv-swap-1',
+            amount0: '-1000',
+          amount1: '0.285714',
+          amountUSD: '1000',
+            timestamp: 1714737600,
+          sender: '0xsender1',
+          recipient: '0xrecipient1',
+          transaction: { id: '0xohlcvtx1', blockNumber: '1' },
+          token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
+          token1: { id: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', symbol: 'WETH', decimals: 18 },
+        },
+        {
+          id: 'ohlcv-swap-2',
+          amount0: '-1200',
+          amount1: '0.33',
+          amountUSD: '1200',
+            timestamp: 1714741200,
+          sender: '0xsender2',
+          recipient: '0xrecipient2',
+          transaction: { id: '0xohlcvtx2', blockNumber: '2' },
+          token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
+          token1: { id: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', symbol: 'WETH', decimals: 18 },
+        },
+        {
+          id: 'ohlcv-swap-3',
+          amount0: '-1500',
+          amount1: '0.4',
+          amountUSD: '1500',
+            timestamp: 1714744800,
+          sender: '0xsender3',
+          recipient: '0xrecipient3',
+          transaction: { id: '0xohlcvtx3', blockNumber: '3' },
+          token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
+          token1: { id: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', symbol: 'WETH', decimals: 18 },
+        },
+        {
+          id: 'ohlcv-swap-4',
+          amount0: '900',
+          amount1: '-0.25',
+          amountUSD: '900',
+            timestamp: 1714748400,
+          sender: '0xsender4',
+          recipient: '0xrecipient4',
+          transaction: { id: '0xohlcvtx4', blockNumber: '4' },
+          token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
+          token1: { id: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', symbol: 'WETH', decimals: 18 },
+        },
+      ];
+    });
+
     const baselineResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b/ohlcv/hour',
@@ -3648,6 +3780,7 @@ describe('OpenGecko app scaffold', () => {
           timeframe: 'hour',
           aggregate: 1,
           currency: 'usd',
+          source: 'live',
         },
       },
     });
@@ -3661,6 +3794,11 @@ describe('OpenGecko app scaffold', () => {
       close: expect.any(Number),
       volume_usd: expect.any(Number),
     }));
+    expect(baselineSeries.every((entry: { high: number; low: number; open: number; close: number; volume_usd: number }, index: number, arr: Array<{ timestamp: number }>) =>
+      entry.high >= Math.max(entry.open, entry.close)
+      && entry.low <= Math.min(entry.open, entry.close)
+      && entry.volume_usd >= 0
+      && (index === 0 || arr[index - 1]!.timestamp <= arr[index]!.timestamp))).toBe(true);
 
     expect(aggregatedResponse.statusCode).toBe(200);
     expect(aggregatedResponse.json().data.attributes.aggregate).toBe(2);
@@ -3683,6 +3821,39 @@ describe('OpenGecko app scaffold', () => {
   });
 
   it('returns token-level onchain OHLCV aggregated from discoverable token pools', async () => {
+    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockImplementation(async (poolAddress) => {
+      if (poolAddress.toLowerCase() === '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b') {
+        return [
+          {
+            id: 'token-ohlcv-1',
+            amount0: '-1000',
+            amount1: '0.29',
+            amountUSD: '1000',
+            timestamp: 1714740000,
+            sender: '0xsender1',
+            recipient: '0xrecipient1',
+            transaction: { id: '0xtokenohlcv1', blockNumber: '1' },
+            token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
+            token1: { id: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', symbol: 'WETH', decimals: 18 },
+          },
+          {
+            id: 'token-ohlcv-2',
+            amount0: '900',
+            amount1: '-0.25',
+            amountUSD: '900',
+            timestamp: 1714743600,
+            sender: '0xsender2',
+            recipient: '0xrecipient2',
+            transaction: { id: '0xtokenohlcv2', blockNumber: '2' },
+            token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
+            token1: { id: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', symbol: 'WETH', decimals: 18 },
+          },
+        ];
+      }
+
+      return null;
+    });
+
     const baselineResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/hour',
@@ -3717,6 +3888,11 @@ describe('OpenGecko app scaffold', () => {
     expect(baselineBody.source_pools).toEqual([
       '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
     ]);
+    expect(baselineBody.ohlcv_list.every((entry: { high: number; low: number; open: number; close: number; volume_usd: number }, index: number, arr: Array<{ timestamp: number }>) =>
+      entry.high >= Math.max(entry.open, entry.close)
+      && entry.low <= Math.min(entry.open, entry.close)
+      && entry.volume_usd >= 0
+      && (index === 0 || arr[index - 1]!.timestamp <= arr[index]!.timestamp))).toBe(true);
     expect(new Set(baselineBody.source_pools)).toEqual(new Set([
       tokenPoolsResponse.json().data[1].id,
     ]));

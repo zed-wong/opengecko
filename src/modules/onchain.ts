@@ -6,7 +6,8 @@ import type { AppDatabase } from '../db/client';
 import { coins, marketSnapshots, onchainDexes, onchainNetworks, onchainPools } from '../db/schema';
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePositiveInt } from '../http/params';
-import { fetchDefillamaDexVolumes, fetchDefillamaPoolData } from '../providers/defillama';
+import { fetchDefillamaDexVolumes, fetchDefillamaPoolData, fetchDefillamaTokenPrices } from '../providers/defillama';
+import { fetchUniswapV3PoolSwaps } from '../providers/thegraph';
 
 const paginationQuerySchema = z.object({
   page: z.string().optional(),
@@ -777,6 +778,18 @@ type OnchainTradeRecord = {
   blockTimestamp: number;
 };
 
+type LiveTradeRecord = OnchainTradeRecord & {
+  source: 'live' | 'fixture';
+};
+
+type LiveSimpleTokenPrice = {
+  priceUsd: number | null;
+  marketCapUsd: number | null;
+  volume24hUsd: number | null;
+  totalReserveUsd: number | null;
+  priceChange24h: number | null;
+};
+
 type OnchainHolderRecord = {
   address: string;
   balance: number;
@@ -1091,6 +1104,162 @@ function finalizeOnchainOhlcvSeries(
   }
 
   return withEmptyIntervals.slice(-options.limit);
+}
+
+function deriveLivePoolTrades(
+  pool: typeof onchainPools.$inferSelect,
+  swaps: Awaited<ReturnType<typeof fetchUniswapV3PoolSwaps>>,
+): LiveTradeRecord[] | null {
+  if (!Array.isArray(swaps) || swaps.length === 0) {
+    return null;
+  }
+
+  const normalizedBase = normalizeAddress(pool.baseTokenAddress);
+  const normalizedQuote = normalizeAddress(pool.quoteTokenAddress);
+  const sorted = [...swaps]
+    .filter((swap) => swap.transaction?.id && swap.timestamp !== null)
+    .sort((left, right) => (right.timestamp ?? 0) - (left.timestamp ?? 0) || left.id.localeCompare(right.id));
+
+  const liveTrades: LiveTradeRecord[] = [];
+
+  for (const swap of sorted) {
+    const amount0 = swap.amount0 ? Number(swap.amount0) : NaN;
+    const amount1 = swap.amount1 ? Number(swap.amount1) : NaN;
+    const amountUsd = swap.amountUSD ? Number(swap.amountUSD) : NaN;
+
+    if (!Number.isFinite(amount0) || !Number.isFinite(amount1) || !Number.isFinite(amountUsd) || amountUsd < 0) {
+      continue;
+    }
+
+    const tokenAddress = amount0 <= 0 ? normalizedBase : normalizedQuote;
+    const tokenAmount = tokenAddress === normalizedBase ? Math.abs(amount0) : Math.abs(amount1);
+    const priceUsd = tokenAmount > 0 ? Number((amountUsd / tokenAmount).toFixed(6)) : pool.priceUsd ?? 0;
+
+    liveTrades.push({
+      id: swap.id || `${pool.address}:${swap.transaction?.id}:${swap.timestamp}`,
+      networkId: pool.networkId,
+      poolAddress: pool.address,
+      tokenAddress,
+      side: amount0 <= 0 ? 'buy' : 'sell',
+      volumeUsd: Number(amountUsd.toFixed(2)),
+      priceUsd,
+      txHash: swap.transaction?.id ?? '',
+      blockTimestamp: swap.timestamp ?? 0,
+      source: 'live',
+    });
+  }
+
+  return liveTrades.length > 0 ? liveTrades : null;
+}
+
+function derivePoolOhlcvFromTrades(
+  trades: LiveTradeRecord[],
+  timeframe: OnchainOhlcvTimeframe,
+  aggregate: number,
+  currency: 'usd' | 'token',
+  tokenSelection: string | null,
+  pool: typeof onchainPools.$inferSelect,
+): OnchainOhlcvSeriesPoint[] {
+  const windowSeconds = resolveOnchainOhlcvWindowMs(timeframe, aggregate) / 1000;
+  const normalizedQuote = normalizeAddress(pool.quoteTokenAddress);
+  const multiplier = currency === 'token' && tokenSelection !== null && normalizedQuote === tokenSelection
+    ? 1 / (pool.priceUsd ?? 1)
+    : 1;
+  const buckets = new Map<number, {
+    timestamp: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volumeUsd: number;
+  }>();
+
+  const chronological = [...trades].sort((left, right) => left.blockTimestamp - right.blockTimestamp || left.id.localeCompare(right.id));
+
+  for (const trade of chronological) {
+    const bucketTimestamp = Math.floor(trade.blockTimestamp / windowSeconds) * windowSeconds;
+    const price = Number((trade.priceUsd * multiplier).toFixed(6));
+    const existing = buckets.get(bucketTimestamp);
+
+    if (!existing) {
+      buckets.set(bucketTimestamp, {
+        timestamp: bucketTimestamp,
+        open: price,
+        high: price,
+        low: price,
+        close: price,
+        volumeUsd: Number(trade.volumeUsd.toFixed(2)),
+      });
+      continue;
+    }
+
+    existing.high = Math.max(existing.high, price);
+    existing.low = Math.min(existing.low, price);
+    existing.close = price;
+    existing.volumeUsd = Number((existing.volumeUsd + trade.volumeUsd).toFixed(2));
+  }
+
+  return [...buckets.values()]
+    .sort((left, right) => left.timestamp - right.timestamp)
+    .map((bucket) => ({
+      timestamp: bucket.timestamp,
+      open: Number(bucket.open.toFixed(6)),
+      high: Number(bucket.high.toFixed(6)),
+      low: Number(bucket.low.toFixed(6)),
+      close: Number(bucket.close.toFixed(6)),
+      volumeUsd: Number(Math.max(0, bucket.volumeUsd).toFixed(2)),
+    }));
+}
+
+async function fetchLivePoolTrades(pool: typeof onchainPools.$inferSelect) {
+  if (pool.networkId !== 'eth') {
+    return null;
+  }
+
+  const swaps = await fetchUniswapV3PoolSwaps(pool.address, 100);
+  return deriveLivePoolTrades(pool, swaps);
+}
+
+async function fetchLiveSimpleTokenPrice(
+  networkId: string,
+  tokenAddress: string,
+  tokenPools: typeof onchainPools.$inferSelect[],
+  database: AppDatabase,
+): Promise<LiveSimpleTokenPrice | null> {
+  const coinId = findCoinIdForToken(networkId, tokenAddress);
+  const snapshot = coinId
+    ? database.db
+        .select()
+        .from(marketSnapshots)
+        .where(and(eq(marketSnapshots.coinId, coinId), eq(marketSnapshots.vsCurrency, 'usd')))
+        .limit(1)
+        .get()
+    : null;
+
+  if (networkId !== 'eth') {
+    return null;
+  }
+
+  const response = await fetchDefillamaTokenPrices([`ethereum:${tokenAddress}`]);
+  const liveEntry = response?.[`ethereum:${tokenAddress}`];
+  const livePrice = typeof liveEntry?.price === 'number' && Number.isFinite(liveEntry.price)
+    ? liveEntry.price
+    : null;
+
+  if (livePrice === null) {
+    return null;
+  }
+
+  const liveVolume24h = tokenPools.reduce((sum, pool) => sum + (pool.volume24hUsd ?? 0), 0);
+  const liveReserveUsd = tokenPools.reduce((sum, pool) => sum + (pool.reserveUsd ?? 0), 0);
+
+  return {
+    priceUsd: Number(livePrice.toFixed(6)),
+    marketCapUsd: snapshot?.marketCap ?? (liveReserveUsd > 0 ? liveReserveUsd : null),
+    volume24hUsd: liveVolume24h > 0 ? Number(liveVolume24h.toFixed(2)) : null,
+    totalReserveUsd: liveReserveUsd > 0 ? Number(liveReserveUsd.toFixed(2)) : null,
+    priceChange24h: snapshot?.priceChangePercentage24h ?? null,
+  };
 }
 
 function buildOnchainTradeFixtures(database: AppDatabase): OnchainTradeRecord[] {
@@ -2537,23 +2706,24 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
             .limit(1)
             .get()
         : null;
+      const livePrice = await fetchLiveSimpleTokenPrice(params.network, address, tokenPools, database);
 
-      tokenPrices[address] = formatMetricValue(tokenResource.attributes.price_usd);
+      tokenPrices[address] = formatMetricValue(livePrice?.priceUsd ?? tokenResource.attributes.price_usd);
 
       if (includeMarketCap) {
-        marketCaps[address] = formatMetricValue(snapshot?.marketCap ?? tokenPools[0]?.reserveUsd ?? null);
+        marketCaps[address] = formatMetricValue(livePrice?.marketCapUsd ?? snapshot?.marketCap ?? tokenPools[0]?.reserveUsd ?? null);
       }
 
       if (include24hrVol) {
-        volumes24h[address] = formatMetricValue(tokenPools.reduce((sum, pool) => sum + (pool.volume24hUsd ?? 0), 0));
+        volumes24h[address] = formatMetricValue(livePrice?.volume24hUsd ?? tokenPools.reduce((sum, pool) => sum + (pool.volume24hUsd ?? 0), 0));
       }
 
       if (include24hrPriceChange) {
-        priceChanges24h[address] = formatMetricValue(snapshot?.priceChangePercentage24h ?? 0);
+        priceChanges24h[address] = formatMetricValue(livePrice?.priceChange24h ?? snapshot?.priceChangePercentage24h ?? 0);
       }
 
       if (includeTotalReserveInUsd) {
-        totalReserveInUsd[address] = formatMetricValue(tokenPools.reduce((sum, pool) => sum + (pool.reserveUsd ?? 0), 0));
+        totalReserveInUsd[address] = formatMetricValue(livePrice?.totalReserveUsd ?? tokenPools.reduce((sum, pool) => sum + (pool.reserveUsd ?? 0), 0));
       }
     }
 
@@ -2812,7 +2982,8 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       }
     }
 
-    const trades = buildOnchainTradeFixtures(database)
+    const liveTrades = await fetchLivePoolTrades(pool);
+    const trades = (liveTrades ?? buildOnchainTradeFixtures(database).map((trade) => ({ ...trade, source: 'fixture' as const })))
       .filter((trade) => trade.networkId === params.network && trade.poolAddress === params.address)
       .filter((trade) => threshold === null || trade.volumeUsd > threshold)
       .filter((trade) => filteredToken === null || trade.tokenAddress === filteredToken)
@@ -2823,6 +2994,7 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       meta: {
         network: params.network,
         pool_address: params.address,
+        source: liveTrades ? 'live' : 'fixture',
       },
     };
   });
@@ -2845,8 +3017,10 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       throw new HttpError(404, 'not_found', `Onchain token not found: ${tokenAddress}`);
     }
 
+    const liveTradeGroups = await Promise.all(tokenPools.map((pool) => fetchLivePoolTrades(pool)));
+    const liveTrades = liveTradeGroups.flatMap((group) => group ?? []);
     const poolAddresses = new Set(tokenPools.map((pool) => pool.address));
-    const trades = buildOnchainTradeFixtures(database)
+    const trades = (liveTrades.length > 0 ? liveTrades : buildOnchainTradeFixtures(database).map((trade) => ({ ...trade, source: 'fixture' as const })))
       .filter((trade) => trade.networkId === params.network && trade.tokenAddress === tokenAddress && poolAddresses.has(trade.poolAddress))
       .filter((trade) => threshold === null || trade.volumeUsd > threshold)
       .sort((left, right) => right.blockTimestamp - left.blockTimestamp || left.id.localeCompare(right.id));
@@ -2856,6 +3030,7 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       meta: {
         network: params.network,
         token_address: tokenAddress,
+        source: liveTrades.length > 0 ? 'live' : 'fixture',
       },
     };
   });
@@ -2899,19 +3074,29 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       }
     }
 
-    const baseSeries = buildSyntheticPoolOhlcvSeries(pool, timeframe, aggregate).map((point) => {
-      const multiplier = currency === 'token' && tokenSelection !== null && normalizeAddress(pool.quoteTokenAddress) === tokenSelection
-        ? 1 / (pool.priceUsd ?? 1)
-        : 1;
+    const liveTrades = await fetchLivePoolTrades(pool);
+    const baseSeries = liveTrades && liveTrades.length > 0
+      ? derivePoolOhlcvFromTrades(
+          liveTrades,
+          timeframe,
+          aggregate,
+          currency as 'usd' | 'token',
+          tokenSelection,
+          pool,
+        )
+      : buildSyntheticPoolOhlcvSeries(pool, timeframe, aggregate).map((point) => {
+          const multiplier = currency === 'token' && tokenSelection !== null && normalizeAddress(pool.quoteTokenAddress) === tokenSelection
+            ? 1 / (pool.priceUsd ?? 1)
+            : 1;
 
-      return {
-        ...point,
-        open: Number((point.open * multiplier).toFixed(6)),
-        high: Number((point.high * multiplier).toFixed(6)),
-        low: Number((point.low * multiplier).toFixed(6)),
-        close: Number((point.close * multiplier).toFixed(6)),
-      };
-    });
+          return {
+            ...point,
+            open: Number((point.open * multiplier).toFixed(6)),
+            high: Number((point.high * multiplier).toFixed(6)),
+            low: Number((point.low * multiplier).toFixed(6)),
+            close: Number((point.close * multiplier).toFixed(6)),
+          };
+        });
 
     return {
       data: {
@@ -2931,6 +3116,7 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
             includeEmptyIntervals,
             timeframe,
           }),
+          source: liveTrades && liveTrades.length > 0 ? 'live' : 'fixture',
         },
       },
     };
