@@ -2995,6 +2995,64 @@ describe('OpenGecko app scaffold', () => {
       || pool.attributes.quote_token_address === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48')).toBe(true);
   });
 
+  it('proves the token detail route surfaces live defillama pricing and falls back to seeded pricing when live pricing fails', async () => {
+    vi.spyOn(defillamaProvider, 'fetchDefillamaTokenPrices').mockResolvedValueOnce({
+      'ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': {
+        price: 1.234567,
+        symbol: 'USDC',
+        decimals: 6,
+        confidence: 0.99,
+        timestamp: 1710000000,
+      },
+    });
+
+    const liveResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+
+    expect(liveResponse.statusCode).toBe(200);
+    expect(liveResponse.json()).toMatchObject({
+      data: {
+        id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        type: 'token',
+        attributes: expect.objectContaining({
+          price_usd: 1.234567,
+        }),
+        relationships: {
+          network: {
+            data: {
+              type: 'network',
+              id: 'eth',
+            },
+          },
+        },
+      },
+    });
+
+    vi.spyOn(defillamaProvider, 'fetchDefillamaTokenPrices').mockResolvedValueOnce(null);
+
+    const fallbackResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+
+    expect(fallbackResponse.statusCode).toBe(200);
+    expect(fallbackResponse.json()).toMatchObject({
+      data: {
+        id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        type: 'token',
+        attributes: expect.objectContaining({
+          price_usd: 1,
+        }),
+      },
+    });
+    expect(fallbackResponse.json().data.attributes.top_pools).toEqual([
+      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+      '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+    ]);
+  });
+
   it('rejects unknown or wrong-network onchain token lookups without bleeding identities across routes', async () => {
     const unknownTokenResponse = await getApp().inject({
       method: 'GET',
@@ -3664,6 +3722,36 @@ describe('OpenGecko app scaffold', () => {
       entry.relationships.network.data.id === 'eth')).toBe(true);
   });
 
+  it('proves token info falls back to seeded metadata pricing when defillama live pricing is unavailable', async () => {
+    vi.spyOn(defillamaProvider, 'fetchDefillamaTokenPrices').mockResolvedValue(null);
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/info',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      data: {
+        id: 'eth_0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        type: 'token_info',
+        attributes: {
+          address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          symbol: 'USDC',
+          price_usd: 1,
+        },
+        relationships: {
+          network: {
+            data: {
+              type: 'network',
+              id: 'eth',
+            },
+          },
+        },
+      },
+    });
+  });
+
   it('validates onchain token info and recently updated token info parameters explicitly', async () => {
     const unknownTokenInfoResponse = await getApp().inject({
       method: 'GET',
@@ -4146,6 +4234,49 @@ describe('OpenGecko app scaffold', () => {
       tokenPoolsResponse.json().data.map((pool: { id: string }) => pool.id),
     ));
     expect(inactiveBody.ohlcv_list.length).toBeGreaterThan(0);
+  });
+
+  it('proves token ohlcv falls back to the degraded seeded pool set when the graph swaps are unavailable', async () => {
+    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockResolvedValue(null);
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/day?include_inactive_source=true',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      data: {
+        id: 'eth:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48:day',
+        type: 'ohlcv',
+        attributes: {
+          network: 'eth',
+          token_address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          timeframe: 'day',
+          aggregate: 1,
+          include_inactive_source: true,
+          source_pools: [
+            '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b',
+            '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+          ],
+        },
+      },
+    });
+    const fallbackSeries = response.json().data.attributes.ohlcv_list;
+    expect(fallbackSeries.length).toBeGreaterThan(1);
+    expect(fallbackSeries.every((entry: { high: number; low: number; open: number; close: number; volume_usd: number }, index: number, arr: Array<{ timestamp: number }>) =>
+      entry.high >= Math.max(entry.open, entry.close)
+      && entry.low <= Math.min(entry.open, entry.close)
+      && entry.volume_usd >= 0
+      && (index === 0 || arr[index - 1]!.timestamp <= arr[index]!.timestamp))).toBe(true);
+    expect(fallbackSeries[0]).toMatchObject({
+      timestamp: expect.any(Number),
+      open: expect.any(Number),
+      high: expect.any(Number),
+      low: expect.any(Number),
+      close: expect.any(Number),
+      volume_usd: expect.any(Number),
+    });
   });
 
   it('keeps canonical identity aligned across coin list, search, market, detail, contract, treasury, and registry routes', async () => {
