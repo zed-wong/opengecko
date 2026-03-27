@@ -15,20 +15,32 @@ describe('defillama provider', () => {
   it('fetches protocol and pool data from configured endpoints', async () => {
     process.env.DEFILLAMA_BASE_URL = 'https://defillama.example';
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify([
-        { id: 'uniswap', slug: 'uniswap', name: 'Uniswap', category: 'Dexes', chains: ['Ethereum'], tvl: 1234 },
-      ]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         data: [
           {
             chain: 'Ethereum',
             project: 'uniswap-v3',
             symbol: 'USDC-WETH',
-            pool: 'pool-1',
-            tvlUsd: 100,
-            volumeUsd1d: 10,
-            volumeUsd7d: 70,
-            underlyingTokens: ['0xa', '0xb'],
+            pool: 'live-usdc-weth',
+            tvlUsd: 123456789,
+            volumeUsd1d: 22222222,
+            underlyingTokens: [
+              '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+              '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+            ],
+          },
+          {
+            chain: 'Ethereum',
+            project: 'curve',
+            symbol: 'USDC-USDT',
+            pool: 'live-usdc-usdt',
+            tvlUsd: 98765432,
+            volumeUsd1d: 33333333,
+            underlyingTokens: [
+              '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+              '0xdac17f958d2ee523a2206206994597c13d831ec7',
+            ],
           },
         ],
       }), { status: 200 }));
@@ -39,22 +51,37 @@ describe('defillama provider', () => {
     const result = await fetchDefillamaPoolData({ fetchImpl: fetchMock as typeof fetch });
 
     expect(result).toEqual({
-      protocols: [
-        { id: 'uniswap', slug: 'uniswap', name: 'Uniswap', category: 'Dexes', chains: ['Ethereum'], tvl: 1234 },
-      ],
+      protocols: [],
       pools: [
         {
           chain: 'Ethereum',
           project: 'uniswap-v3',
           symbol: 'USDC-WETH',
-          pool: 'pool-1',
-          tvlUsd: 100,
-          volumeUsd1d: 10,
-          volumeUsd7d: 70,
-          underlyingTokens: ['0xa', '0xb'],
+          pool: 'live-usdc-weth',
+          tvlUsd: 123456789,
+          volumeUsd1d: 22222222,
+          volumeUsd7d: null,
+          underlyingTokens: [
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+          ],
+        },
+        {
+          chain: 'Ethereum',
+          project: 'curve',
+          symbol: 'USDC-USDT',
+          pool: 'live-usdc-usdt',
+          tvlUsd: 98765432,
+          volumeUsd1d: 33333333,
+          volumeUsd7d: null,
+          underlyingTokens: [
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            '0xdac17f958d2ee523a2206206994597c13d831ec7',
+          ],
         },
       ],
     });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://defillama.example/protocols', expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://defillama.example/yields/pools', expect.any(Object));
     expect(errorSpy).not.toHaveBeenCalled();
