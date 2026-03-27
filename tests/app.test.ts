@@ -21,6 +21,7 @@ import * as currencyRatesModule from '../src/services/currency-rates';
 import contractFixtures from './fixtures/contract-fixtures.json';
 
 const currentDailyBucket = () => candleStore.toDailyBucket(Date.now()).getTime();
+const defaultDefillamaTokenPriceMock = () => vi.spyOn(defillamaProvider, 'fetchDefillamaTokenPrices').mockResolvedValue(null);
 
 vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn().mockResolvedValue([
@@ -64,6 +65,7 @@ describe('OpenGecko app scaffold', () => {
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'opengecko-'));
+    defaultDefillamaTokenPriceMock();
     app = buildApp({
       config: {
         databaseUrl: join(tempDir, 'test.db'),
@@ -4672,6 +4674,47 @@ describe('OpenGecko app scaffold', () => {
     expect(Number(compressedResponse.headers['content-length'] ?? 0)).toBeGreaterThan(0);
     expect(String(compressedResponse.headers.vary ?? '')).toContain('Accept-Encoding');
     expect(JSON.parse(gunzipSync(compressedResponse.rawPayload).toString('utf8'))).toEqual(uncompressedResponse.json());
+  });
+
+  it('keeps large onchain trade responses readable when gzip compression is negotiated', async () => {
+    const sqdSpy = vi.spyOn(sqdProvider, 'fetchEthereumPoolSwapLogs').mockResolvedValue(
+      Array.from({ length: 20_000 }, (_, index) => ({
+        blockNumber: 20_000_000 + index,
+        blockTimestamp: 1_710_000_000 + index,
+        txHash: `0x${(index + 1).toString(16).padStart(64, '0')}`,
+        amount0: '-1000000',
+        amount1: '285714285714285',
+        sqrtPriceX96: '0',
+        liquidity: '0',
+        tick: 0,
+      })),
+    );
+    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockResolvedValue(null);
+
+    const compressedResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades',
+      headers: {
+        'accept-encoding': 'gzip',
+      },
+    });
+
+    expect(compressedResponse.statusCode).toBe(200);
+    expect(compressedResponse.headers['content-encoding']).toBe('gzip');
+
+    const parsedBody = JSON.parse(gunzipSync(compressedResponse.rawPayload).toString('utf8'));
+    expect(parsedBody.meta).toMatchObject({
+      network: 'eth',
+      pool_address: '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640',
+    });
+    expect(parsedBody.data.length).toBeGreaterThan(0);
+    expect(parsedBody.data[0]).toMatchObject({
+      type: 'trade',
+      attributes: {
+        tx_hash: expect.any(String),
+        block_timestamp: expect.any(Number),
+      },
+    });
   });
 
   it('keeps unrelated non-hot endpoint bodies stable when compression is not negotiated', async () => {
