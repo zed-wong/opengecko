@@ -2,9 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('thegraph provider', () => {
   const originalApiKey = process.env.THEGRAPH_API_KEY;
+  const originalDotenvValue = process.env.OPEN_GECKO_DISABLE_REPO_DOTENV;
 
   afterEach(() => {
     vi.restoreAllMocks();
+    if (originalDotenvValue === undefined) {
+      delete process.env.OPEN_GECKO_DISABLE_REPO_DOTENV;
+    } else {
+      process.env.OPEN_GECKO_DISABLE_REPO_DOTENV = originalDotenvValue;
+    }
     if (originalApiKey === undefined) {
       delete process.env.THEGRAPH_API_KEY;
     } else {
@@ -13,6 +19,8 @@ describe('thegraph provider', () => {
   });
 
   it('returns null for all requests when THEGRAPH_API_KEY is missing', async () => {
+    process.env.OPEN_GECKO_DISABLE_REPO_DOTENV = '1';
+    delete process.env.THEGRAPH_API_KEY;
     const fetchMock = vi.fn();
 
     const {

@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { z } from 'zod';
 
 import {
@@ -50,7 +53,80 @@ export type AppConfig = {
   startupPrewarmBudgetMs: number;
 };
 
+let repoEnvLoaded = false;
+
+function parseDotenv(contents: string) {
+  const parsed: Record<string, string> = {};
+
+  for (const rawLine of contents.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const normalized = line.startsWith('export ') ? line.slice('export '.length).trim() : line;
+    const separatorIndex = normalized.indexOf('=');
+
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = normalized.slice(0, separatorIndex).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      continue;
+    }
+
+    let value = normalized.slice(separatorIndex + 1).trim();
+
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith('\'') && value.endsWith('\''))) {
+      value = value.slice(1, -1);
+    }
+
+    parsed[key] = value;
+  }
+
+  return parsed;
+}
+
+export function loadRepoDotenv(options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}) {
+  if (repoEnvLoaded) {
+    return false;
+  }
+
+  const cwd = options.cwd ?? process.cwd();
+  const env = options.env ?? process.env;
+  if (env.OPEN_GECKO_DISABLE_REPO_DOTENV === '1') {
+    repoEnvLoaded = true;
+    return false;
+  }
+  const dotenvPath = resolve(cwd, '.env');
+
+  if (!existsSync(dotenvPath)) {
+    repoEnvLoaded = true;
+    return false;
+  }
+
+  const parsed = parseDotenv(readFileSync(dotenvPath, 'utf8'));
+
+  for (const [key, value] of Object.entries(parsed)) {
+    if (env[key] === undefined) {
+      env[key] = value;
+    }
+  }
+
+  repoEnvLoaded = true;
+  return true;
+}
+
+export function resetRepoDotenvLoaderForTests() {
+  repoEnvLoaded = false;
+}
+
 export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
+  if (rawEnv === process.env) {
+    loadRepoDotenv();
+  }
+
   const env = envSchema.parse(rawEnv);
 
   return {
