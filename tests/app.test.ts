@@ -16,6 +16,7 @@ import * as catalogModule from '../src/modules/catalog';
 import * as defillamaProvider from '../src/providers/defillama';
 import * as thegraphProvider from '../src/providers/thegraph';
 import * as startupPrewarmModule from '../src/services/startup-prewarm';
+import * as currencyRatesModule from '../src/services/currency-rates';
 import contractFixtures from './fixtures/contract-fixtures.json';
 
 const currentDailyBucket = () => candleStore.toDailyBucket(Date.now()).getTime();
@@ -1333,11 +1334,13 @@ describe('OpenGecko app scaffold', () => {
       url: '/simple/price?ids=bitcoin,ethereum&vs_currencies=usd,eur&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true',
     });
 
+    const eurRate = currencyRatesModule.getCurrencyApiSnapshot().usdt.eur / currencyRatesModule.getCurrencyApiSnapshot().usdt.usd;
+
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
       bitcoin: {
         usd: 85000,
-        eur: 73329.50154764981,
+        eur: 85000 * eurRate,
         usd_24h_change: 1.8,
         eur_24h_change: 1.8,
       },

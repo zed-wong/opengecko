@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
 import { buildApp } from '../src/app';
+import * as defillamaProvider from '../src/providers/defillama';
 
 vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn(),
@@ -61,6 +62,8 @@ describe('module contract verification scripts', () => {
     mockedFetchExchangeMarkets.mockReset();
     mockedFetchExchangeTickers.mockReset();
     mockedFetchExchangeOHLCV.mockReset();
+    vi.spyOn(defillamaProvider, 'fetchDefillamaPoolData').mockResolvedValue(null);
+    vi.spyOn(defillamaProvider, 'fetchDefillamaDexVolumes').mockResolvedValue(null);
 
     mockedFetchExchangeMarkets.mockImplementation(async (exchangeId) => {
       if (exchangeId === 'binance') return [
