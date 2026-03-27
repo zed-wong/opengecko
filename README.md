@@ -17,19 +17,11 @@ openGecko is a drop-in, open-source replacement for the CoinGecko API. Deploy it
 | **CCXT-Powered** | Aggregates data from Binance, Coinbase, Kraken, OKX, and every exchange CCXT supports. |
 | **Runtime Diagnostics** | Machine-readable `/diagnostics/runtime` and `/metrics` surfaces expose readiness, degraded-state, transport, and cache behavior. |
 | **Frontend-Critical Images** | Representative `/coins/markets` and `/coins/{id}` assets now expose deterministic non-CoinGecko image hydration for key frontend surfaces. |
-| **340+ Tests** | Integration-tested and contract-validated across runtime, compatibility, and frontend-critical API flows. |
+| **31 Tests** | Integration-tested and contract-validated across runtime, compatibility, and frontend-critical API flows. |
 
 ---
 
 ## Quick Start
-
-### Docker
-
-```bash
-docker run -p 3000:3000 opengecko
-```
-
-### From Source
 
 ```bash
 git clone https://github.com/your-org/opengecko
@@ -58,7 +50,7 @@ The API is available at `http://localhost:3000`. See `docs/execution/INTENT_ARCH
 
 ## Built With
 
-`Bun` · `TypeScript` · `Fastify` · `SQLite` · `Drizzle ORM` · `CCXT`
+`Bun` · `TypeScript` · `tsx` · `Fastify` · `better-sqlite3` · `Drizzle ORM` · `CCXT`
 
 ---
 
