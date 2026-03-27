@@ -197,6 +197,67 @@ describe('thegraph provider', () => {
     });
   });
 
+  it('returns pool day snapshots in ascending chronological order even if the graph responds reverse-chronologically', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: {
+        poolDayDatas: [
+          {
+            date: 1710172800,
+            liquidity: '3000',
+            sqrtPrice: '220',
+            token0Price: '1.02',
+            token1Price: '3600',
+            volumeToken0: '120',
+            volumeToken1: '0.04',
+            volumeUSD: '52000',
+            tvlUSD: '255000',
+          },
+          {
+            date: 1710000000,
+            liquidity: '1000',
+            sqrtPrice: '200',
+            token0Price: '1',
+            token1Price: '3500',
+            volumeToken0: '100',
+            volumeToken1: '0.03',
+            volumeUSD: '50000',
+            tvlUSD: '250000',
+          },
+          {
+            date: 1710086400,
+            liquidity: '2000',
+            sqrtPrice: '210',
+            token0Price: '1.01',
+            token1Price: '3550',
+            volumeToken0: '110',
+            volumeToken1: '0.035',
+            volumeUSD: '51000',
+            tvlUSD: '252500',
+          },
+        ],
+      },
+    }), { status: 200 }));
+
+    const { fetchUniswapV3PoolSnapshots } = await import('../src/providers/thegraph');
+
+    const result = await fetchUniswapV3PoolSnapshots('0xPool', 7, {
+      apiKey: 'snapshot-key',
+      fetchImpl: fetchMock as typeof fetch,
+    });
+
+    expect(result?.map((snapshot) => snapshot.date)).toEqual([
+      1710000000,
+      1710086400,
+      1710172800,
+    ]);
+
+    const request = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.parse(request?.body as string)).toEqual({
+      query: expect.stringContaining('orderDirection: asc'),
+      variables: { poolId: '0xpool', first: 7 },
+    });
+  });
+
   it('returns null and logs when the graph responds with errors or http failures', async () => {
     process.env.THEGRAPH_API_KEY = 'error-key';
     const fetchMock = vi.fn()

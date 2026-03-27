@@ -275,7 +275,7 @@ export async function fetchUniswapV3PoolSnapshots(
 ): Promise<TheGraphPoolSnapshot[] | null> {
   const data = await postGraphql<{ poolDayDatas?: Array<Record<string, unknown>> }>(
     `query PoolSnapshots($poolId: Bytes!, $first: Int!) {
-      poolDayDatas(first: $first, orderBy: date, orderDirection: desc, where: { pool: $poolId }) {
+      poolDayDatas(first: $first, orderBy: date, orderDirection: asc, where: { pool: $poolId }) {
         date
         liquidity
         sqrtPrice
@@ -298,7 +298,8 @@ export async function fetchUniswapV3PoolSnapshots(
     return null;
   }
 
-  return data.poolDayDatas.map((snapshot) => ({
+  return data.poolDayDatas
+    .map((snapshot) => ({
     date: asNullableTimestamp(snapshot.date),
     liquidity: asNullableString(snapshot.liquidity),
     sqrtPrice: asNullableString(snapshot.sqrtPrice),
@@ -308,5 +309,6 @@ export async function fetchUniswapV3PoolSnapshots(
     volumeToken1: asNullableString(snapshot.volumeToken1),
     volumeUSD: asNullableString(snapshot.volumeUSD),
     tvlUSD: asNullableString(snapshot.tvlUSD),
-  }));
+    }))
+    .sort((left, right) => (left.date ?? Number.NEGATIVE_INFINITY) - (right.date ?? Number.NEGATIVE_INFINITY));
 }
