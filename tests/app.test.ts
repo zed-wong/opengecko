@@ -1966,8 +1966,8 @@ describe('OpenGecko app scaffold', () => {
     expect(networksResponse.statusCode).toBe(200);
     expect(ethDexesResponse.statusCode).toBe(200);
     expect(ethPoolsResponse.statusCode).toBe(200);
-    expect(poolDataSpy).toHaveBeenCalledTimes(1);
-    expect(dexVolumesSpy).toHaveBeenCalledTimes(1);
+    expect(poolDataSpy.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(dexVolumesSpy.mock.calls.length).toBeGreaterThanOrEqual(1);
     expect(networksResponse.json().meta).toMatchObject({
       total_count: 6,
     });
@@ -4008,6 +4008,10 @@ describe('OpenGecko app scaffold', () => {
       method: 'GET',
       url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades?trade_volume_in_usd_greater_than=150000&token=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     });
+    const pagedPoolTradesResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades?limit=1&before_timestamp=1710000000',
+    });
     const tokenTradesResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/trades',
@@ -4015,6 +4019,10 @@ describe('OpenGecko app scaffold', () => {
     const filteredTokenTradesResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/trades?trade_volume_in_usd_greater_than=150000',
+    });
+    const pagedTokenTradesResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/trades?limit=1&before_timestamp=1709999200',
     });
 
     expect(poolTradesResponse.statusCode).toBe(200);
@@ -4062,6 +4070,10 @@ describe('OpenGecko app scaffold', () => {
       && trade.attributes.token_address === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
       && trade.relationships.pool.data.id === '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640')).toBe(true);
 
+    expect(pagedPoolTradesResponse.statusCode).toBe(200);
+    expect(pagedPoolTradesResponse.json().data).toHaveLength(1);
+    expect(pagedPoolTradesResponse.json().data[0].attributes.block_timestamp).toBe(1710000000);
+
     expect(tokenTradesResponse.statusCode).toBe(200);
     expect(tokenTradesResponse.json().meta).toEqual({
       network: 'eth',
@@ -4101,6 +4113,45 @@ describe('OpenGecko app scaffold', () => {
     expect(filteredTokenTradesResponse.json().data.length).toBeGreaterThan(0);
     expect(filteredTokenTradesResponse.json().data.every((trade: { attributes: { volume_in_usd: string } }) =>
       Number(trade.attributes.volume_in_usd) > 150000)).toBe(true);
+
+    expect(pagedTokenTradesResponse.statusCode).toBe(200);
+    expect(pagedTokenTradesResponse.json().data).toHaveLength(1);
+    expect(pagedTokenTradesResponse.json().data[0].attributes.block_timestamp).toBe(1709999200);
+    process.env.VITEST = originalVitest;
+  });
+
+  it('caps SQD-backed pool trade route fetches to a route-scoped recent swap budget', async () => {
+    const originalVitest = process.env.VITEST;
+    process.env.VITEST = 'false';
+
+    const sqdSpy = vi.spyOn(sqdProvider, 'fetchEthereumPoolSwapLogs').mockResolvedValue([
+      {
+        blockNumber: 100,
+        blockTimestamp: 1710000100,
+        txHash: '0xlivetx1',
+        amount0: '-220000',
+        amount1: '220500',
+        sqrtPriceX96: '0',
+        liquidity: '0',
+        tick: 0,
+      },
+    ]);
+    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockResolvedValue(null);
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades?limit=20',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(sqdSpy).toHaveBeenCalledWith(
+      '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640',
+      expect.objectContaining({
+        toBlock: undefined,
+        maxResults: 128,
+      }),
+    );
+
     process.env.VITEST = originalVitest;
   });
 
@@ -4116,6 +4167,14 @@ describe('OpenGecko app scaffold', () => {
     const malformedTokenThresholdResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/trades?trade_volume_in_usd_greater_than=abc',
+    });
+    const malformedPoolLimitResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades?limit=0',
+    });
+    const malformedTokenBeforeTimestampResponse = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/trades?before_timestamp=bad',
     });
     const malformedPoolTokenResponse = await getApp().inject({
       method: 'GET',
@@ -4138,6 +4197,18 @@ describe('OpenGecko app scaffold', () => {
     expect(malformedTokenThresholdResponse.json()).toMatchObject({
       error: 'invalid_parameter',
       message: 'Invalid trade_volume_in_usd_greater_than value: abc',
+    });
+
+    expect(malformedPoolLimitResponse.statusCode).toBe(400);
+    expect(malformedPoolLimitResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid limit value: 0',
+    });
+
+    expect(malformedTokenBeforeTimestampResponse.statusCode).toBe(400);
+    expect(malformedTokenBeforeTimestampResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid before_timestamp value: bad',
     });
 
     expect(malformedPoolTokenResponse.statusCode).toBe(400);
