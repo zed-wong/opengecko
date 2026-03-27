@@ -127,6 +127,47 @@ describe('ohlcv runtime', () => {
     expect(syncRecentOhlcvWindow).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ latestSyncedAt: new Date('2026-03-22T00:00:00.000Z') }), expect.any(Date));
   });
 
+  it('leases the next eligible target after a restart when an earlier target is still in backoff', async () => {
+    const firstTarget = {
+      coinId: 'bitcoin',
+      exchangeId: 'binance',
+      symbol: 'BTC/USDT',
+      vsCurrency: 'usd',
+      interval: '1d',
+      priorityTier: 'top100',
+      latestSyncedAt: new Date('2026-03-22T00:00:00.000Z'),
+      oldestSyncedAt: new Date('2025-03-22T00:00:00.000Z'),
+      targetHistoryDays: 365,
+    };
+    const secondTarget = {
+      ...firstTarget,
+      coinId: 'ethereum',
+      symbol: 'ETH/USDT',
+    };
+    const leaseNextOhlcvTarget = vi.fn()
+      .mockReturnValueOnce(firstTarget)
+      .mockReturnValueOnce(secondTarget);
+    const markOhlcvTargetFailure = vi.fn();
+    const syncRecentOhlcvWindow = vi.fn()
+      .mockRejectedValueOnce(new Error('rate limit'))
+      .mockResolvedValueOnce([{ timestamp: Date.parse('2026-03-24T00:00:00.000Z') }]);
+
+    const runtime = createOhlcvRuntime({} as never, { ccxtExchanges: ['binance'] }, logger, {
+      refreshTargets: vi.fn().mockResolvedValue(undefined),
+      leaseNextOhlcvTarget,
+      syncRecentOhlcvWindow,
+      deepenHistoricalOhlcvWindow: vi.fn().mockResolvedValue([]),
+      markOhlcvTargetSuccess: vi.fn(),
+      markOhlcvTargetFailure,
+    });
+
+    await runtime.tick(new Date('2026-03-23T00:00:00.000Z'));
+    await runtime.tick(new Date('2026-03-24T00:00:00.000Z'));
+
+    expect(markOhlcvTargetFailure).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ coinId: 'bitcoin' }));
+    expect(syncRecentOhlcvWindow).toHaveBeenNthCalledWith(2, expect.anything(), expect.objectContaining({ coinId: 'ethereum' }), expect.any(Date));
+  });
+
   it('does not throw when target refresh fails', async () => {
     const leaseNextOhlcvTarget = vi.fn();
     const runtime = createOhlcvRuntime({} as never, { ccxtExchanges: ['binance'] }, logger, {
@@ -181,5 +222,67 @@ describe('ohlcv runtime', () => {
     expect(summary.targets.failed).toBe(1);
     expect(summary.lag.oldest_recent_sync_ms).toBeGreaterThan(0);
     expect(summary.lag.oldest_historical_gap_ms).toBeGreaterThan(0);
+  });
+
+  it('reports freshness lag and backfill health counts in diagnostics summary', () => {
+    const summary = summarizeOhlcvSyncStatus({
+      db: {
+        select: () => ({
+          from: () => ({
+            all: () => [
+              {
+                coinId: 'bitcoin',
+                priorityTier: 'top100',
+                status: 'idle',
+                latestSyncedAt: new Date('2026-03-22T00:00:00.000Z'),
+                oldestSyncedAt: new Date('2025-12-23T00:00:00.000Z'),
+                targetHistoryDays: 90,
+                failureCount: 0,
+                nextRetryAt: null,
+              },
+              {
+                coinId: 'ethereum',
+                priorityTier: 'top100',
+                status: 'failed',
+                latestSyncedAt: new Date('2026-03-20T00:00:00.000Z'),
+                oldestSyncedAt: null,
+                targetHistoryDays: 180,
+                failureCount: 2,
+                nextRetryAt: new Date('2026-03-23T00:10:00.000Z'),
+              },
+              {
+                coinId: 'some-microcap',
+                priorityTier: 'long_tail',
+                status: 'running',
+                latestSyncedAt: null,
+                oldestSyncedAt: new Date('2026-03-15T00:00:00.000Z'),
+                targetHistoryDays: 30,
+                failureCount: 0,
+                nextRetryAt: null,
+              },
+            ],
+          }),
+        }),
+      },
+    } as never, new Date('2026-03-23T00:00:00.000Z'));
+
+    expect(summary.top100).toEqual({
+      total: 2,
+      ready: 1,
+    });
+    expect(summary.targets).toMatchObject({
+      waiting: 1,
+      running: 1,
+      failed: 1,
+    });
+    expect(summary.lag).toMatchObject({
+      oldest_recent_sync_ms: 3 * 24 * 60 * 60 * 1000,
+    });
+    expect(summary.backfill).toEqual({
+      healthy: 1,
+      behind: 2,
+      retry_scheduled: 1,
+      max_target_history_days: 180,
+    });
   });
 });

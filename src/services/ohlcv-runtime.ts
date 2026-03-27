@@ -50,6 +50,12 @@ export type OhlcvSyncSummary = {
     oldest_recent_sync_ms: number;
     oldest_historical_gap_ms: number;
   };
+  backfill: {
+    healthy: number;
+    behind: number;
+    retry_scheduled: number;
+    max_target_history_days: number;
+  };
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -71,6 +77,10 @@ export function summarizeOhlcvSyncStatus(database: AppDatabase, now: Date): Ohlc
   let failed = 0;
   let oldestRecentSyncMs = 0;
   let oldestHistoricalGapMs = 0;
+  let healthy = 0;
+  let behind = 0;
+  let retryScheduled = 0;
+  let maxTargetHistoryDays = 0;
 
   for (const row of rows) {
     if (row.priorityTier === 'top100') {
@@ -94,6 +104,17 @@ export function summarizeOhlcvSyncStatus(database: AppDatabase, now: Date): Ohlc
     const desiredOldestMs = now.getTime() - row.targetHistoryDays * DAY_MS;
     const historicalGapMs = row.oldestSyncedAt ? Math.max(row.oldestSyncedAt.getTime() - desiredOldestMs, 0) : row.targetHistoryDays * DAY_MS;
     oldestHistoricalGapMs = Math.max(oldestHistoricalGapMs, historicalGapMs);
+    maxTargetHistoryDays = Math.max(maxTargetHistoryDays, row.targetHistoryDays);
+
+    if (row.nextRetryAt && row.nextRetryAt.getTime() > now.getTime()) {
+      retryScheduled += 1;
+    }
+
+    if (historicalGapMs > 0 || !isRecentCoverageCurrentEnough(row.latestSyncedAt, now)) {
+      behind += 1;
+    } else {
+      healthy += 1;
+    }
   }
 
   return {
@@ -109,6 +130,12 @@ export function summarizeOhlcvSyncStatus(database: AppDatabase, now: Date): Ohlc
     lag: {
       oldest_recent_sync_ms: oldestRecentSyncMs,
       oldest_historical_gap_ms: oldestHistoricalGapMs,
+    },
+    backfill: {
+      healthy,
+      behind,
+      retry_scheduled: retryScheduled,
+      max_target_history_days: maxTargetHistoryDays,
     },
   };
 }

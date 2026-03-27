@@ -194,6 +194,61 @@ describe('ohlcv worker state', () => {
     expect(row.nextRetryAt?.toISOString()).toBe('2026-03-23T00:10:00.000Z');
   });
 
+  it('resets backoff and returns failed targets to idle after a successful sync', () => {
+    seedTarget({
+      coinId: 'bitcoin',
+      exchangeId: 'binance',
+      symbol: 'BTC/USDT',
+      status: 'failed',
+      failureCount: 3,
+      lastError: 'rate limit',
+      nextRetryAt: new Date('2026-03-23T00:40:00.000Z'),
+    });
+
+    markOhlcvTargetSuccess(database, {
+      coinId: 'bitcoin',
+      exchangeId: 'binance',
+      symbol: 'BTC/USDT',
+      interval: '1d',
+      vsCurrency: 'usd',
+      latestSyncedAt: new Date('2026-03-23T00:00:00.000Z'),
+      oldestSyncedAt: new Date('2025-12-23T00:00:00.000Z'),
+      completedAt: new Date('2026-03-23T00:05:00.000Z'),
+    });
+
+    const row = database.db.select().from(ohlcvSyncTargets).all()[0];
+
+    expect(row.status).toBe('idle');
+    expect(row.failureCount).toBe(0);
+    expect(row.lastError).toBeNull();
+    expect(row.nextRetryAt).toBeNull();
+  });
+
+  it('extends retained history depth when targetHistoryDays increases', () => {
+    upsertOhlcvSyncTargets(database, [
+      {
+        coinId: 'bitcoin',
+        exchangeId: 'binance',
+        symbol: 'BTC/USDT',
+        priorityTier: 'long_tail',
+        targetHistoryDays: 90,
+      },
+    ], new Date('2026-03-22T00:00:00.000Z'));
+
+    upsertOhlcvSyncTargets(database, [
+      {
+        coinId: 'bitcoin',
+        exchangeId: 'binance',
+        symbol: 'BTC/USDT',
+        priorityTier: 'long_tail',
+        targetHistoryDays: 180,
+      },
+    ], new Date('2026-03-23T00:00:00.000Z'));
+
+    const row = database.db.select().from(ohlcvSyncTargets).all()[0];
+    expect(row.targetHistoryDays).toBe(180);
+  });
+
   it('upserts discovered targets and promotes priority without resetting cursors', () => {
     upsertOhlcvSyncTargets(database, [
       {
