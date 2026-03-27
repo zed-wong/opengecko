@@ -1,13 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('defillama provider', () => {
+  const originalBaseUrl = process.env.DEFILLAMA_BASE_URL;
+
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.unstubAllEnvs();
+    if (originalBaseUrl === undefined) {
+      delete process.env.DEFILLAMA_BASE_URL;
+    } else {
+      process.env.DEFILLAMA_BASE_URL = originalBaseUrl;
+    }
   });
 
   it('fetches protocol and pool data from configured endpoints', async () => {
-    vi.stubEnv('DEFILLAMA_BASE_URL', 'https://defillama.example');
+    process.env.DEFILLAMA_BASE_URL = 'https://defillama.example';
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify([
         { id: 'uniswap', slug: 'uniswap', name: 'Uniswap', category: 'Dexes', chains: ['Ethereum'], tvl: 1234 },
@@ -55,7 +61,7 @@ describe('defillama provider', () => {
   });
 
   it('falls back to the yields pools endpoint when the legacy pools path returns 404', async () => {
-    vi.stubEnv('DEFILLAMA_BASE_URL', 'https://defillama.example');
+    process.env.DEFILLAMA_BASE_URL = 'https://defillama.example';
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify([
         { id: 'uniswap', slug: 'uniswap', name: 'Uniswap', category: 'Dexes', chains: ['Ethereum'], tvl: 1234 },

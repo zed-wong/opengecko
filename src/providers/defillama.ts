@@ -98,16 +98,32 @@ async function fetchJson<T>(path: string, options: DefillamaRequestOptions = {})
 
 async function fetchJsonAcrossBaseUrls<T>(paths: string[], options: DefillamaRequestOptions = {}) {
   let lastError: unknown = null;
+  const nonFatalErrors: unknown[] = [];
 
   for (const path of paths) {
     try {
       return await fetchJson<T>(path, options);
     } catch (error) {
       lastError = error;
+
+      if (error instanceof Error && /status 404\b/.test(error.message)) {
+        nonFatalErrors.push(error);
+        continue;
+      }
+
+      throw error;
     }
   }
 
-  throw lastError ?? new Error(`DeFiLlama request failed for paths: ${paths.join(', ')}`);
+  if (lastError && nonFatalErrors.length !== paths.length) {
+    throw lastError;
+  }
+
+  if (nonFatalErrors.length === paths.length) {
+    return await fetchJson<T>(paths.at(-1)!, options);
+  }
+
+  return null;
 }
 
 function toOptionalNumber(value: unknown) {
@@ -189,7 +205,7 @@ export async function fetchDefillamaPoolData(options: DefillamaRequestOptions = 
 
     return {
       protocols: protocolsResponse.map(normalizeProtocol).filter((value): value is DefillamaProtocol => value !== null),
-      pools: (Array.isArray(poolsResponse.data) ? poolsResponse.data : [])
+      pools: (Array.isArray(poolsResponse?.data) ? poolsResponse.data : [])
         .map(normalizeYieldPool)
         .filter((value): value is DefillamaYieldPool => value !== null),
     };

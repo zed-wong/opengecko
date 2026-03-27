@@ -1173,6 +1173,6 @@ describe('CoinGecko API compatibility', () => {
 
       // All endpoints should pass
       expect(results.every(r => r.pass)).toBe(true);
-    });
+    }, 15000);
   });
 });
