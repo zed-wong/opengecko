@@ -96,36 +96,6 @@ async function fetchJson<T>(path: string, options: DefillamaRequestOptions = {})
   }
 }
 
-async function fetchJsonAcrossBaseUrls<T>(paths: string[], options: DefillamaRequestOptions = {}) {
-  let lastError: unknown = null;
-  const nonFatalErrors: unknown[] = [];
-
-  for (const path of paths) {
-    try {
-      return await fetchJson<T>(path, options);
-    } catch (error) {
-      lastError = error;
-
-      if (error instanceof Error && /status 404\b/.test(error.message)) {
-        nonFatalErrors.push(error);
-        continue;
-      }
-
-      throw error;
-    }
-  }
-
-  if (lastError && nonFatalErrors.length !== paths.length) {
-    throw lastError;
-  }
-
-  if (nonFatalErrors.length === paths.length) {
-    return await fetchJson<T>(paths.at(-1)!, options);
-  }
-
-  return null;
-}
-
 function toOptionalNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -200,7 +170,7 @@ export async function fetchDefillamaPoolData(options: DefillamaRequestOptions = 
   try {
     const [protocolsResponse, poolsResponse] = await Promise.all([
       fetchJson<unknown[]>('/protocols', options),
-      fetchJsonAcrossBaseUrls<{ data?: unknown[] }>(['/pools', '/yields/pools'], options),
+      fetchJson<{ data?: unknown[] }>('/yields/pools', options),
     ]);
 
     return {

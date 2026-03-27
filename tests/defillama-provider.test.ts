@@ -56,52 +56,27 @@ describe('defillama provider', () => {
       ],
     });
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://defillama.example/protocols', expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://defillama.example/pools', expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://defillama.example/yields/pools', expect.any(Object));
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it('falls back to the yields pools endpoint when the legacy pools path returns 404', async () => {
+  it('returns null and logs when the documented yields endpoint request fails', async () => {
     process.env.DEFILLAMA_BASE_URL = 'https://defillama.example';
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify([
         { id: 'uniswap', slug: 'uniswap', name: 'Uniswap', category: 'Dexes', chains: ['Ethereum'], tvl: 1234 },
       ]), { status: 200 }))
-      .mockResolvedValueOnce(new Response('not found', { status: 404 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        data: [
-          {
-            chain: 'Ethereum',
-            project: 'curve',
-            symbol: 'USDC-USDT',
-            pool: 'pool-curve',
-            tvlUsd: 200,
-            volumeUsd1d: 20,
-            volumeUsd7d: 140,
-            underlyingTokens: ['0xa', '0xb'],
-          },
-        ],
-      }), { status: 200 }));
+      .mockResolvedValueOnce(new Response('not found', { status: 404 }));
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const { fetchDefillamaPoolData } = await import('../src/providers/defillama');
 
     const result = await fetchDefillamaPoolData({ fetchImpl: fetchMock as typeof fetch });
 
-    expect(result?.pools).toEqual([
-      {
-        chain: 'Ethereum',
-        project: 'curve',
-        symbol: 'USDC-USDT',
-        pool: 'pool-curve',
-        tvlUsd: 200,
-        volumeUsd1d: 20,
-        volumeUsd7d: 140,
-        underlyingTokens: ['0xa', '0xb'],
-      },
-    ]);
-    expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://defillama.example/pools', expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(3, 'https://defillama.example/yields/pools', expect.any(Object));
-    expect(errorSpy).not.toHaveBeenCalled();
+    expect(result).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://defillama.example/yields/pools', expect.any(Object));
+    expect(errorSpy).toHaveBeenCalledTimes(1);
   });
 
   it('fetches token prices and URL-encodes coin identifiers', async () => {
