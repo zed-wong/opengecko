@@ -105,9 +105,17 @@ describe('catalog repository helpers', () => {
   });
 
   it('resolves contract addresses through canonical platform aliases', () => {
-    const coin = getCoinByContract(database, 'eth', '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
+    const contractAddress = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
 
-    expect(coin?.id).toBe('usd-coin');
+    const viaEth = getCoinByContract(database, 'eth', contractAddress);
+    const viaEthereum = getCoinByContract(database, 'ethereum', contractAddress);
+    const viaErc20 = getCoinByContract(database, 'erc20', contractAddress);
+
+    expect(viaEth?.id).toBe('usd-coin');
+    expect(viaEthereum?.id).toBe('usd-coin');
+    expect(viaErc20?.id).toBe('usd-coin');
+    expect(viaEth).toEqual(viaEthereum);
+    expect(viaErc20).toEqual(viaEthereum);
   });
 
   it('filters market rows by ids before other selectors', () => {

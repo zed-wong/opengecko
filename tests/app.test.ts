@@ -1335,7 +1335,7 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json()).toMatchObject({
       bitcoin: {
         usd: 85000,
-        eur: 73530.28299112723,
+        eur: 73661.820288646,
         usd_24h_change: 1.8,
         eur_24h_change: 1.8,
       },
@@ -1493,6 +1493,42 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('accepts multiple alias variants for contract routes and returns 404 for truly unknown platforms', async () => {
+    const [ethResponse, ethereumResponse, erc20Response, missingResponse] = await Promise.all([
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/eth/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48?localization=false&tickers=false&community_data=false&developer_data=false',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48?localization=false&tickers=false&community_data=false&developer_data=false',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/erc20/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48?localization=false&tickers=false&community_data=false&developer_data=false',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/nonexistent-chain/contract/0x0000000000000000000000000000000000000000?localization=false&tickers=false&community_data=false&developer_data=false',
+      }),
+    ]);
+
+    expect(ethResponse.statusCode).toBe(200);
+    expect(ethereumResponse.statusCode).toBe(200);
+    expect(erc20Response.statusCode).toBe(200);
+    expect(ethResponse.json()).toMatchObject({ id: 'usd-coin' });
+    expect(ethereumResponse.json()).toMatchObject({ id: 'usd-coin' });
+    expect(erc20Response.json()).toMatchObject({ id: 'usd-coin' });
+    expect(ethResponse.json()).toEqual(ethereumResponse.json());
+    expect(erc20Response.json()).toEqual(ethereumResponse.json());
+
+    expect(missingResponse.statusCode).toBe(404);
+    expect(missingResponse.json()).toEqual({
+      error: 'not_found',
+      message: 'Contract not found: 0x0000000000000000000000000000000000000000',
+    });
+  });
+
   it('returns seeded asset platforms', async () => {
     const response = await getApp().inject({
       method: 'GET',
@@ -1511,6 +1547,36 @@ describe('OpenGecko app scaffold', () => {
         image: null,
       },
     ]));
+  });
+
+  it('returns canonical asset platforms without legacy alias ids', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/asset_platforms',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+
+    expect(body).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'ethereum',
+        chain_identifier: 1,
+        name: 'Ethereum',
+        shortname: 'eth',
+      }),
+      expect.objectContaining({
+        id: 'solana',
+        chain_identifier: 101,
+        name: 'Solana',
+        shortname: 'sol',
+      }),
+    ]));
+
+    const ids = new Set(body.map((row: { id: string }) => row.id));
+    expect(ids.has('eth')).toBe(false);
+    expect(ids.has('bsc')).toBe(false);
+    expect(ids.has('sol')).toBe(false);
   });
 
   it('returns seeded exchanges and exchange detail data', async () => {
