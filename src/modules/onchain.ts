@@ -315,7 +315,7 @@ async function buildLiveOnchainCatalog(database: AppDatabase): Promise<LiveOncha
     fetchDefillamaDexVolumes(),
   ]);
 
-  if (!poolData || !dexVolumes) {
+  if (!poolData) {
     return {
       networks: seededNetworks,
       dexes: seededDexes,
@@ -367,7 +367,7 @@ async function buildLiveOnchainCatalog(database: AppDatabase): Promise<LiveOncha
   }
 
   const dexVolumeByName = new Map(
-    dexVolumes.protocols
+    (dexVolumes?.protocols ?? [])
       .filter((entry) => entry.name)
       .map((entry) => [slugifyOnchainId(entry.name!), entry.total24h ?? null]),
   );
@@ -410,7 +410,7 @@ async function buildLiveOnchainCatalog(database: AppDatabase): Promise<LiveOncha
       dexes: [...dexesByKey.values()].sort((left, right) =>
         left.networkId.localeCompare(right.networkId) || left.name.localeCompare(right.name)),
       poolsByAddress,
-      degraded: false,
+      degraded: dexVolumes === null,
     };
   })();
 
@@ -2238,7 +2238,7 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       data: rows.slice(start, start + perPage).map((row) => buildPoolResource(row)),
       meta: {
         page,
-        data_source: liveCatalog.degraded || params.network !== 'eth' ? 'seeded' : 'live',
+        data_source: liveCatalog.poolsByAddress.size === 0 || params.network !== 'eth' ? 'seeded' : 'live',
       },
     };
   });

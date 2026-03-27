@@ -2028,6 +2028,81 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('keeps live onchain catalog expansion when optional dex-volume enrichment is unavailable', async () => {
+    const poolDataSpy = vi.spyOn(defillamaProvider, 'fetchDefillamaPoolData').mockResolvedValue({
+      protocols: [],
+      pools: [
+        { chain: 'Ethereum', project: 'uniswap-v3', symbol: 'USDC-WETH', pool: 'pool-1', tvlUsd: 222000000, volumeUsd1d: 88000000, volumeUsd7d: 600000000, underlyingTokens: ['0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2'] },
+        { chain: 'Arbitrum', project: 'uniswap-v3', symbol: 'ARB-WETH', pool: 'pool-2', tvlUsd: 10000000, volumeUsd1d: 1000000, volumeUsd7d: 7000000, underlyingTokens: ['0xarb', '0xweth'] },
+        { chain: 'Base', project: 'aerodrome', symbol: 'cbBTC-USDC', pool: 'pool-3', tvlUsd: 20000000, volumeUsd1d: 2000000, volumeUsd7d: 14000000, underlyingTokens: ['0xcbbtc', '0xusdc'] },
+      ],
+    });
+    const dexVolumesSpy = vi.spyOn(defillamaProvider, 'fetchDefillamaDexVolumes').mockResolvedValue(null);
+
+    const [networksResponse, ethDexesResponse, ethPoolsResponse] = await Promise.all([
+      getApp().inject({
+        method: 'GET',
+        url: '/onchain/networks?page=1',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/onchain/networks/eth/dexes?page=1',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/onchain/networks/eth/pools?page=1',
+      }),
+    ]);
+
+    expect(networksResponse.statusCode).toBe(200);
+    expect(ethDexesResponse.statusCode).toBe(200);
+    expect(ethPoolsResponse.statusCode).toBe(200);
+    expect(poolDataSpy).toHaveBeenCalledTimes(1);
+    expect(dexVolumesSpy).toHaveBeenCalledTimes(1);
+    expect(networksResponse.json().meta).toMatchObject({
+      total_count: 4,
+    });
+    expect(networksResponse.json().data.map((entry: { id: string }) => entry.id)).toEqual([
+      'arbitrum',
+      'base',
+      'eth',
+      'solana',
+    ]);
+    expect(ethDexesResponse.json().meta).toMatchObject({
+      total_count: 2,
+      network: 'eth',
+    });
+    expect(ethPoolsResponse.json().meta).toMatchObject({
+      data_source: 'live',
+      page: 1,
+    });
+
+    const liveEthPool = ethPoolsResponse.json().data.find((entry: { id: string }) => entry.id === '0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b');
+    expect(liveEthPool).toMatchObject({
+      type: 'pool',
+      attributes: {
+        reserve_usd: 222000000,
+        volume_usd: {
+          h24: 88000000,
+        },
+      },
+      relationships: {
+        network: {
+          data: {
+            id: 'eth',
+            type: 'network',
+          },
+        },
+        dex: {
+          data: {
+            id: 'uniswap_v3',
+            type: 'dex',
+          },
+        },
+      },
+    });
+  });
+
   it('returns onchain networks with pagination metadata and asset-platform continuity', async () => {
     vi.spyOn(defillamaProvider, 'fetchDefillamaPoolData').mockResolvedValue(null);
     vi.spyOn(defillamaProvider, 'fetchDefillamaDexVolumes').mockResolvedValue(null);
