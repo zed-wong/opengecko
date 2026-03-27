@@ -8,6 +8,7 @@ import type { Database as BunDatabase } from 'bun:sqlite';
 
 import { rebuildSearchIndex } from './search-index';
 export { rebuildSearchIndex } from './search-index';
+import { seedDailyCandlesFromCloseSeries } from '../services/candle-store';
 import {
   assetPlatforms,
   categories,
@@ -15,6 +16,7 @@ import {
   coins,
   derivativeTickers,
   derivativesExchanges,
+  ohlcvCandles,
   ohlcvSyncTargets,
   onchainDexes,
   onchainNetworks,
@@ -691,6 +693,8 @@ const seededMinimalCoins = [
 }));
 
 export function seedStaticReferenceData(database: AppDatabase) {
+  const seededChartPoints = buildSeededChartPoints();
+
   database.db.insert(coins).values(seededMinimalCoins).onConflictDoNothing().run();
   database.db.insert(assetPlatforms).values(seededAssetPlatforms).onConflictDoNothing().run();
   database.db.insert(categories).values(seededCategories).onConflictDoNothing().run();
@@ -702,7 +706,8 @@ export function seedStaticReferenceData(database: AppDatabase) {
   database.db.insert(onchainNetworks).values(seededOnchainNetworks).onConflictDoNothing().run();
   database.db.insert(onchainDexes).values(seededOnchainDexes).onConflictDoNothing().run();
   database.db.insert(onchainPools).values(seededOnchainPools).onConflictDoNothing().run();
-  database.db.insert(chartPoints).values(buildSeededChartPoints()).onConflictDoNothing().run();
+  database.db.insert(chartPoints).values(seededChartPoints).onConflictDoNothing().run();
+  database.db.insert(ohlcvCandles).values(seedDailyCandlesFromCloseSeries(seededChartPoints)).onConflictDoNothing().run();
 }
 
 export function initializeDatabase(database: AppDatabase) {

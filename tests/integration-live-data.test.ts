@@ -142,7 +142,7 @@ describe('live data integration', () => {
     expect(body.length).toBeGreaterThan(0);
     // Each OHLC entry should be [timestamp, open, high, low, close]
     expect(body[0]).toHaveLength(5);
-    expect(body[0]).toEqual([
+    expect(body).toContainEqual([
       Date.parse('2026-03-20T00:00:00Z'),
       88_000,
       91_000,

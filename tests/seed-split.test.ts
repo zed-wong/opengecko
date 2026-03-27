@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createDatabase, migrateDatabase, seedStaticReferenceData } from '../src/db/client';
@@ -22,7 +23,7 @@ describe('seedStaticReferenceData', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('seeds static reference data without market data', () => {
+  it('seeds static reference data without hot market data', () => {
     seedStaticReferenceData(db);
 
     // Minimal coins are seeded for FK references (treasury, chartPoints)
@@ -38,12 +39,28 @@ describe('seedStaticReferenceData', () => {
     const treasuryCount = db.db.select().from(treasuryEntities).all().length;
     expect(treasuryCount).toBe(2);
 
-    // Market data (snapshots, candles, tickers, exchanges) should NOT be seeded
+    // Hot/live market data (snapshots, tickers, exchanges) should NOT be seeded
     const snapshotCount = db.db.select().from(marketSnapshots).all().length;
     expect(snapshotCount).toBe(0);
 
-    const candleCount = db.db.select().from(ohlcvCandles).all().length;
-    expect(candleCount).toBe(0);
+    const candleRows = db.db.select().from(ohlcvCandles).all();
+    expect(candleRows.length).toBe(56);
+    expect(candleRows.every((row) => row.interval === '1d' && row.source === 'canonical')).toBe(true);
+
+    const bitcoinFirstCandle = db.db
+      .select()
+      .from(ohlcvCandles)
+      .where(eq(ohlcvCandles.coinId, 'bitcoin'))
+      .all()
+      .sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime())[0];
+    expect(bitcoinFirstCandle).toMatchObject({
+      open: 79_000,
+      high: 79_000,
+      low: 79_000,
+      close: 79_000,
+      marketCap: 1_580_000_000_000,
+      totalVolume: 22_000_000_000,
+    });
 
     const tickerCount = db.db.select().from(coinTickers).all().length;
     expect(tickerCount).toBe(0);

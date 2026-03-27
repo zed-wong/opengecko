@@ -34,3 +34,18 @@ Testing surface, required testing skills/tools, and resource cost classification
 - Holder/trader analytics remain fixture-backed
 - The Graph requires API key — tests mock responses instead
 - Server startup with CCXT exchanges enabled takes 30+ seconds (use CCXT_EXCHANGES='' for validation)
+
+
+## Flow Validator Guidance: api
+
+- Shared validation server on `http://127.0.0.1:3102` is allowed for concurrent curl-based checks.
+- If the server is not running, start exactly one instance on port `3102`; prefer `DATABASE_URL=:memory:` to avoid lock conflicts with any dev server using `data/opengecko.db`.
+- Do not use ports outside `3100-3199`.
+- Save response artifacts only under the assigned mission evidence directory.
+- Do not modify repository source files while validating.
+
+## Flow Validator Guidance: repo-validations
+
+- Repository validators (`bun run test`, `bun run typecheck`, targeted `bun test`) may run concurrently with API curl checks, but avoid launching multiple full `bun run test` processes at once.
+- Keep all artifacts in assigned evidence paths and `.factory/validation/<milestone>/user-testing/flows/`.
+- Validation workers may inspect tests/source to map assertions to existing coverage, but must not edit source code.
