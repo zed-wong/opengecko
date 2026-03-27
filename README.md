@@ -8,6 +8,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue?logo=typescript)](https://www.typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+The open-source, self-hostable CoinGecko-compatible crypto API. No API keys. No rate limits. No vendor lock-in.
+
 ## Why This Exists
 
 The crypto ecosystem preaches decentralization — but the moment you need basic market data, you're paying CoinGecko for a closed, rate-limited API you don't control. That's not what this space is supposed to be.
