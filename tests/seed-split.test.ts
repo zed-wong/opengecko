@@ -54,9 +54,9 @@ describe('seedStaticReferenceData', () => {
       .all()
       .sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime())[0];
     expect(bitcoinFirstCandle).toMatchObject({
-      open: 79_000,
-      high: 79_000,
-      low: 79_000,
+      open: 77_815,
+      high: 80_896,
+      low: 76_788,
       close: 79_000,
       marketCap: 1_580_000_000_000,
       totalVolume: 22_000_000_000,

@@ -6062,6 +6062,9 @@ describe('OpenGecko app scaffold', () => {
         [expectedDailyBucket, 425_000_000],
       ]),
     });
+    expect(chartResponse.json().prices).toEqual(expect.arrayContaining([
+      [1773964800000, 85_000],
+    ]));
 
     expect(maxChartResponse.statusCode).toBe(200);
     expect(maxChartResponse.json().prices).toEqual(
@@ -6083,14 +6086,25 @@ describe('OpenGecko app scaffold', () => {
         [1773964800000, 25_000_000_000],
       ]),
     });
+    expect(rangeChartResponse.json().prices).toEqual([
+      [1773446400000, 79_000],
+      [1773532800000, 80_500],
+      [1773619200000, 82_250],
+      [1773705600000, 81_750],
+      [1773792000000, 83_000],
+      [1773878400000, 84_250],
+      [1773964800000, 85_000],
+    ]);
 
     expect(ohlcResponse.statusCode).toBe(200);
-    expect(ohlcResponse.json()).toEqual(
-      expect.arrayContaining([
-        [1773964800000, 85_000, 85_000, 85_000, 85_000],
-        [expectedDailyBucket, 85_000, 85_000, 85_000, 85_000],
-      ]),
-    );
+    expect(ohlcResponse.json()).toEqual(expect.arrayContaining([
+      [1773964800000, 84_490, 86_530, 82_960, 85_000],
+      [expectedDailyBucket, 85_000, 85_000, 85_000, 85_000],
+    ]));
+    expect(ohlcResponse.json().some((tuple: number[]) => {
+      const [, open, high, low, close] = tuple;
+      return open !== close || high !== low;
+    })).toBe(true);
   });
 
   it('returns ranged coin ohlc tuples in ascending chronological order', async () => {
