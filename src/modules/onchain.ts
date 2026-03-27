@@ -292,6 +292,24 @@ function getSeededOnchainNetwork(database: AppDatabase, networkId: string) {
   return database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, networkId)).limit(1).get();
 }
 
+function getSeededOnchainDex(database: AppDatabase, networkId: string, dexId: string) {
+  return database.db
+    .select()
+    .from(onchainDexes)
+    .where(and(eq(onchainDexes.networkId, networkId), eq(onchainDexes.id, dexId)))
+    .limit(1)
+    .get();
+}
+
+function getSeededOnchainPool(database: AppDatabase, networkId: string, address: string) {
+  return database.db
+    .select()
+    .from(onchainPools)
+    .where(and(eq(onchainPools.networkId, networkId), eq(onchainPools.address, normalizeAddress(address))))
+    .limit(1)
+    .get();
+}
+
 let liveOnchainCatalogPromise: Promise<LiveOnchainCatalog> | null = null;
 
 async function buildLiveOnchainCatalog(database: AppDatabase): Promise<LiveOnchainCatalog> {
@@ -2249,18 +2267,13 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     const page = parsePositiveInt(query.page, 1);
     const perPage = 100;
 
-    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+    const network = getSeededOnchainNetwork(database, params.network);
 
     if (!network) {
       throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
     }
 
-    const dex = database.db
-      .select()
-      .from(onchainDexes)
-      .where(and(eq(onchainDexes.networkId, params.network), eq(onchainDexes.id, params.dex)))
-      .limit(1)
-      .get();
+    const dex = getSeededOnchainDex(database, params.network, params.dex);
 
     if (!dex) {
       throw new HttpError(404, 'not_found', `Onchain dex not found: ${params.dex}`);
@@ -2605,18 +2618,19 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     const includeVolumeBreakdown = parseBooleanQuery(query.include_volume_breakdown, false);
     const includeComposition = parseBooleanQuery(query.include_composition, false);
     const normalizedAddress = normalizeAddress(params.address);
-    const liveCatalog = await buildLiveOnchainCatalog(database);
+    const seededNetwork = getSeededOnchainNetwork(database, params.network);
 
-    const row = database.db
-      .select()
-      .from(onchainPools)
-      .where(and(eq(onchainPools.networkId, params.network), eq(onchainPools.address, normalizedAddress)))
-      .limit(1)
-      .get();
+    if (!seededNetwork) {
+      throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
+    }
+
+    const row = getSeededOnchainPool(database, params.network, normalizedAddress);
 
     if (!row) {
       throw new HttpError(404, 'not_found', `Onchain pool not found: ${normalizedAddress}`);
     }
+
+    const liveCatalog = await buildLiveOnchainCatalog(database);
 
     const patchedRow = patchPoolRow(row, liveCatalog.poolsByAddress.get(row.address));
     const included = buildIncludedResources(includes, [patchedRow], database);

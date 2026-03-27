@@ -2038,6 +2038,8 @@ describe('OpenGecko app scaffold', () => {
       ],
     });
     const dexVolumesSpy = vi.spyOn(defillamaProvider, 'fetchDefillamaDexVolumes').mockResolvedValue(null);
+    const poolCallCountBeforeRequests = poolDataSpy.mock.calls.length;
+    const dexVolumeCallCountBeforeRequests = dexVolumesSpy.mock.calls.length;
 
     const [networksResponse, ethDexesResponse, ethPoolsResponse] = await Promise.all([
       getApp().inject({
@@ -2057,8 +2059,8 @@ describe('OpenGecko app scaffold', () => {
     expect(networksResponse.statusCode).toBe(200);
     expect(ethDexesResponse.statusCode).toBe(200);
     expect(ethPoolsResponse.statusCode).toBe(200);
-    expect(poolDataSpy).toHaveBeenCalledTimes(1);
-    expect(dexVolumesSpy).toHaveBeenCalledTimes(1);
+    expect(poolDataSpy).toHaveBeenCalledTimes(poolCallCountBeforeRequests + 1);
+    expect(dexVolumesSpy).toHaveBeenCalledTimes(dexVolumeCallCountBeforeRequests + 1);
     expect(networksResponse.json().meta).toMatchObject({
       total_count: 4,
     });
@@ -2101,6 +2103,26 @@ describe('OpenGecko app scaffold', () => {
         },
       },
     });
+  });
+
+  it('short-circuits unknown onchain pool detail before live provider discovery', async () => {
+    const poolDataSpy = vi.spyOn(defillamaProvider, 'fetchDefillamaPoolData');
+    const dexVolumesSpy = vi.spyOn(defillamaProvider, 'fetchDefillamaDexVolumes');
+    const poolCallCountBeforeRequest = poolDataSpy.mock.calls.length;
+    const dexVolumeCallCountBeforeRequest = dexVolumesSpy.mock.calls.length;
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/not-a-pool',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Onchain pool not found: not-a-pool',
+    });
+    expect(poolDataSpy).toHaveBeenCalledTimes(poolCallCountBeforeRequest);
+    expect(dexVolumesSpy).toHaveBeenCalledTimes(dexVolumeCallCountBeforeRequest);
   });
 
   it('returns onchain networks with pagination metadata and asset-platform continuity', async () => {
