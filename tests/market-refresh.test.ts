@@ -5,8 +5,9 @@ import { join } from 'node:path';
 import { and, eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { buildApp } from '../src/app';
 import { createDatabase, migrateDatabase, rebuildSearchIndex, seedStaticReferenceData, type AppDatabase } from '../src/db/client';
-import { coinTickers, coins, exchanges } from '../src/db/schema';
+import { coinTickers, coins, exchanges, exchangeVolumePoints } from '../src/db/schema';
 import { runMarketRefreshOnce } from '../src/services/market-refresh';
 import { createMarketDataRuntimeState } from '../src/services/market-runtime-state';
 import { createMetricsRegistry } from '../src/services/metrics';
@@ -20,9 +21,10 @@ vi.mock('../src/providers/ccxt', () => ({
     ['binance', 'coinbase', 'kraken', 'bybit', 'okx'].includes(value),
 }));
 
-import { fetchExchangeMarkets, fetchExchangeTickers } from '../src/providers/ccxt';
+import { fetchExchangeMarkets, fetchExchangeNetworks, fetchExchangeTickers } from '../src/providers/ccxt';
 
 const mockedFetchExchangeMarkets = fetchExchangeMarkets as ReturnType<typeof vi.fn>;
+const mockedFetchExchangeNetworks = fetchExchangeNetworks as ReturnType<typeof vi.fn>;
 const mockedFetchExchangeTickers = fetchExchangeTickers as ReturnType<typeof vi.fn>;
 
 const now = new Date();
@@ -48,7 +50,9 @@ describe('market refresh service', () => {
     }
     rebuildSearchIndex(database);
     mockedFetchExchangeMarkets.mockReset();
+    mockedFetchExchangeNetworks.mockReset();
     mockedFetchExchangeTickers.mockReset();
+    mockedFetchExchangeNetworks.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -225,6 +229,33 @@ describe('market refresh service', () => {
       symbol: 'ltc',
       name: 'Litecoin',
     });
+
+    const volumePoints = database.db
+      .select()
+      .from(exchangeVolumePoints)
+      .all();
+
+    expect(volumePoints).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        exchangeId: 'binance',
+        volumeBtc: 111_060_000,
+      }),
+      expect.objectContaining({
+        exchangeId: 'coinbase',
+        volumeBtc: 10_500_000,
+      }),
+      expect.objectContaining({
+        exchangeId: 'kraken',
+        volumeBtc: 8_200_000,
+      }),
+    ]));
+
+    const refreshedExchange = database.db
+      .select()
+      .from(exchanges)
+      .where(eq(exchanges.id, 'binance'))
+      .get();
+    expect(refreshedExchange?.tradeVolume24hBtc).toBe(111_060_000);
   });
 
   it('supports non-hardcoded exchanges with generic trade URLs', async () => {
@@ -493,5 +524,237 @@ describe('market refresh service', () => {
       convertedVolumeUsd: 100_100_000,
     });
     expect(runtimeState.providerFailureCooldownUntil).toBeNull();
+  });
+
+  it('continues ingesting successful exchanges when one exchange fails', async () => {
+    mockedFetchExchangeMarkets.mockResolvedValue([
+      {
+        exchangeId: 'binance',
+        symbol: 'BTC/USDT',
+        base: 'BTC',
+        quote: 'USDT',
+        active: true,
+        spot: true,
+        baseName: 'Bitcoin',
+        raw: {},
+      },
+      {
+        exchangeId: 'coinbase',
+        symbol: 'ETH/USD',
+        base: 'ETH',
+        quote: 'USD',
+        active: true,
+        spot: true,
+        baseName: 'Ethereum',
+        raw: {},
+      },
+    ]);
+    mockedFetchExchangeTickers.mockImplementation(async (exchangeId) => {
+      if (exchangeId === 'coinbase') {
+        return [{
+          exchangeId,
+          symbol: 'ETH/USD',
+          base: 'ETH',
+          quote: 'USD',
+          last: 2_300,
+          bid: 2_299,
+          ask: 2_301,
+          high: null,
+          low: null,
+          baseVolume: 5_000,
+          quoteVolume: 11_500_000,
+          percentage: 2,
+          timestamp: Date.parse('2026-03-21T00:01:00.000Z'),
+          raw: {} as never,
+        }];
+      }
+
+      if (exchangeId === 'kraken') {
+        throw new Error('kraken timeout');
+      }
+
+      return [{
+        exchangeId,
+        symbol: 'BTC/USDT',
+        base: 'BTC',
+        quote: 'USDT',
+        last: 90_500,
+        bid: 90_490,
+        ask: 90_510,
+        high: null,
+        low: null,
+        baseVolume: 1_000,
+        quoteVolume: 90_500_000,
+        percentage: 1,
+        timestamp: Date.parse('2026-03-21T00:00:00.000Z'),
+        raw: {} as never,
+      }];
+    });
+
+    await expect(runMarketRefreshOnce(database, {
+      ccxtExchanges: ['binance', 'coinbase', 'kraken'],
+      providerFanoutConcurrency: 2,
+    })).resolves.toBeUndefined();
+
+    const ingestedTickers = database.db.select().from(coinTickers).all();
+    expect(ingestedTickers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ exchangeId: 'binance', coinId: 'bitcoin', convertedLastUsd: 90_500 }),
+      expect.objectContaining({ exchangeId: 'coinbase', coinId: 'ethereum', convertedLastUsd: 2_300 }),
+    ]));
+    expect(ingestedTickers.some((ticker) => ticker.exchangeId === 'kraken')).toBe(false);
+  });
+
+  it('surfaces live exchange volumes and ticker stale flags through HTTP routes', async () => {
+    mockedFetchExchangeMarkets.mockResolvedValue([
+      {
+        exchangeId: 'binance',
+        symbol: 'BTC/USDT',
+        base: 'BTC',
+        quote: 'USDT',
+        active: true,
+        spot: true,
+        baseName: 'Bitcoin',
+        raw: {},
+      },
+      {
+        exchangeId: 'binance',
+        symbol: 'ETH/USDT',
+        base: 'ETH',
+        quote: 'USDT',
+        active: true,
+        spot: true,
+        baseName: 'Ethereum',
+        raw: {},
+      },
+      {
+        exchangeId: 'binance',
+        symbol: 'USDC/USDT',
+        base: 'USDC',
+        quote: 'USDT',
+        active: true,
+        spot: true,
+        baseName: 'USD Coin',
+        raw: {},
+      },
+    ]);
+    mockedFetchExchangeTickers.mockResolvedValue([
+      {
+        exchangeId: 'binance',
+        symbol: 'BTC/USDT',
+        base: 'BTC',
+        quote: 'USDT',
+        last: 85_000,
+        bid: 84_950,
+        ask: 85_050,
+        high: null,
+        low: null,
+        baseVolume: 5_000,
+        quoteVolume: 425_000_000,
+        percentage: 1.8,
+        timestamp: Date.parse('2026-03-21T00:00:00.000Z'),
+        raw: {} as never,
+      },
+      {
+        exchangeId: 'binance',
+        symbol: 'ETH/USDT',
+        base: 'ETH',
+        quote: 'USDT',
+        last: 2_000,
+        bid: 1_999,
+        ask: 2_001,
+        high: null,
+        low: null,
+        baseVolume: 50_000,
+        quoteVolume: 100_000_000,
+        percentage: 2.56,
+        timestamp: Date.parse('2026-03-21T00:00:00.000Z'),
+        raw: {} as never,
+      },
+      {
+        exchangeId: 'binance',
+        symbol: 'USDC/USDT',
+        base: 'USDC',
+        quote: 'USDT',
+        last: 1,
+        bid: 0.9999,
+        ask: 1.0001,
+        high: null,
+        low: null,
+        baseVolume: 10_000_000,
+        quoteVolume: 10_000_000,
+        percentage: 0.01,
+        timestamp: Date.parse('2026-03-21T00:00:00.000Z'),
+        raw: {} as never,
+      },
+    ]);
+
+    const app = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'http.db'),
+        ccxtExchanges: ['binance'],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      const exchangesResponse = await app.inject({
+        method: 'GET',
+        url: '/exchanges?per_page=5&page=1',
+      });
+      const tickersResponse = await app.inject({
+        method: 'GET',
+        url: '/exchanges/binance/tickers',
+      });
+
+      expect(exchangesResponse.statusCode).toBe(200);
+      expect(exchangesResponse.json()).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: 'binance',
+          trade_volume_24h_btc: expect.any(Number),
+        }),
+      ]));
+      expect(exchangesResponse.json().find((exchange: { id: string }) => exchange.id === 'binance').trade_volume_24h_btc).toBeGreaterThan(0);
+
+      expect(tickersResponse.statusCode).toBe(200);
+      expect(tickersResponse.json().tickers).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          coin_id: 'bitcoin',
+          is_stale: false,
+          last: expect.any(Number),
+          converted_last: expect.objectContaining({
+            usd: expect.any(Number),
+          }),
+          converted_volume: expect.objectContaining({
+            usd: expect.any(Number),
+          }),
+        }),
+      ]));
+
+      const db = app.db;
+      db.db
+        .update(coinTickers)
+        .set({
+          isStale: true,
+        })
+        .where(and(
+          eq(coinTickers.exchangeId, 'binance'),
+          eq(coinTickers.coinId, 'bitcoin'),
+        ))
+        .run();
+
+      const staleResponse = await app.inject({
+        method: 'GET',
+        url: '/exchanges/binance/tickers?coin_ids=bitcoin',
+      });
+
+      expect(staleResponse.statusCode).toBe(200);
+      expect(staleResponse.json().tickers[0]).toMatchObject({
+        coin_id: 'bitcoin',
+        is_stale: true,
+      });
+    } finally {
+      await app.close();
+    }
   });
 });
