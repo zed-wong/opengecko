@@ -1,0 +1,44 @@
+{
+  "featureId": "fix-chart-timestamp-drift",
+  "reviewedAt": "2026-03-27T02:11:44.421610+00:00",
+  "commitId": "85361dc",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The specific treasury timestamp-drift fix in src/db/client.ts is correct and aligns seeded chart points with the fixed March 14\u201320 treasury transaction window, which satisfies the stated foundation-fixes requirement. However, the feature commit also bundles unrelated alias-resolution, chart-route, version, and analysis-doc changes from other foundation work, so the implementation is not cleanly attributable to this feature and the handoff overstates feature-specific test additions.",
+    "issues": [
+      {
+        "file": "tests/app.test.ts",
+        "line": 1457,
+        "severity": "blocking",
+        "description": "This feature commit includes a new alias-resolution integration test unrelated to the assigned timestamp-drift fix. The feature scope was to fix pre-existing chart failures caused by timestamp drift, but commit 85361dc also lands broader alias-resolution work from a different foundation feature, so the code changes attributable to this feature are not isolated or reviewable as a standalone fix."
+      },
+      {
+        "file": "tests/catalog.test.ts",
+        "line": 107,
+        "severity": "blocking",
+        "description": "This feature commit also adds a repository-level alias-resolution test unrelated to treasury/chart timestamp drift. Bundling separate contract-resolution behavior into the same feature commit breaks feature attribution and makes the handoff's claimed test coverage misleading for this review target."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The core-api-worker skill says to write failing tests first, but the worker explicitly skipped that step and relied on an existing failing test. The deviation seems justified for this narrowly described seed timestamp fix, so the skill may be too rigid for tasks that repair already-failing coverage.",
+      "evidence": "core-api-worker SKILL.md step 3 requires failing tests first; handoff.skillFeedback.followedProcedure=false and notes the worker applied the one-line fix directly because the failure was already covered by an existing treasury holding chart test."
+    },
+    {
+      "area": "skills",
+      "observation": "The core-api-worker skill requires starting a local API and manually verifying curl requests, but the documented environment already warns that port-3102 startup can fail with a SQLite lock when another process uses data/opengecko.db. The worker hit exactly that failure and then curled a stale already-running server, so the skill procedure does not match mission reality.",
+      "evidence": "AGENTS.md 'Known Pre-Existing Issues' documents SQLite lock risk on validation startup; transcript and handoff show `PORT=3102 ... bun run src/server.ts` failed with `SQLiteError: database is locked`, after which curl checks were performed against an already-running server and one treasury response was stale/empty."
+    },
+    {
+      "area": "conventions",
+      "observation": "This feature commit mixed unrelated foundation changes (alias resolution, package version bump, analysis docs) into a timestamp-drift fix. Mission shared state does not appear to document how workers should handle pre-existing uncommitted work when only a narrow fix feature is assigned.",
+      "evidence": "git show --stat 85361dc includes changes to src/lib/platform-id.ts, src/modules/assets.ts, src/modules/catalog.ts, src/modules/simple.ts, src/services/chain-catalog-sync.ts, tests/catalog.test.ts, tests/initial-sync.test.ts, package.json, and multiple docs/analysis files in addition to the single-line seed timestamp change in src/db/client.ts."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail: the actual timestamp-drift code fix is correct, but the reviewed feature was not delivered as an isolated feature change. Commit 85361dc bundles substantial unrelated foundation work, so the code attributable to fix-chart-timestamp-drift cannot be cleanly accepted as scoped implementation for this feature."
+}

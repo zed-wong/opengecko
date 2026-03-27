@@ -1,0 +1,78 @@
+{
+  "milestone": "foundation-fixes",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "bun run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "bun run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": false,
+      "command": "bun run lint",
+      "exitCode": 1,
+      "note": "No lint script is configured; .factory/services.yaml defines lint as `echo \"no lint configured\"`."
+    }
+  },
+  "reviewsSummary": {
+    "total": 2,
+    "passed": 0,
+    "failed": 2,
+    "failedFeatures": [
+      "fix-chart-timestamp-drift",
+      "commit-chain-normalization-and-aliases"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "fix-chart-timestamp-drift",
+      "severity": "blocking",
+      "description": "Commit 85361dc includes unrelated alias-resolution tests and broader foundation work, so the timestamp-drift fix was not delivered as an isolated feature change."
+    },
+    {
+      "featureId": "fix-chart-timestamp-drift",
+      "severity": "blocking",
+      "description": "Commit 85361dc also adds repository-level alias-resolution coverage unrelated to treasury/chart timestamp drift, making feature attribution and review scope incorrect."
+    },
+    {
+      "featureId": "commit-chain-normalization-and-aliases",
+      "severity": "blocking",
+      "description": "The feature points to commit 85361dc, whose message and diff bundle unrelated chart-fix and docs-analysis changes instead of an isolated chain-normalization commit."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skills",
+      "suggestion": "Update core-api-worker guidance to allow relying on existing failing coverage for narrowly scoped bug fixes instead of always requiring a newly written failing test first.",
+      "evidence": "The fix-chart-timestamp-drift review found the worker reasonably used an already-failing treasury chart test for a one-line seed timestamp fix, but had to record a skill deviation because the skill text is rigid.",
+      "isSystemic": false
+    },
+    {
+      "target": "skills",
+      "suggestion": "Update worker skill/manual verification guidance to account for the documented SQLite lock risk on port 3102 so workers do not treat failed local startup plus curls against a stale server as valid manual verification.",
+      "evidence": "Mission AGENTS.md documents the database-lock issue, and the reviewed timestamp-drift worker hit it before curling an already-running server.",
+      "isSystemic": false
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add explicit guidance for handling narrow-scope features when substantial unrelated uncommitted work is already present, including expectations for isolating commits or documenting attribution boundaries.",
+      "evidence": "Both reviewed foundation-fixes features were attributed to commit 85361dc, which bundled multiple feature areas and complicated scrutiny review.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Update core-api-worker to cover verification-only or already-committed feature scenarios so workers know how to proceed when the requested work is already present and green.",
+      "evidence": "The commit-chain-normalization-and-aliases review found the worker deviated because the work was already committed and the repo was already green.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [],
+  "previousRound": null
+}

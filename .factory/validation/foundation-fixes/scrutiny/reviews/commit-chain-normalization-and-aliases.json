@@ -1,0 +1,28 @@
+{
+  "featureId": "commit-chain-normalization-and-aliases",
+  "reviewedAt": "2026-03-27T02:11:46.483472+00:00",
+  "commitId": "85361dc",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The alias-resolution implementation itself looks correct for token-list, simple/token_price, and contract-route lookups, and the targeted tests/manual checks exercise the expected alias flows. However, the worker handoff incorrectly attributes this feature to commit 85361dc, whose commit message and diff also include unrelated chart-fix and multiple docs-analysis changes, so the feature was not committed in isolation as required and the review cannot verify a clean feature-specific commit boundary.",
+    "issues": [
+      {
+        "file": "package.json",
+        "line": 2,
+        "severity": "blocking",
+        "description": "The reviewed worker claims feature `commit-chain-normalization-and-aliases` is represented by commit `85361dc`, but that commit is `fix: align seeded charts with treasury dates` and bundles unrelated chart-fix and docs-analysis changes alongside the alias work. Because this feature's contract explicitly required committing the existing chain-normalization work, the attributable changes are not isolated to a dedicated commit, making the implementation history incorrect for this feature."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The core-api-worker skill assumes the worker will always be implementing fresh code and says to write failing tests first, but this feature's task was to review/commit already-present uncommitted work. The worker deviated because the repository was already green and the work was already committed, which suggests the skill should explicitly cover verification-only or already-committed feature scenarios.",
+      "evidence": "Handoff `skillFeedback.deviations` for session 7d296248-d447-4492-9453-2911bcba1939 says the worker verified already-present tests instead of adding failing tests first because the work was already committed and green; see also `.factory/skills/core-api-worker/SKILL.md` step 3."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail: alias handling appears functionally correct, but the feature did not produce or point to an isolated commit for the chain-normalization work. The recorded commit mixes this feature with unrelated chart-fix and docs-analysis changes, so the feature's implementation history does not satisfy the assignment as reviewed."
+}
