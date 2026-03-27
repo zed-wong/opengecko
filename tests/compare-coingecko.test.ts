@@ -4,8 +4,10 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import type { MockInstance } from 'vitest';
 
 import { buildApp } from '../src/app';
+import * as defillamaProvider from '../src/providers/defillama';
 
 vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn(),
@@ -26,12 +28,13 @@ const mockedFetchExchangeOHLCV = fetchExchangeOHLCV as ReturnType<typeof vi.fn>;
 describe('CoinGecko API compatibility', () => {
   let app: FastifyInstance;
   let tempDir: string;
+  let activeDefillamaPoolDataMock: MockInstance | null = null;
+  let activeDefillamaDexVolumesMock: MockInstance | null = null;
 
   beforeEach(async () => {
     mockedFetchExchangeMarkets.mockReset();
     mockedFetchExchangeTickers.mockReset();
     mockedFetchExchangeOHLCV.mockReset();
-
     mockedFetchExchangeMarkets.mockImplementation(async (exchangeId) => {
       if (exchangeId === 'binance') return [
         { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin', raw: {} },
@@ -59,6 +62,8 @@ describe('CoinGecko API compatibility', () => {
     });
 
     mockedFetchExchangeOHLCV.mockResolvedValue([]);
+    activeDefillamaPoolDataMock = vi.spyOn(defillamaProvider, 'fetchDefillamaPoolData').mockResolvedValue(null);
+    activeDefillamaDexVolumesMock = vi.spyOn(defillamaProvider, 'fetchDefillamaDexVolumes').mockResolvedValue(null);
 
     tempDir = mkdtempSync(join(tmpdir(), 'opengecko-compare-'));
     app = buildApp({
@@ -76,6 +81,10 @@ describe('CoinGecko API compatibility', () => {
     if (app) {
       await app.close();
     }
+    activeDefillamaPoolDataMock?.mockRestore();
+    activeDefillamaDexVolumesMock?.mockRestore();
+    activeDefillamaPoolDataMock = null;
+    activeDefillamaDexVolumesMock = null;
     rmSync(tempDir, { recursive: true, force: true });
   });
 
