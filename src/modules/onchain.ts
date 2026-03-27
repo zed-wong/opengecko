@@ -6,6 +6,7 @@ import type { AppDatabase } from '../db/client';
 import { coins, marketSnapshots, onchainDexes, onchainNetworks, onchainPools } from '../db/schema';
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePositiveInt } from '../http/params';
+import { fetchDefillamaDexVolumes, fetchDefillamaPoolData } from '../providers/defillama';
 
 const paginationQuerySchema = z.object({
   page: z.string().optional(),
@@ -148,6 +149,270 @@ type OnchainOhlcvSeriesPoint = {
 
 function normalizeAddress(address: string) {
   return address.trim().toLowerCase();
+}
+
+type LiveOnchainPoolPatch = {
+  priceUsd: number | null;
+  reserveUsd: number | null;
+  volume24hUsd: number | null;
+  source: 'live' | 'seed';
+};
+
+type LiveOnchainCatalog = {
+  networks: typeof onchainNetworks.$inferSelect[];
+  dexes: typeof onchainDexes.$inferSelect[];
+  poolsByAddress: Map<string, LiveOnchainPoolPatch>;
+  degraded: boolean;
+};
+
+const DEFILLAMA_NETWORK_CONFIG = {
+  Ethereum: {
+    networkId: 'eth',
+    name: 'Ethereum',
+    chainIdentifier: 1,
+    coingeckoAssetPlatformId: 'ethereum',
+    nativeCurrencyCoinId: 'ethereum',
+    imageUrl: 'https://assets.coingecko.com/asset_platforms/images/279/small/ethereum.png',
+  },
+  Arbitrum: {
+    networkId: 'arbitrum',
+    name: 'Arbitrum',
+    chainIdentifier: 42161,
+    coingeckoAssetPlatformId: 'arbitrum-one',
+    nativeCurrencyCoinId: 'ethereum',
+    imageUrl: 'https://assets.coingecko.com/asset_platforms/images/6450/small/arbitrum.png',
+  },
+  Base: {
+    networkId: 'base',
+    name: 'Base',
+    chainIdentifier: 8453,
+    coingeckoAssetPlatformId: 'base',
+    nativeCurrencyCoinId: 'ethereum',
+    imageUrl: 'https://assets.coingecko.com/asset_platforms/images/131/small/base-network.png',
+  },
+  Polygon: {
+    networkId: 'polygon',
+    name: 'Polygon',
+    chainIdentifier: 137,
+    coingeckoAssetPlatformId: 'polygon-pos',
+    nativeCurrencyCoinId: 'matic-network',
+    imageUrl: 'https://assets.coingecko.com/asset_platforms/images/385/small/polygon.png',
+  },
+  BSC: {
+    networkId: 'bsc',
+    name: 'BNB Smart Chain',
+    chainIdentifier: 56,
+    coingeckoAssetPlatformId: 'binance-smart-chain',
+    nativeCurrencyCoinId: 'binancecoin',
+    imageUrl: 'https://assets.coingecko.com/asset_platforms/images/125/small/bnb-chain.png',
+  },
+  Solana: {
+    networkId: 'solana',
+    name: 'Solana',
+    chainIdentifier: 101,
+    coingeckoAssetPlatformId: 'solana',
+    nativeCurrencyCoinId: 'solana',
+    imageUrl: 'https://assets.coingecko.com/asset_platforms/images/4128/small/solana.png',
+  },
+} as const;
+
+const DEFILLAMA_DEX_OVERRIDES: Record<string, { id: string; name: string; url: string; imageUrl: string | null }> = {
+  'uniswap-v3': {
+    id: 'uniswap_v3',
+    name: 'Uniswap V3',
+    url: 'https://app.uniswap.org',
+    imageUrl: 'https://assets.coingecko.com/markets/images/665/small/uniswap.png',
+  },
+  curve: {
+    id: 'curve',
+    name: 'Curve',
+    url: 'https://curve.fi',
+    imageUrl: 'https://assets.coingecko.com/markets/images/538/small/curve.png',
+  },
+  raydium: {
+    id: 'raydium',
+    name: 'Raydium',
+    url: 'https://raydium.io',
+    imageUrl: 'https://assets.coingecko.com/markets/images/609/small/Raydium.png',
+  },
+  pancakeswap: {
+    id: 'pancakeswap',
+    name: 'PancakeSwap',
+    url: 'https://pancakeswap.finance',
+    imageUrl: null,
+  },
+  aerodrome: {
+    id: 'aerodrome',
+    name: 'Aerodrome',
+    url: 'https://aerodrome.finance',
+    imageUrl: null,
+  },
+  sushiswap: {
+    id: 'sushiswap',
+    name: 'Sushi',
+    url: 'https://www.sushi.com',
+    imageUrl: null,
+  },
+};
+
+function slugifyOnchainId(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_');
+}
+
+function toDexName(slug: string) {
+  return slug
+    .split(/[_-]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function patchPoolRow(row: typeof onchainPools.$inferSelect, patch: LiveOnchainPoolPatch | undefined) {
+  if (!patch) {
+    return row;
+  }
+
+  return {
+    ...row,
+    priceUsd: patch.priceUsd ?? row.priceUsd,
+    reserveUsd: patch.reserveUsd ?? row.reserveUsd,
+    volume24hUsd: patch.volume24hUsd ?? row.volume24hUsd,
+  };
+}
+
+let liveOnchainCatalogPromise: Promise<LiveOnchainCatalog> | null = null;
+
+async function buildLiveOnchainCatalog(database: AppDatabase): Promise<LiveOnchainCatalog> {
+  if (liveOnchainCatalogPromise) {
+    return liveOnchainCatalogPromise;
+  }
+
+  liveOnchainCatalogPromise = (async () => {
+  const seededNetworks = database.db.select().from(onchainNetworks).orderBy(asc(onchainNetworks.name)).all();
+  const seededDexes = database.db.select().from(onchainDexes).orderBy(asc(onchainDexes.name)).all();
+  const seededPoolMap = new Map<string, typeof onchainPools.$inferSelect>(
+    database.db.select().from(onchainPools).all().map((row) => [row.address, row]),
+  );
+  const now = new Date();
+  const networksById = new Map(seededNetworks.map((row) => [row.id, row]));
+  const dexesByKey = new Map(seededDexes.map((row) => [`${row.networkId}:${row.id}`, row]));
+  const poolsByAddress = new Map<string, LiveOnchainPoolPatch>();
+
+  const [poolData, dexVolumes] = await Promise.all([
+    fetchDefillamaPoolData(),
+    fetchDefillamaDexVolumes(),
+  ]);
+
+  if (!poolData || !dexVolumes) {
+    return {
+      networks: seededNetworks,
+      dexes: seededDexes,
+      poolsByAddress,
+      degraded: true,
+    };
+  }
+
+  for (const entry of poolData.pools) {
+    const networkConfig = entry.chain ? DEFILLAMA_NETWORK_CONFIG[entry.chain as keyof typeof DEFILLAMA_NETWORK_CONFIG] : undefined;
+    if (!networkConfig) {
+      continue;
+    }
+
+    if (!networksById.has(networkConfig.networkId)) {
+      networksById.set(networkConfig.networkId, {
+        id: networkConfig.networkId,
+        name: networkConfig.name,
+        chainIdentifier: networkConfig.chainIdentifier,
+        coingeckoAssetPlatformId: networkConfig.coingeckoAssetPlatformId,
+        nativeCurrencyCoinId: networkConfig.nativeCurrencyCoinId,
+        imageUrl: networkConfig.imageUrl,
+        updatedAt: now,
+      });
+    }
+
+    const projectSlug = entry.project ? slugifyOnchainId(entry.project) : null;
+    if (!projectSlug) {
+      continue;
+    }
+
+    const dexConfig = DEFILLAMA_DEX_OVERRIDES[projectSlug] ?? {
+      id: projectSlug,
+      name: toDexName(projectSlug),
+      url: `https://defillama.com/protocol/${projectSlug}`,
+      imageUrl: null,
+    };
+    const dexKey = `${networkConfig.networkId}:${dexConfig.id}`;
+    if (!dexesByKey.has(dexKey)) {
+      dexesByKey.set(dexKey, {
+        id: dexConfig.id,
+        networkId: networkConfig.networkId,
+        name: dexConfig.name,
+        url: dexConfig.url,
+        imageUrl: dexConfig.imageUrl,
+        updatedAt: now,
+      });
+    }
+  }
+
+  const dexVolumeByName = new Map(
+    dexVolumes.protocols
+      .filter((entry) => entry.name)
+      .map((entry) => [slugifyOnchainId(entry.name!), entry.total24h ?? null]),
+  );
+
+  for (const [address, row] of seededPoolMap) {
+    if (row.networkId !== 'eth') {
+      continue;
+    }
+
+    const matchedPool = poolData.pools.find((pool) => {
+      if (pool.chain !== 'Ethereum') {
+        return false;
+      }
+
+      if (slugifyOnchainId(pool.project ?? '') !== row.dexId) {
+        return false;
+      }
+
+      const tokenSet = new Set((pool.underlyingTokens ?? []).map((value) => normalizeAddress(value)));
+      return tokenSet.has(normalizeAddress(row.baseTokenAddress)) && tokenSet.has(normalizeAddress(row.quoteTokenAddress));
+    });
+
+    const dexVolume = dexVolumeByName.get(row.dexId) ?? null;
+    if (!matchedPool && dexVolume === null) {
+      continue;
+    }
+
+    const liveReserveUsd = matchedPool?.tvlUsd ?? null;
+    const liveVolume24hUsd = matchedPool?.volumeUsd1d ?? dexVolume;
+    poolsByAddress.set(address, {
+      priceUsd: liveReserveUsd && row.priceUsd && row.reserveUsd ? Number(((row.priceUsd * liveReserveUsd) / row.reserveUsd).toFixed(6)) : row.priceUsd,
+      reserveUsd: liveReserveUsd,
+      volume24hUsd: liveVolume24hUsd,
+      source: 'live',
+    });
+  }
+
+    return {
+      networks: [...networksById.values()].sort((left, right) => left.name.localeCompare(right.name)),
+      dexes: [...dexesByKey.values()].sort((left, right) =>
+        left.networkId.localeCompare(right.networkId) || left.name.localeCompare(right.name)),
+      poolsByAddress,
+      degraded: false,
+    };
+  })();
+
+  try {
+    return await liveOnchainCatalogPromise;
+  } finally {
+    liveOnchainCatalogPromise = null;
+  }
 }
 
 function isValidOnchainAddress(address: string) {
@@ -1675,7 +1940,8 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     const query = paginationQuerySchema.parse(request.query);
     const page = parsePositiveInt(query.page, 1);
     const perPage = 100;
-    const rows = database.db.select().from(onchainNetworks).orderBy(asc(onchainNetworks.name)).all();
+    const liveCatalog = await buildLiveOnchainCatalog(database);
+    const rows = liveCatalog.networks;
     const start = (page - 1) * perPage;
     const totalCount = rows.length;
 
@@ -1690,18 +1956,14 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     const query = paginationQuerySchema.parse(request.query);
     const page = parsePositiveInt(query.page, 1);
     const perPage = 100;
-    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+    const liveCatalog = await buildLiveOnchainCatalog(database);
+    const network = liveCatalog.networks.find((row) => row.id === params.network);
 
     if (!network) {
       throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
     }
 
-    const rows = database.db
-      .select()
-      .from(onchainDexes)
-      .where(eq(onchainDexes.networkId, params.network))
-      .orderBy(asc(onchainDexes.name))
-      .all();
+    const rows = liveCatalog.dexes.filter((row) => row.networkId === params.network);
     const start = (page - 1) * perPage;
     const totalCount = rows.length;
 
@@ -1719,8 +1981,8 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     const query = poolListQuerySchema.parse(request.query);
     const page = parsePositiveInt(query.page, 1);
     const perPage = 100;
-
-    const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
+    const liveCatalog = await buildLiveOnchainCatalog(database);
+    const network = liveCatalog.networks.find((row) => row.id === params.network);
 
     if (!network) {
       throw new HttpError(404, 'not_found', `Onchain network not found: ${params.network}`);
@@ -1733,7 +1995,8 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       .from(onchainPools)
       .where(eq(onchainPools.networkId, params.network))
       .orderBy(...orderBy)
-      .all();
+      .all()
+      .map((row) => patchPoolRow(row, liveCatalog.poolsByAddress.get(row.address)));
 
     const start = (page - 1) * perPage;
 
@@ -1741,6 +2004,7 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       data: rows.slice(start, start + perPage).map((row) => buildPoolResource(row)),
       meta: {
         page,
+        data_source: liveCatalog.degraded || params.network !== 'eth' ? 'seeded' : 'live',
       },
     };
   });
@@ -2107,6 +2371,7 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     const includeVolumeBreakdown = parseBooleanQuery(query.include_volume_breakdown, false);
     const includeComposition = parseBooleanQuery(query.include_composition, false);
     const normalizedAddress = normalizeAddress(params.address);
+    const liveCatalog = await buildLiveOnchainCatalog(database);
 
     const row = database.db
       .select()
@@ -2119,13 +2384,17 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       throw new HttpError(404, 'not_found', `Onchain pool not found: ${normalizedAddress}`);
     }
 
-    const included = buildIncludedResources(includes, [row], database);
+    const patchedRow = patchPoolRow(row, liveCatalog.poolsByAddress.get(row.address));
+    const included = buildIncludedResources(includes, [patchedRow], database);
 
     return {
-      data: buildPoolResource(row, {
+      data: buildPoolResource(patchedRow, {
         includeVolumeBreakdown,
         includeComposition,
       }),
+      meta: {
+        data_source: liveCatalog.degraded || params.network !== 'eth' ? 'seeded' : 'live',
+      },
       ...(included.length > 0 ? { included } : {}),
     };
   });

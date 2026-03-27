@@ -96,6 +96,20 @@ async function fetchJson<T>(path: string, options: DefillamaRequestOptions = {})
   }
 }
 
+async function fetchJsonAcrossBaseUrls<T>(paths: string[], options: DefillamaRequestOptions = {}) {
+  let lastError: unknown = null;
+
+  for (const path of paths) {
+    try {
+      return await fetchJson<T>(path, options);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError ?? new Error(`DeFiLlama request failed for paths: ${paths.join(', ')}`);
+}
+
 function toOptionalNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -170,7 +184,7 @@ export async function fetchDefillamaPoolData(options: DefillamaRequestOptions = 
   try {
     const [protocolsResponse, poolsResponse] = await Promise.all([
       fetchJson<unknown[]>('/protocols', options),
-      fetchJson<{ data?: unknown[] }>('/pools', options),
+      fetchJsonAcrossBaseUrls<{ data?: unknown[] }>(['/pools', '/yields/pools'], options),
     ]);
 
     return {

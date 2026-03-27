@@ -4,6 +4,11 @@
 ░▀▀▀░▀░░░▀▀▀░▀░▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░▀▀▀
 ```
 
+[![npm version](https://img.shields.io/npm/v/opengecko?color=purple)](https://www.npmjs.com/package/opengecko)
+[![Bun](https://img.shields.io/badge/Bun-1.3.9-black?logo=bun)](https://bun.sh)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue?logo=typescript)](https://www.typescriptlang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ## Why This Exists
 
 The crypto ecosystem preaches decentralization — but the moment you need basic market data, you're paying CoinGecko for a closed, rate-limited API you don't control. That's not what this space is supposed to be.
@@ -24,19 +29,12 @@ The result: a decentralized, open market data layer that anyone can deploy, audi
 
 ## What You Get
 
-
-- **CoinGecko-compatible surface**  
-Same routes, params, response shapes. Switch the base URL and go. 
-- **Zero vendor lock-in**  
-No API keys. No rate limits. No subscription. Own your infrastructure.
-- **Deploy in one command**
- `bun install && bun run dev`. SQLite under the hood. No external services required.
-- **60-second fresh data** 
-Hot market snapshots refresh continuously. No stale cache surprises.
-- **Fully auditable** 
-Every intentional divergence from CoinGecko is documented. No black-box surprises.
-- **Built on open data**
- CCXT, TrustWallet, public on-chain sources. No proprietary data lock-in.
+- **CoinGecko-compatible surface** — Same routes, params, response shapes. Switch the base URL and go.
+- **Zero vendor lock-in** — No API keys. No rate limits. No subscription. Own your infrastructure.
+- **Deploy in one command** — `bun install && bun run dev`. SQLite under the hood. No external services required.
+- **60-second fresh data** — Hot market snapshots refresh continuously. No stale cache surprises.
+- **Fully auditable** — Every intentional divergence from CoinGecko is documented. No black-box surprises.
+- **Built on open data** — CCXT, TrustWallet, public on-chain sources. No proprietary data lock-in.
 
 ## Quick Start
 
@@ -228,7 +226,10 @@ OpenGecko documents every intentional divergence from CoinGecko in `docs/plans/2
 
 ## Built With
 
-`Bun · TypeScript · Fastify · SQLite · Drizzle ORM · CCXT`
+![Fastify](https://img.shields.io/badge/Fastify-5.2-black?logo=fastify)
+![SQLite](https://img.shields.io/badge/SQLite-3-blue?logo=sqlite)
+![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.44-blueviolet?logo=data)
+![CCXT](https://img.shields.io/badge/CCXT-4.4-orange?logo=bitcoin)
 
 ## Status & Planning
 

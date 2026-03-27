@@ -54,6 +54,50 @@ describe('defillama provider', () => {
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
+  it('falls back to the yields pools endpoint when the legacy pools path returns 404', async () => {
+    vi.stubEnv('DEFILLAMA_BASE_URL', 'https://defillama.example');
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify([
+        { id: 'uniswap', slug: 'uniswap', name: 'Uniswap', category: 'Dexes', chains: ['Ethereum'], tvl: 1234 },
+      ]), { status: 200 }))
+      .mockResolvedValueOnce(new Response('not found', { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: [
+          {
+            chain: 'Ethereum',
+            project: 'curve',
+            symbol: 'USDC-USDT',
+            pool: 'pool-curve',
+            tvlUsd: 200,
+            volumeUsd1d: 20,
+            volumeUsd7d: 140,
+            underlyingTokens: ['0xa', '0xb'],
+          },
+        ],
+      }), { status: 200 }));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { fetchDefillamaPoolData } = await import('../src/providers/defillama');
+
+    const result = await fetchDefillamaPoolData({ fetchImpl: fetchMock as typeof fetch });
+
+    expect(result?.pools).toEqual([
+      {
+        chain: 'Ethereum',
+        project: 'curve',
+        symbol: 'USDC-USDT',
+        pool: 'pool-curve',
+        tvlUsd: 200,
+        volumeUsd1d: 20,
+        volumeUsd7d: 140,
+        underlyingTokens: ['0xa', '0xb'],
+      },
+    ]);
+    expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://defillama.example/pools', expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, 'https://defillama.example/yields/pools', expect.any(Object));
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
   it('fetches token prices and URL-encodes coin identifiers', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       coins: {
