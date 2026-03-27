@@ -1,15 +1,15 @@
 {
   "featureId": "isolate-invalid-param-onchain-negative-route-from-live-fetches",
-  "reviewedAt": "2026-03-27T12:50:00Z",
-  "commitId": "d8800eb",
+  "reviewedAt": "2026-03-27T05:18:51.442395+00:00",
+  "commitId": "d8800eb0edbb2895f2010945c609458bb65970f8",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The fix correctly short-circuits unknown-network requests for the `dexes` and `pools` list routes by checking the seeded onchain network table before invoking the expensive live catalog builder. This preserves the existing `{ error, message }` 404 envelope for `/onchain/networks/not-a-network/dexes` and avoids the prior validator timeout path without introducing timeout padding.",
+    "summary": "Current HEAD satisfies the feature contract. Commit d8800eb adds a seeded-network guard to the network-scoped onchain dex and pool routes, so `/onchain/networks/not-a-network/dexes` now returns the existing `{ error, message }` 404 envelope before any `buildLiveOnchainCatalog()` DeFiLlama work. The change is narrowly scoped to invalid network requests and does not weaken live behavior for valid networks.",
     "issues": []
   },
   "sharedStateObservations": [],
   "addressesFailureFrom": null,
-  "summary": "Reviewed feature commit `d8800eb`, the worker handoff, and transcript skeleton. The implementation is scoped to fast negative-path rejection on the affected onchain routes, keeps live behavior for valid networks, and matches the feature requirements with no blocking issues found."
+  "summary": "Pass. I reviewed the feature metadata, handoff, transcript skeleton, onchain-api-worker skill, commit d8800eb, and current HEAD route/test code. The implementation removes the slow live-fetch path for the unknown-network negative case by short-circuiting against seeded onchain networks first, preserves the 404 envelope, and leaves valid-network live catalog behavior intact."
 }

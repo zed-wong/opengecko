@@ -1,22 +1,39 @@
 {
   "featureId": "prove-live-onchain-pool-catalog-without-timeout-masking",
-  "reviewedAt": "2026-03-27T00:00:00Z",
+  "reviewedAt": "2026-03-27T05:19:52.611688+00:00",
   "commitId": "d16f2c497024ca6a29b0835f30eab5e1d4ce55f1",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "Current HEAD fixes the original compare regression by stubbing DeFiLlama calls in `tests/compare-coingecko.test.ts`, and `tests/app.test.ts` now proves live-expanded network/dex/pool catalog behavior plus seeded fallback from current HEAD. However, the feature requirement was to remove any remaining timeout masking from compare coverage, and the compare summary test still carries a hard-coded 15000ms timeout from the earlier failed feature rather than running under default expectations.",
+    "summary": "The feature behavior exists on current HEAD, but the reviewed feature handoff commit does not contain the claimed implementation. The handoff points scrutiny at commit d16f2c4, which is only a scrutiny-artifact commit and not the code/test hardening described by the feature contract, so this feature still fails the requirement that scrutiny be able to validate the feature from the assigned handoff context without relying on a misattributed historical commit.",
     "issues": [
       {
-        "file": "tests/compare-coingecko.test.ts",
-        "line": 1185,
+        "file": ".factory/validation/onchain-live-data/scrutiny/reviews/wire-onchain-pool-endpoints-live.json",
+        "line": 1,
         "severity": "blocking",
-        "description": "The feature explicitly required removing any remaining timeout-padding from `tests/compare-coingecko.test.ts`, but the endpoint-coverage summary test still ends with `}, 15000);`. Even though the DeFiLlama stubs are the real fix, this lingering custom timeout means timeout masking has not actually been removed from the compare suite as requested."
+        "description": "The assigned handoff commit is `d16f2c497024ca6a29b0835f30eab5e1d4ce55f1`, but `git show --stat` for that commit only adds scrutiny artifacts and environment notes. It does not contain the compare-suite timeout-removal hardening or the current-head route proofs that the feature description claims were implemented. Because the reviewed handoff commit is still misattributed, this feature does not satisfy its own requirement that scrutiny validate behavior from the feature handoff rather than an unrelated historical commit."
+      },
+      {
+        "file": "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/handoffs/2026-03-27T04-42-12-079Z__prove-live-onchain-pool-catalog-without-timeout-masking__ea179996-cce5-453c-9387-957fee35a418.json",
+        "line": 1,
+        "severity": "blocking",
+        "description": "The handoff summary states that current HEAD already contains the real fix in commits `3aebd7e` and `d8800eb`, plus current-head route proof in later tests, but still records `commitId` as `d16f2c4`. That leaves the feature's own commit attribution incorrect and forces later scrutiny to infer the real implementation from other commits instead of the assigned feature artifact."
       }
     ]
   },
-  "sharedStateObservations": [],
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Mission guidance still does not make commit attribution requirements strong enough for later scrutiny-proof features. This feature's handoff references the correct implementation commits in prose, but its `commitId` still points at a scrutiny-artifact commit, recreating the same attribution ambiguity the feature was supposed to eliminate.",
+      "evidence": "Handoff `/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/handoffs/2026-03-27T04-42-12-079Z__prove-live-onchain-pool-catalog-without-timeout-masking__ea179996-cce5-453c-9387-957fee35a418.json` records `commitId` `d16f2c497024ca6a29b0835f30eab5e1d4ce55f1`, while `git log --oneline -10` shows the actual code/test hardening commits are `3aebd7e`, `d8800eb`, and later `727cb6b`."
+    },
+    {
+      "area": "services",
+      "observation": "The reviewer prompt says to inspect `.factory/library/architecture.md` from the mission root, but that file does not exist there in this environment; reviewers must fall back to repo docs and code. This mismatch can waste time during scrutiny runs.",
+      "evidence": "Attempting to read `/home/whoami/.factory/library/architecture.md` returned ENOENT during review setup, while the available project-local library only contained `/home/whoami/dev/openGecko/.factory/library/user-testing.md`."
+    }
+  ],
   "addressesFailureFrom": null,
-  "summary": "Fail. The live onchain catalog behavior is now convincingly proven from current HEAD by direct app tests and no longer depends on the old misattributed commit, and the compare regression has a real stubbing-based fix. But the feature's central acceptance criterion was to remove remaining timeout masking from `tests/compare-coingecko.test.ts`, and the file still retains a 15000ms per-test timeout on the compare summary case."
+  "summary": "Fail. Current HEAD now has the no-timeout-masking fix and explicit onchain catalog proof, but this specific feature handoff still points at the wrong commit, so it does not actually close the scrutiny attribution gap it was assigned to solve."
 }

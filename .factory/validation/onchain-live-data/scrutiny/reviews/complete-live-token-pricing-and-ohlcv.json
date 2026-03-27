@@ -1,34 +1,21 @@
 {
   "featureId": "complete-live-token-pricing-and-ohlcv",
-  "reviewedAt": "2026-03-27T04:50:29Z",
+  "reviewedAt": "2026-03-27T05:19:08Z",
   "commitId": "9f8ba8b",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "fail",
+  "status": "pass",
   "codeReview": {
-    "summary": "Token OHLCV now attempts to derive candles from live pool swaps and token info endpoints now accept live price overrides, but the committed tests do not actually prove the token detail surface uses live pricing nor that a seeded fallback path still behaves correctly when providers fail.",
-    "issues": [
-      {
-        "file": "tests/app.test.ts",
-        "line": 2788,
-        "severity": "blocking",
-        "description": "The feature requirement says token detail/info surfaces should reflect live token pricing when DeFiLlama succeeds, but the token detail test still exercises only the seeded path and asserts `price_usd: 1` without mocking live pricing. That leaves `/onchain/networks/:network/tokens/:address` unproven, even though the route was changed to call `fetchLiveSimpleTokenPrice`."
-      },
-      {
-        "file": "tests/app.test.ts",
-        "line": 3345,
-        "severity": "blocking",
-        "description": "The new tests cover live-success responses for token info endpoints and live-derived token OHLCV, but they do not add a companion assertion proving graceful fallback to seeded token pricing/OHLCV when DeFiLlama or The Graph returns null/errors. The handoff claims fallback behavior remains covered, yet this feature's added tests do not explicitly distinguish the fallback path as requested."
-      }
-    ]
+    "summary": "Current HEAD now proves both the live token behavior and graceful fallback behavior that were previously missing from this feature review. The original implementation commit wired live DeFiLlama pricing into token detail/info surfaces and live swap-backed aggregation into token OHLCV, and subsequent current-head tests explicitly verify both live and fallback paths for the token detail route, token info route, and token OHLCV route.",
+    "issues": []
   },
   "sharedStateObservations": [
     {
       "area": "knowledge",
-      "observation": "`.factory/library/architecture.md` still says all 29 onchain routes are fixture-backed and describes token OHLCV/trades as synthetic, which is no longer accurate after the live DeFiLlama/The Graph wiring reviewed here.",
-      "evidence": ".factory/library/architecture.md:24-30 states onchain routes are fixture-backed, while src/modules/onchain.ts:1241-1296 and 3174-3230 now fetch live token prices and derive token OHLCV from live pool swaps when available."
+      "observation": "The shared architecture note for onchain behavior is stale: it still describes all onchain routes as fixture-backed and token OHLCV/trades as synthetic even though current HEAD uses live DeFiLlama pricing and live The Graph swap data when available.",
+      "evidence": "/home/whoami/dev/openGecko/.factory/library/architecture.md states all 29 onchain routes are fixture-backed, while current HEAD tests in tests/app.test.ts:2999-3048, 3600-3739, and 4126-4269 prove live DeFiLlama pricing and live/fallback token OHLCV behavior."
     }
   ],
-  "addressesFailureFrom": null,
-  "summary": "Reviewed handoff, transcript skeleton, skill guidance, and commit `9f8ba8b`. Implementation adds live token price overrides and async token OHLCV aggregation from live pool trades, but review fails because the committed tests do not actually prove live pricing on the token detail route and do not explicitly verify seeded fallback behavior for the token-level live paths. Report written for the scrutiny validator."
+  "addressesFailureFrom": "/home/whoami/dev/openGecko/.factory/validation/onchain-live-data/scrutiny/reviews/complete-live-token-pricing-and-ohlcv.json",
+  "summary": "Reviewed the mission docs, prior failed synthesis/review, worker handoff, transcript skeleton, skill guidance, commit 9f8ba8b diff, and current HEAD tests. Re-review passes because current HEAD now explicitly proves `/onchain/networks/:network/tokens/:address` uses live DeFiLlama pricing when available and falls back to seeded pricing when DeFiLlama fails, while token info and token OHLCV routes also have paired fallback assertions proving graceful degradation when providers fail."
 }
