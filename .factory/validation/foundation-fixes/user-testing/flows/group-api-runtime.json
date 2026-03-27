@@ -1,0 +1,75 @@
+{
+  "surface": "api",
+  "assertions": [
+    {
+      "id": "VAL-FND-001",
+      "status": "fail",
+      "reason": "GET /global/market_cap_chart?vs_currency=usd&days=7 returned 200 but market_cap_chart was empty, so no positive tuple was present.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-raw-responses.json",
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-assertions-summary.json"
+      ]
+    },
+    {
+      "id": "VAL-FND-002",
+      "status": "fail",
+      "reason": "GET /coins/bitcoin/market_chart?vs_currency=usd&days=7&interval=daily returned 200 but prices was empty, so seeded daily timestamps could not be observed.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-raw-responses.json",
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-assertions-summary.json"
+      ]
+    },
+    {
+      "id": "VAL-FND-003",
+      "status": "fail",
+      "reason": "GET /coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/market_chart?vs_currency=usd&days=7&interval=daily returned 200 but prices was empty, so expected seeded timestamps were absent.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-raw-responses.json",
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-assertions-summary.json"
+      ]
+    },
+    {
+      "id": "VAL-FND-004",
+      "status": "pass",
+      "reason": "GET /simple/token_price/eth and /simple/token_price/ethereum both returned 200 with identical JSON bodies (both empty objects), confirming alias parity for this response.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-raw-responses.json",
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-assertions-summary.json"
+      ]
+    },
+    {
+      "id": "VAL-FND-005",
+      "status": "pass",
+      "reason": "GET /coins/eth/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 returned 200 and the body contained id \"usd-coin\".",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-raw-responses.json"
+      ]
+    },
+    {
+      "id": "VAL-FND-006",
+      "status": "pass",
+      "reason": "GET /token_lists/eth/all.json and /token_lists/ethereum/all.json both returned 200 with identical token lists named \"OpenGecko Ethereum Token List\".",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-raw-responses.json",
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-assertions-summary.json"
+      ]
+    },
+    {
+      "id": "VAL-FND-012",
+      "status": "fail",
+      "reason": "GET /coins/bitcoin/ohlc?vs_currency=usd&days=7&interval=daily returned 200 but the OHLC array was empty, so no daily-bucketed timestamps were available to validate.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-raw-responses.json",
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-api-runtime/foundation-api-assertions-summary.json"
+      ]
+    }
+  ],
+  "toolsUsed": [
+    "curl",
+    "python3"
+  ],
+  "frictions": [
+    "The referenced flow report file did not already exist under /home/whoami/dev/openGecko/.factory/validation/foundation-fixes/user-testing/flows/group-api-runtime.json."
+  ],
+  "blockers": []
+}

@@ -1,0 +1,32 @@
+{
+  "milestone": "foundation-fixes",
+  "round": 2,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 11,
+    "passed": 11,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-FND-001",
+    "VAL-FND-002",
+    "VAL-FND-003",
+    "VAL-FND-004",
+    "VAL-FND-005",
+    "VAL-FND-006",
+    "VAL-FND-008",
+    "VAL-FND-009",
+    "VAL-FND-010",
+    "VAL-FND-011",
+    "VAL-FND-012"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": "/home/whoami/dev/openGecko/.factory/validation/foundation-fixes/user-testing/synthesis.json",
+  "flowReports": [
+    "/home/whoami/dev/openGecko/.factory/validation/foundation-fixes/user-testing/flows/group-api-rerun.json",
+    "/home/whoami/dev/openGecko/.factory/validation/foundation-fixes/user-testing/flows/group-repo-rerun.json"
+  ]
+}

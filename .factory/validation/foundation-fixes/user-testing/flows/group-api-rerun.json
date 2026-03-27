@@ -1,0 +1,73 @@
+{
+  "groupId": "foundation-fixes",
+  "surface": "api",
+  "summary": {
+    "status": "pass",
+    "passedCount": 7,
+    "failedCount": 0,
+    "assertionIds": [
+      "VAL-FND-001",
+      "VAL-FND-002",
+      "VAL-FND-003",
+      "VAL-FND-004",
+      "VAL-FND-005",
+      "VAL-FND-006",
+      "VAL-FND-012"
+    ],
+    "notes": "Local validation server rerun on http://127.0.0.1:3102 satisfied all requested foundation-fixes API assertions."
+  },
+  "assertions": [
+    {
+      "id": "VAL-FND-001",
+      "status": "pass",
+      "summary": "GET /global/market_cap_chart?vs_currency=usd&days=7 returned market_cap_chart with 7 tuples; first tuple was [1773446400000, 2144500000000]."
+    },
+    {
+      "id": "VAL-FND-002",
+      "status": "pass",
+      "summary": "GET /coins/bitcoin/market_chart?vs_currency=usd&days=7&interval=daily returned prices with 7 tuples aligned to daily buckets from 1773446400000 through 1773964800000."
+    },
+    {
+      "id": "VAL-FND-003",
+      "status": "pass",
+      "summary": "GET /coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/market_chart?vs_currency=usd&days=7&interval=daily returned 7 USDC contract price tuples aligned to the same seeded daily timestamps."
+    },
+    {
+      "id": "VAL-FND-004",
+      "status": "pass",
+      "summary": "GET /simple/token_price/eth and /simple/token_price/ethereum both returned HTTP 200 with identical empty-object JSON bodies."
+    },
+    {
+      "id": "VAL-FND-005",
+      "status": "pass",
+      "summary": "GET /coins/eth/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 returned HTTP 200 and body id usd-coin."
+    },
+    {
+      "id": "VAL-FND-006",
+      "status": "pass",
+      "summary": "GET /token_lists/eth/all.json and /token_lists/ethereum/all.json matched and both carried the name OpenGecko Ethereum Token List."
+    },
+    {
+      "id": "VAL-FND-012",
+      "status": "pass",
+      "summary": "GET /coins/bitcoin/ohlc?vs_currency=usd&days=7 returned 7 OHLC tuples aligned to midnight UTC timestamps."
+    }
+  ],
+  "toolsUsed": [
+    "python3"
+  ],
+  "frictions": [],
+  "blockers": [],
+  "evidence": {
+    "validationServer": "http://127.0.0.1:3102",
+    "observations": [
+      "VAL-FND-001 market_cap_chart length 7; first tuple [1773446400000,2144500000000]",
+      "VAL-FND-002 prices length 7; timestamps 1773446400000..1773964800000 aligned to daily buckets",
+      "VAL-FND-003 USDC contract chart prices length 7 aligned to the same seeded dates",
+      "VAL-FND-004 eth and ethereum simple/token_price responses were identical empty objects with HTTP 200",
+      "VAL-FND-005 /coins/eth/contract/... returned HTTP 200 with id usd-coin",
+      "VAL-FND-006 eth and ethereum token lists matched and had name OpenGecko Ethereum Token List",
+      "VAL-FND-012 /coins/bitcoin/ohlc returned 7 OHLC tuples aligned to midnight UTC timestamps"
+    ]
+  }
+}

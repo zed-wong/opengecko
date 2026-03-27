@@ -1,0 +1,59 @@
+{
+  "surface": "repo-validations",
+  "assertions": [
+    {
+      "id": "VAL-FND-007",
+      "status": "pass",
+      "reason": "Targeted initial-sync test passes and asserts canonical platform IDs are present while alias IDs eth/bsc are absent after sync.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-suite-db/val-fnd-007-008.md"
+      ]
+    },
+    {
+      "id": "VAL-FND-008",
+      "status": "blocked",
+      "reason": "Repository validation surface lacks a direct test or runnable assertion that pre-seeds a legacy bsc row and proves deletion plus canonical replacement with chain_identifier=56.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-suite-db/val-fnd-007-008.md"
+      ]
+    },
+    {
+      "id": "VAL-FND-009",
+      "status": "pass",
+      "reason": "`bun run test` exited 0 with 31 test files and 343 tests passing.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-suite-db/val-fnd-009-010.md"
+      ]
+    },
+    {
+      "id": "VAL-FND-010",
+      "status": "pass",
+      "reason": "`bun run typecheck` exited 0 with no reported TypeScript errors.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-suite-db/val-fnd-009-010.md"
+      ]
+    },
+    {
+      "id": "VAL-FND-011",
+      "status": "pass",
+      "reason": "The frontend contract test file passes, including the global module script assertion that checks non-empty numeric market_cap_chart timestamp/value tuples.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-suite-db/val-fnd-011.md",
+        "/home/whoami/dev/openGecko/tests/frontend-contract-script.test.ts",
+        "/home/whoami/dev/openGecko/scripts/modules/global/global.sh"
+      ]
+    }
+  ],
+  "toolsUsed": [
+    "bun",
+    "vitest",
+    "tsc"
+  ],
+  "frictions": [
+    "Expected pre-existing flow report file at /home/whoami/dev/openGecko/.factory/validation/foundation-fixes/user-testing/flows/group-suite-db.json was absent and had to be created from scratch.",
+    "VAL-FND-008 could not be fully validated from existing repository tests because no direct legacy-row cleanup assertion was present."
+  ],
+  "blockers": [
+    "VAL-FND-008 remains blocked on missing direct repository validation evidence for legacy alias row cleanup with a pre-seeded bsc row."
+  ]
+}

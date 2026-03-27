@@ -1,0 +1,61 @@
+{
+  "groupId": "group-repo-rerun",
+  "surface": "repo-validations",
+  "assertions": [
+    {
+      "id": "VAL-FND-008",
+      "status": "pass",
+      "reason": "Targeted initial-sync validation exited 0 and included the passing assertion 'removes legacy bsc platform rows when canonical chain sync discovers binance smart chain', directly covering legacy alias cleanup and canonical replacement behavior.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-suite-db/val-fnd-007-008.md"
+      ]
+    },
+    {
+      "id": "VAL-FND-009",
+      "status": "pass",
+      "reason": "`bun run test` exited 0 with 31 test files and 344 tests passing.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-suite-db/val-fnd-009-010.md"
+      ]
+    },
+    {
+      "id": "VAL-FND-010",
+      "status": "pass",
+      "reason": "`bun run typecheck` exited 0 with no reported TypeScript errors.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-suite-db/val-fnd-009-010.md"
+      ]
+    },
+    {
+      "id": "VAL-FND-011",
+      "status": "pass",
+      "reason": "The full test suite included `tests/frontend-contract-script.test.ts` passing, including the global contract check for aggregate market endpoints and non-empty numeric `market_cap_chart` tuples.",
+      "evidence": [
+        "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/foundation-fixes/group-suite-db/val-fnd-011.md",
+        "/home/whoami/dev/openGecko/tests/frontend-contract-script.test.ts",
+        "/home/whoami/dev/openGecko/scripts/modules/global/global.sh"
+      ]
+    }
+  ],
+  "summary": {
+    "status": "pass",
+    "passedAssertions": 4,
+    "totalAssertions": 4,
+    "notes": "Repo rerun evidence confirms the requested foundation-fixes validation assertions now pass."
+  },
+  "toolsUsed": [
+    "python3"
+  ],
+  "frictions": [],
+  "blockers": [],
+  "evidence": {
+    "suite": {
+      "test": "bun run test exited 0 with 31 test files and 344 tests passing",
+      "typecheck": "bun run typecheck exited 0"
+    },
+    "targeted": {
+      "initialSync": "bun test tests/initial-sync.test.ts exited 0 and included pass: removes legacy bsc platform rows when canonical chain sync discovers binance smart chain",
+      "frontendContracts": "full test suite output included frontend-contract-script.test.ts passing, including global contract checks for aggregate market endpoints"
+    }
+  }
+}
