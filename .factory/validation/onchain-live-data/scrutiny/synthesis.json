@@ -1,6 +1,6 @@
 {
   "milestone": "onchain-live-data",
-  "round": 2,
+  "round": 3,
   "status": "fail",
   "validatorsRun": {
     "test": {
@@ -20,66 +20,85 @@
     }
   },
   "reviewsSummary": {
-    "total": 4,
-    "passed": 2,
-    "failed": 2,
+    "total": 11,
+    "passed": 7,
+    "failed": 4,
     "failedFeatures": [
-      "wire-onchain-pool-endpoints-live",
-      "wire-onchain-trades-ohlcv-prices-live"
+      "complete-live-token-pricing-and-ohlcv",
+      "prove-live-onchain-pool-catalog-without-timeout-masking",
+      "remove-timeout-masking-from-onchain-compare-coverage",
+      "thegraph-provider-module"
     ]
   },
   "blockingIssues": [
     {
-      "featureId": "wire-onchain-pool-endpoints-live",
+      "featureId": "thegraph-provider-module",
       "severity": "blocking",
-      "description": "The requested compare-coingecko regression was to fix the new summary timeout without masking it via higher timeouts, but this commit merely raises the test timeout to 15000ms. That does not fulfill the feature requirement to use caching, stubbing, or another safe runtime fix so the suite stays green without removing live behavior."
+      "description": "`fetchUniswapV3PoolSnapshots` queries `poolDayDatas` with `orderDirection: desc` and returns the array as-is. Any caller deriving candles or time-series from this helper receives reverse-chronological snapshots, which violates the feature contract for liquidity/volume snapshots as ordered history and risks invalid downstream series behavior."
     },
     {
-      "featureId": "wire-onchain-pool-endpoints-live",
+      "featureId": "complete-live-token-pricing-and-ohlcv",
       "severity": "blocking",
-      "description": "The feature is supposed to fulfill VAL-ONC-008 by expanding `/onchain/networks` beyond the 2 seeded networks when DeFiLlama data is available, but the handoff's own manual verification only observed the degraded seeded response with 2 networks and never verified the live-expanded catalog path. Because the reviewed commit does not include the catalog-wiring implementation itself, the commit cannot substantiate the claimed fulfillment of VAL-ONC-008/009."
+      "description": "The feature requirement says token detail/info surfaces should reflect live token pricing when DeFiLlama succeeds, but the token detail test still exercises only the seeded path and asserts `price_usd: 1` without mocking live pricing. That leaves `/onchain/networks/:network/tokens/:address` unproven even though the route was changed to call `fetchLiveSimpleTokenPrice`."
     },
     {
-      "featureId": "wire-onchain-trades-ohlcv-prices-live",
+      "featureId": "complete-live-token-pricing-and-ohlcv",
       "severity": "blocking",
-      "description": "`fetchLiveSimpleTokenPrice` only fetches a live spot price from DeFiLlama, but populates `marketCapUsd` from `marketSnapshots` and `volume24hUsd`/`totalReserveUsd` by summing seeded `tokenPools` rows. That means `/onchain/simple/networks/eth/token_price/:addresses?include_market_cap=true&include_24hr_vol=true` can return stale fixture-backed optional fields even when live pricing succeeds, which falls short of VAL-ONC-007's requirement that optional fields come from live aggregates."
-    }
-  ],
-  "appliedUpdates": [
+      "description": "The new tests cover live-success responses for token info endpoints and live-derived token OHLCV, but they do not add a companion assertion proving graceful fallback to seeded token pricing/OHLCV when DeFiLlama or The Graph returns null/errors. The requested explicit live-vs-fallback distinction remains unproven."
+    },
     {
-      "target": "library",
-      "description": "Documented DEFILLAMA_BASE_URL in .factory/library/environment.md so validators and workers share the provider base URL config.",
-      "sourceFeature": "defillama-provider-module"
+      "featureId": "remove-timeout-masking-from-onchain-compare-coverage",
+      "severity": "blocking",
+      "description": "The compare coverage summary test still declares a 15000 ms timeout. Although DeFiLlama stubbing reduced live-fetch cost, the feature requirement was to remove timeout-padding rather than continue depending on a raised timeout, so timeout masking was not fully removed in the reviewed implementation."
+    },
+    {
+      "featureId": "remove-timeout-masking-from-onchain-compare-coverage",
+      "severity": "blocking",
+      "description": "The commit only adjusts the compare suite to force seeded fallback and does not itself contain route-level or separate proof that live-expanded onchain network/dex/pool catalog behavior remains covered from current HEAD. That falls short of the feature's commit-attribution requirement."
+    },
+    {
+      "featureId": "prove-live-onchain-pool-catalog-without-timeout-masking",
+      "severity": "blocking",
+      "description": "Current HEAD now proves the live-expanded onchain catalog behavior, but `tests/compare-coingecko.test.ts` still retains `}, 15000);` on the endpoint coverage summary test. The feature explicitly required removing any remaining timeout-padding, so this acceptance criterion is still unmet."
     }
   ],
+  "appliedUpdates": [],
   "suggestedGuidanceUpdates": [
     {
       "target": "skill",
       "suggestion": "Clarify that provider-only features may satisfy verification with automated tests when no route surface changes, instead of always requiring manual curl checks.",
-      "evidence": "`.factory/skills/onchain-api-worker/SKILL.md` step 10 requires starting the API and verifying one valid plus one invalid curl request, while handoff `2026-03-27T03-24-35-662Z__defillama-provider-module__950e6bc7-a164-4923-96ba-f9aa5d2e2bb2.json` lists only test/typecheck/git-status verification and no interactive checks.",
+      "evidence": "Review `defillama-provider-module` found `.factory/skills/onchain-api-worker/SKILL.md` step 10 mandates API startup plus valid/invalid curl checks, while the provider-only handoff `2026-03-27T03-24-35-662Z__defillama-provider-module__950e6bc7-a164-4923-96ba-f9aa5d2e2bb2.json` only needed test/typecheck verification.",
       "isSystemic": false
     },
     {
       "target": "skill",
-      "suggestion": "Explicitly forbid resolving no-timeout-masking regressions by only increasing test timeouts; require a runtime or test-isolation fix instead.",
-      "evidence": "Skill procedure step 8-11 in `.factory/skills/onchain-api-worker/SKILL.md` emphasizes targeted onchain fixes and verification; commit `6efb253` changes `tests/compare-coingecko.test.ts:1176` to `}, 15000);` while the handoff claims the regression was fixed.",
-      "isSystemic": false
+      "suggestion": "Allow commit-only sessions to skip the 'write failing tests first' requirement when the task explicitly says the implementation already exists and only verification/commit work remains.",
+      "evidence": "Reviews for `wire-onchain-trades-ohlcv-prices-live` and related fix features note the worker had to record a procedural deviation solely because `.factory/skills/onchain-api-worker/SKILL.md` step 4 requires failing tests first even for commit-only assignments.",
+      "isSystemic": true
     },
     {
       "target": "AGENTS.md",
-      "suggestion": "Add guidance that handoffs must distinguish behavior already present in the working tree from behavior introduced by the feature commit, so scrutiny can map claims to commits accurately.",
-      "evidence": "`git show --stat 6efb253` lists only `src/providers/defillama.ts`, `tests/compare-coingecko.test.ts`, and `tests/defillama-provider.test.ts`, while the feature/ handoff describe live onchain catalog and pool wiring behavior located in `src/modules/onchain.ts`.",
+      "suggestion": "Require fix-review handoffs to identify superseding implementation commits when current HEAD, not the original feature commit, is what resolves prior scrutiny failures.",
+      "evidence": "Review `wire-onchain-pool-endpoints-live` found handoff commit `6efb253` only changed provider fallback and a timeout bump, while current live-catalog dedupe/proof lived in later commits such as `3d5aa88e` and updated `tests/app.test.ts` coverage.",
       "isSystemic": true
     }
   ],
   "rejectedObservations": [
     {
-      "observation": "The worker handoff flagged a pre-existing README modification outside feature scope. This kind of ambient working-tree state can complicate commit attribution, but AGENTS currently only documents earlier uncommitted foundation work, not how later milestones should treat unrelated local doc edits.",
-      "reason": "ambiguous"
+      "observation": "Project research still documents older DeFiLlama pool endpoint details (`/pools` and `yields.llama.fi/pools`) that diverge from the fixed provider contract.",
+      "reason": "knowledge-only and outside scrutiny validator's allowed direct-update scope for this run"
     },
     {
-      "observation": "The onchain-api-worker skill requires writing failing tests first, but this feature was explicitly a commit-only session for pre-existing working-tree code. The worker had to mark that mismatch as a procedure deviation even though it followed the feature instructions.",
-      "reason": "ambiguous"
+      "observation": "Shared architecture notes about onchain routes being fixture-backed are stale relative to current live The Graph/DeFiLlama behavior.",
+      "reason": "duplicate knowledge-gap observations across multiple reviews and outside the requested validator scope"
+    },
+    {
+      "observation": "Mission context lacked a repo-level architecture reference expected by some reviewers.",
+      "reason": "ambiguous ownership; not clear whether mission setup or library structure should change"
+    },
+    {
+      "observation": "AGENTS might add guidance for unrelated ambient working-tree modifications during later milestones.",
+      "reason": "ambiguous and not evidenced as a recurring blocker in this round"
     }
   ],
   "previousRound": ".factory/validation/onchain-live-data/scrutiny/synthesis.json"

@@ -1,15 +1,28 @@
 {
   "featureId": "thegraph-provider-module",
-  "reviewedAt": "2026-03-27T04:36:43.261392+00:00",
+  "reviewedAt": "2026-03-27T04:50:08Z",
   "commitId": "5468204d19df31f6355f2855226898a316b5667a",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "pass",
+  "status": "fail",
   "codeReview": {
-    "summary": "The feature satisfies VAL-ONC-002 and the requested behavior: `src/providers/thegraph.ts` exports native-fetch helpers for pool details, swap events, and pool snapshots; reads `THEGRAPH_API_KEY` from env; gracefully returns null on missing key or upstream errors; and its tests cover success and failure paths, including swap-query/normalized-shape parity.",
-    "issues": []
+    "summary": "The provider module correctly adds native-fetch GraphQL helpers, API-key configuration, and mocked unit coverage for missing-key and error handling, but the pool snapshot helper returns newest-first day data even though downstream OHLCV derivation expects chronological input.",
+    "issues": [
+      {
+        "file": "src/providers/thegraph.ts",
+        "line": 278,
+        "severity": "blocking",
+        "description": "`fetchUniswapV3PoolSnapshots` queries `poolDayDatas` with `orderDirection: desc` and returns the array as-is. Any caller deriving candles or time-series from this helper receives reverse-chronological snapshots, which violates the feature contract for liquidity/volume snapshots as an ordered history and risks producing backwards or invalid OHLCV/time-series behavior when consumed."
+      }
+    ]
   },
-  "sharedStateObservations": [],
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The onchain worker skill tells workers to inspect `src/modules/onchain.ts` before making changes, but this feature was a provider-only module and the worker never reviewed the onchain consumer before implementing snapshot ordering. That omission likely contributed to missing the chronological expectation for time-series consumers.",
+      "evidence": "Transcript skeleton for session `009a60dd-c151-4888-b7fe-0372b41fda92` shows reads for `src/providers/defillama.ts`, `src/config/env.ts`, and `tests/defillama-provider.test.ts`, but no read of `src/modules/onchain.ts`; current consumer code at `src/modules/onchain.ts:1237` uses swap provider output for live time-series logic."
+    }
+  ],
   "addressesFailureFrom": null,
-  "summary": "Reviewed the mission contract, worker transcript skeleton, skill instructions, commit 5468204d19df31f6355f2855226898a316b5667a, and current implementation. The Graph provider matches the requested module contract for VAL-ONC-002, and I found no blocking or non-blocking issues in the current HEAD implementation."
+  "summary": "Reviewed the feature handoff, commit `5468204d19df31f6355f2855226898a316b5667a`, transcript skeleton, skill instructions, and current provider/tests. The implementation mostly matches the contract, but the snapshot query returns reverse-chronological results without reordering, which is a blocking data-shape issue for historical snapshot consumers."
 }

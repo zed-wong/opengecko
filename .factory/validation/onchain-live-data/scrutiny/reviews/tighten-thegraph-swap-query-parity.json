@@ -1,0 +1,21 @@
+{
+  "featureId": "tighten-thegraph-swap-query-parity",
+  "reviewedAt": "2026-03-27T00:00:00Z",
+  "commitId": "89cc8aa",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature closes the immediate query/shape drift by centralizing the swap GraphQL document in src/providers/thegraph.ts, using that exact constant in fetchUniswapV3PoolSwaps, and tightening provider plus route tests so null token metadata is exercised in route mocks. I did not find a remaining correctness bug in the current query/result contract for swaps.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The onchain library note still says all 29 onchain routes are fixture-backed, but current HEAD clearly serves Ethereum trade/OHLCV paths from live The Graph swap data when available. That stale guidance could mislead later workers reviewing provider/query parity changes.",
+      "evidence": ".factory/library/architecture.md states 'All 29 onchain routes exist but are fixture-backed', while src/modules/onchain.ts:1237 calls fetchUniswapV3PoolSwaps(pool.address, 100) and src/modules/onchain.ts:1125-1170 derives live trades with source 'live'."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff 89cc8aa, the worker transcript skeleton, the Graph provider diff, and affected tests. The implementation now keeps the swap query document and normalization path coupled, and the updated tests meaningfully reduce drift risk by asserting the exact query string and exercising null token metadata in route-level mocks."
+}

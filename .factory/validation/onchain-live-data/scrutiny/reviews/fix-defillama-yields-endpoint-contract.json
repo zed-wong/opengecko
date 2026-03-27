@@ -1,0 +1,21 @@
+{
+  "featureId": "fix-defillama-yields-endpoint-contract",
+  "reviewedAt": "2026-03-27T04:49:46.506530+00:00",
+  "commitId": "734147d5bd219621687b5edd77b059136132acc8",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Implementation matches the fix requirements. `fetchDefillamaPoolData` now uses the documented `/yields/pools` contract directly, still catches/logs upstream failures and returns null, and existing onchain route behavior continues to degrade gracefully because `buildLiveOnchainCatalog` already falls back to seeded data when provider calls return null. Provider tests were tightened to assert the exact second request URL and to fail on a broken yields call rather than silently accepting a legacy `/pools` probe path.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "Project research still documents DeFiLlama pool discovery as `GET /pools` / `yields.llama.fi/pools`, while the fixed provider contract in code now intentionally calls `https://api.llama.fi/yields/pools`. That can mislead future workers reviewing or extending the provider contract.",
+      "evidence": ".factory/research/onchain-data-sources.md:46,59,299 describe `/pools` and `yields.llama.fi/pools`; src/providers/defillama.ts requests `/yields/pools` directly and tests/defillama-provider.test.ts:59,78 assert that exact path."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, transcript skeleton, commit, implementation, and tests for fix-defillama-yields-endpoint-contract. The fix is correct: exact yields endpoint usage is enforced, null-on-error behavior is preserved, seeded route fallback remains intact, and tests now verify the intended provider contract. One shared-state gap remains in the onchain research doc, which still describes the older `/pools` contract."
+}

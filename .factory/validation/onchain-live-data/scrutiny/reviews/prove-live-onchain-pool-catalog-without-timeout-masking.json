@@ -1,0 +1,22 @@
+{
+  "featureId": "prove-live-onchain-pool-catalog-without-timeout-masking",
+  "reviewedAt": "2026-03-27T00:00:00Z",
+  "commitId": "d16f2c497024ca6a29b0835f30eab5e1d4ce55f1",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "Current HEAD fixes the original compare regression by stubbing DeFiLlama calls in `tests/compare-coingecko.test.ts`, and `tests/app.test.ts` now proves live-expanded network/dex/pool catalog behavior plus seeded fallback from current HEAD. However, the feature requirement was to remove any remaining timeout masking from compare coverage, and the compare summary test still carries a hard-coded 15000ms timeout from the earlier failed feature rather than running under default expectations.",
+    "issues": [
+      {
+        "file": "tests/compare-coingecko.test.ts",
+        "line": 1185,
+        "severity": "blocking",
+        "description": "The feature explicitly required removing any remaining timeout-padding from `tests/compare-coingecko.test.ts`, but the endpoint-coverage summary test still ends with `}, 15000);`. Even though the DeFiLlama stubs are the real fix, this lingering custom timeout means timeout masking has not actually been removed from the compare suite as requested."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Fail. The live onchain catalog behavior is now convincingly proven from current HEAD by direct app tests and no longer depends on the old misattributed commit, and the compare regression has a real stubbing-based fix. But the feature's central acceptance criterion was to remove remaining timeout masking from `tests/compare-coingecko.test.ts`, and the file still retains a 15000ms per-test timeout on the compare summary case."
+}

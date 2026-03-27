@@ -1,0 +1,28 @@
+{
+  "featureId": "remove-timeout-masking-from-onchain-compare-coverage",
+  "reviewedAt": "2026-03-27T00:00:00Z",
+  "commitId": "3aebd7e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The commit removes repeated live DeFiLlama work from the compare suite by stubbing provider calls, which substantively addresses the timeout masking regression. However, the feature still leaves the explicit 15s per-test timeout in tests/compare-coingecko.test.ts and the handoff commit still does not fully contain the broader live onchain catalog evidence now expected by scrutiny.",
+    "issues": [
+      {
+        "file": "tests/compare-coingecko.test.ts",
+        "line": 1185,
+        "severity": "blocking",
+        "description": "The compare coverage summary test still declares a 15000 ms timeout. The feature requirement was to replace timeout-padding with a real fix rather than continue depending on a raised timeout. Although the new DeFiLlama stubs reduce live fetch cost, the explicit timeout increase remains in the reviewed implementation, so timeout masking was not fully removed in this feature."
+      },
+      {
+        "file": "tests/compare-coingecko.test.ts",
+        "line": 28,
+        "severity": "blocking",
+        "description": "This commit only adjusts the compare suite to force seeded fallback and does not add route-level or separate proof in the commit itself that the live-expanded onchain network/dex/pool catalog behavior remains covered from current HEAD. That leaves the feature short of its commit-attribution requirement to have the handoff commit fully contain the claimed implementation/evidence."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed mission metadata, handoff, transcript skeleton, skill instructions, and git commit 3aebd7e. The change is a real test-isolation improvement for the compare regression, but this feature still fails scrutiny because the compare test keeps an explicit 15s timeout and the commit does not fully contain the broader implementation evidence it claims."
+}

@@ -1,0 +1,21 @@
+{
+  "featureId": "source-live-token-price-aggregate-fields",
+  "reviewedAt": "2026-03-27T04:49:49.309305+00:00",
+  "commitId": "ed1c60a999383863e924d6fa7e9826b61a10cd9f",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Implementation now derives optional onchain simple-token aggregate fields from live-patched pool rows when DeFiLlama pricing succeeds, while preserving seeded fallback when no live pool patches are available. The added test proves the live aggregate path for Ethereum USDC and existing tests still cover the optional seeded/degraded path.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The repo-level architecture reference expected by scrutiny is absent from the mission context, so reviewers must infer component boundaries from code and AGENTS instructions instead of shared architecture docs.",
+      "evidence": "Reading `/home/whoami/.factory/library/architecture.md` returned ENOENT during review setup, while AGENTS.md explicitly references architecture patterns elsewhere."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Pass. Live token-price aggregate fields are genuinely sourced from live-patched pool aggregates on successful pricing, seeded values remain the fallback path, and test coverage now includes an explicit live aggregate-field assertion."
+}
