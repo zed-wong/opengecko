@@ -198,6 +198,51 @@ describe('sqd provider', () => {
     })).resolves.toEqual([]);
   });
 
+  it('short-circuits once enough swap logs have been collected for route-scoped reads', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('105', { status: 200 }))
+      .mockResolvedValueOnce(new Response('https://worker-1', { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([
+        {
+          header: { number: 102, timestamp: 1710000000 },
+          logs: [
+            {
+              data: '0x'
+                + 'fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0bdc0'
+                + '00000000000000000000000000000000000000000000000000000000000181cd'
+                + '0000000000000000000000000000000000000001000000000000000000000000'
+                + '00000000000000000000000000000000000000000000000000000000000f4240'
+                + 'fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6',
+              transactionHash: '0xtx1',
+            },
+            {
+              data: '0x'
+                + '00000000000000000000000000000000000000000000000000000000000003e8'
+                + 'fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0c'
+                + '0000000000000000000000000000000000000001000000000000000000000001'
+                + '0000000000000000000000000000000000000000000000000000000000001234'
+                + '0000000000000000000000000000000000000000000000000000000000000005',
+              transactionHash: '0xtx2',
+            },
+          ],
+        },
+      ]), { status: 200 }));
+
+    const { fetchEthereumPoolSwapLogs } = await import('../src/providers/sqd');
+
+    const result = await fetchEthereumPoolSwapLogs('0xpool', {
+      fetchImpl: fetchMock as typeof fetch,
+      fromBlock: 100,
+      toBlock: 105,
+      maxResults: 1,
+      requestDelayMs: 0,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result?.[0]?.txHash).toBe('0xtx1');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
 
   it('returns null when SQD height lookup yields an invalid worker endpoint URL', async () => {
     const fetchMock = vi.fn()

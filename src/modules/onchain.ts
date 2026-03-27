@@ -100,6 +100,8 @@ const recentlyUpdatedTokenInfoQuerySchema = z.object({
 const tradesQuerySchema = z.object({
   trade_volume_in_usd_greater_than: z.string().optional(),
   token: z.string().optional(),
+  limit: z.string().optional(),
+  before_timestamp: z.string().optional(),
 });
 
 const onchainOhlcvQuerySchema = z.object({
@@ -1317,22 +1319,11 @@ async function fetchLivePoolTrades(pool: typeof onchainPools.$inferSelect) {
   const canUseSqd = process.env.VITEST !== 'true';
 
   if (canUseSqd) {
-    console.info('Attempting SQD-backed onchain pool trades fetch', {
-      network: pool.networkId,
-      poolAddress: pool.address,
-    });
-  }
-
-  if (canUseSqd) {
     const sqdSwaps = await fetchEthereumPoolSwapLogs(pool.address, {
       toBlock: undefined,
+      maxResults: 128,
     });
     if (sqdSwaps && sqdSwaps.length > 0) {
-      console.info('SQD-backed onchain pool trades fetch succeeded', {
-        network: pool.networkId,
-        poolAddress: pool.address,
-        swapCount: sqdSwaps.length,
-      });
       const normalized: NormalizedSwapTradeShape[] = sqdSwaps.map((swap) => ({
         id: `${swap.txHash}:${swap.blockNumber}`,
         amount0: swap.amount0,
@@ -3143,6 +3134,8 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     const params = z.object({ network: z.string(), address: z.string() }).parse(request.params);
     const query = tradesQuerySchema.parse(request.query);
     const threshold = parseTradeVolumeThreshold(query.trade_volume_in_usd_greater_than);
+    const limit = parseOptionalPositiveInteger(query.limit, 'limit') ?? 100;
+    const beforeTimestamp = parseOptionalTimestamp(query.before_timestamp, 'before_timestamp');
     const normalizedAddress = normalizeAddress(params.address);
 
     const pool = database.db
@@ -3172,6 +3165,12 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     let liveTrades: LiveTradeRecord[] | null = null;
     try {
       liveTrades = await fetchLivePoolTrades(pool);
+      request.log.info({
+        network: params.network,
+        pool_address: normalizedAddress,
+        live_trade_count: liveTrades?.length ?? 0,
+        live_source: liveTrades ? 'live' : 'fixture',
+      }, 'resolved onchain pool trades source');
     } catch (error) {
       request.log.error({
         err: error,
@@ -3185,7 +3184,16 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       .filter((trade) => trade.networkId === params.network && trade.poolAddress === params.address)
       .filter((trade) => threshold === null || trade.volumeUsd > threshold)
       .filter((trade) => filteredToken === null || trade.tokenAddress === filteredToken)
-      .sort((left, right) => right.blockTimestamp - left.blockTimestamp || left.id.localeCompare(right.id));
+      .filter((trade) => beforeTimestamp === null || trade.blockTimestamp <= beforeTimestamp)
+      .sort((left, right) => right.blockTimestamp - left.blockTimestamp || left.id.localeCompare(right.id))
+      .slice(0, limit);
+
+    request.log.info({
+      network: params.network,
+      pool_address: normalizedAddress,
+      response_trade_count: trades.length,
+      response_source: liveTrades ? 'live' : 'fixture',
+    }, 'sending onchain pool trades response');
 
     return {
       data: trades.map(buildTradeResource),
@@ -3201,6 +3209,8 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     const params = z.object({ network: z.string(), address: z.string() }).parse(request.params);
     const query = tradesQuerySchema.parse(request.query);
     const threshold = parseTradeVolumeThreshold(query.trade_volume_in_usd_greater_than);
+    const limit = parseOptionalPositiveInteger(query.limit, 'limit') ?? 100;
+    const beforeTimestamp = parseOptionalTimestamp(query.before_timestamp, 'before_timestamp');
 
     const network = database.db.select().from(onchainNetworks).where(eq(onchainNetworks.id, params.network)).limit(1).get();
 
@@ -3221,7 +3231,9 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     const trades = (liveTrades.length > 0 ? liveTrades : buildOnchainTradeFixtures(database).map((trade) => ({ ...trade, source: 'fixture' as const })))
       .filter((trade) => trade.networkId === params.network && trade.tokenAddress === tokenAddress && poolAddresses.has(trade.poolAddress))
       .filter((trade) => threshold === null || trade.volumeUsd > threshold)
-      .sort((left, right) => right.blockTimestamp - left.blockTimestamp || left.id.localeCompare(right.id));
+      .filter((trade) => beforeTimestamp === null || trade.blockTimestamp <= beforeTimestamp)
+      .sort((left, right) => right.blockTimestamp - left.blockTimestamp || left.id.localeCompare(right.id))
+      .slice(0, limit);
 
     return {
       data: trades.map(buildTradeResource),
@@ -3275,6 +3287,13 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     let liveTrades: LiveTradeRecord[] | null = null;
     try {
       liveTrades = await fetchLivePoolTrades(pool);
+      request.log.info({
+        network: params.network,
+        pool_address: normalizedAddress,
+        timeframe,
+        live_trade_count: liveTrades?.length ?? 0,
+        live_source: liveTrades && liveTrades.length > 0 ? 'live' : 'fixture',
+      }, 'resolved onchain pool ohlcv trade source');
     } catch (error) {
       request.log.error({
         err: error,
@@ -3306,6 +3325,14 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
             close: Number((point.close * multiplier).toFixed(6)),
           };
         });
+
+    request.log.info({
+      network: params.network,
+      pool_address: normalizedAddress,
+      timeframe,
+      response_point_count: baseSeries.length,
+      response_source: liveTrades && liveTrades.length > 0 ? 'live' : 'fixture',
+    }, 'sending onchain pool ohlcv response');
 
     return {
       data: {

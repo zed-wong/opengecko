@@ -1,4 +1,4 @@
-import { gzipSync } from 'node:zlib';
+import { gzip, gzipSync } from 'node:zlib';
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
@@ -36,11 +36,14 @@ export function registerTransportControls(app: FastifyInstance, options: Transpo
 
     const compressed = payloadBytes > MAX_SYNC_GZIP_BYTES
       ? await new Promise<Buffer>((resolve, reject) => {
-          try {
-            resolve(gzipSync(payload));
-          } catch (error) {
-            reject(error);
-          }
+          gzip(payload, (error, result) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+
+            resolve(result);
+          });
         })
       : gzipSync(payload);
     reply.header('content-encoding', 'gzip');

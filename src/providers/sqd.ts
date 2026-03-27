@@ -5,6 +5,7 @@ const MAX_RETRIES = 3;
 const DEFAULT_RECENT_WINDOW_BLOCKS = 40_000;
 const DEFAULT_MAX_BLOCK_SPAN = 4_000;
 const MIN_BLOCK_SPAN = 128;
+const DEFAULT_REQUEST_TIMEOUT_MS = 20_000;
 
 type SqdRequestOptions = {
   fetchImpl?: typeof fetch;
@@ -50,6 +51,11 @@ export type SqdEthereumSwapLog = {
   sqrtPriceX96: string;
   liquidity: string;
   tick: number;
+};
+
+type SqdFetchPageResult = {
+  swaps: SqdEthereumSwapLog[];
+  reachedBlock: number | null;
 };
 
 function sleep(ms: number) {
@@ -204,24 +210,31 @@ export async function fetchEthereumPoolSwapLogs(
     fromBlock?: number;
     toBlock?: number;
     topic0?: string;
+    maxResults?: number;
   } = {},
 ): Promise<SqdEthereumSwapLog[] | null> {
   const normalizedAddress = poolAddress.trim().toLowerCase();
   const topic0 = (options.topic0 ?? DEFAULT_SWAP_TOPIC0).toLowerCase();
   const baseUrl = getBaseUrl(options.baseUrl);
   const fetchImpl = options.fetchImpl ?? fetch;
+  const controller = options.signal ? null : new AbortController();
+  const timeout = controller ? setTimeout(() => controller.abort(), DEFAULT_REQUEST_TIMEOUT_MS) : null;
+  const mergedSignal = options.signal ?? controller?.signal;
 
   try {
     const latestHeight = options.skipHeightLookup
       ? options.toBlock ?? options.fromBlock ?? 12_376_729
       : Number.parseInt(
-          await requestText(`${baseUrl}/height`, { method: 'GET' }, { ...options, fetchImpl }),
+          await requestText(`${baseUrl}/height`, { method: 'GET' }, { ...options, fetchImpl, signal: mergedSignal }),
           10,
         );
     const lastBlock = options.toBlock ?? latestHeight;
     const defaultFromBlock = Math.max(12_376_729, lastBlock - getRecentWindowBlocks(options) + 1);
     const requestedFromBlock = options.fromBlock ?? Math.min(defaultFromBlock, lastBlock);
     const fromBlock = Math.max(0, Math.min(requestedFromBlock, lastBlock));
+    const maxResults = options.maxResults && options.maxResults > 0
+      ? Math.floor(options.maxResults)
+      : null;
 
     if (!Number.isFinite(latestHeight) || latestHeight < fromBlock) {
       return [];
@@ -240,9 +253,8 @@ export async function fetchEthereumPoolSwapLogs(
         const workerUrl = await requestText(
           `${baseUrl}/${nextBlock}/worker`,
           { method: 'GET' },
-          { ...options, fetchImpl },
+          { ...options, fetchImpl, signal: mergedSignal },
         );
-
         const body = JSON.stringify({
           fromBlock: nextBlock,
           toBlock: windowToBlock,
@@ -278,9 +290,8 @@ export async function fetchEthereumPoolSwapLogs(
             headers: SQD_BROWSER_HEADERS,
             body,
           },
-          { ...options, fetchImpl },
+          { ...options, fetchImpl, signal: mergedSignal },
         );
-
         blocks = JSON.parse(responseText) as SqdWorkerBlock[];
       } catch (error) {
         const retriableStatus = error instanceof SqdHttpError && isRetriableStatus(error.status);
@@ -303,9 +314,18 @@ export async function fetchEthereumPoolSwapLogs(
         return results;
       }
 
+      const pageResult: SqdFetchPageResult = {
+        swaps: [],
+        reachedBlock: null,
+      };
+
       for (const block of blocks) {
         const blockNumber = typeof block.header?.number === 'number' ? block.header.number : null;
         const blockTimestamp = typeof block.header?.timestamp === 'number' ? block.header.timestamp : null;
+
+        if (blockNumber !== null) {
+          pageResult.reachedBlock = blockNumber;
+        }
 
         for (const log of block.logs ?? []) {
           if (blockNumber === null || blockTimestamp === null || typeof log.data !== 'string') {
@@ -325,16 +345,32 @@ export async function fetchEthereumPoolSwapLogs(
             continue;
           }
 
-          results.push({
+          pageResult.swaps.push({
             blockNumber,
             blockTimestamp,
             txHash,
             ...decoded,
           });
+
+          if (maxResults !== null && results.length + pageResult.swaps.length >= maxResults) {
+            break;
+          }
+        }
+
+        if (maxResults !== null && results.length + pageResult.swaps.length >= maxResults) {
+          break;
         }
       }
 
-      const lastProcessedBlock = blocks.at(-1)?.header?.number;
+      if (pageResult.swaps.length > 0) {
+        results.push(...pageResult.swaps);
+      }
+
+      if (maxResults !== null && results.length >= maxResults) {
+        return results.slice(0, maxResults);
+      }
+
+      const lastProcessedBlock = pageResult.reachedBlock;
       if (typeof lastProcessedBlock !== 'number' || lastProcessedBlock < nextBlock) {
         break;
       }
@@ -349,5 +385,9 @@ export async function fetchEthereumPoolSwapLogs(
   } catch (error) {
     console.error('Failed to fetch SQD Ethereum swap logs', error);
     return null;
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
   }
 }

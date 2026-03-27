@@ -8,7 +8,8 @@
     "message": "Invalid precision value: not-a-number"
   },
   "coinsListBadIncludePlatform": {
-    "error": "invalid_request"
+    "error": "invalid_parameter",
+    "message": "include_platform Invalid enum value. Expected 'true' | 'false', received 'maybe'"
   },
   "coinHistoryBadDate": {
     "error": "invalid_parameter",
@@ -71,7 +72,8 @@
     "message": "Invalid days value: bad"
   },
   "searchBlankQuery": {
-    "error": "invalid_request"
+    "error": "invalid_parameter",
+    "message": "query String must contain at least 1 character(s)"
   },
   "searchTrendingBadShowMax": {
     "error": "invalid_parameter",
