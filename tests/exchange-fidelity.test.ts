@@ -26,7 +26,7 @@ describe('exchange live fidelity contracts', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('returns empty exchange registry when live exchange discovery is unavailable', async () => {
+  it('returns seeded exchange registry when live exchange discovery is unavailable', async () => {
     const app = buildApp({
       config: {
         databaseUrl: join(tempDir, 'app.db'),
@@ -42,7 +42,9 @@ describe('exchange live fidelity contracts', () => {
         url: '/exchanges/list',
       });
       expect(exchangesListResponse.statusCode).toBe(200);
-      expect(exchangesListResponse.json()).toEqual([]);
+      expect(exchangesListResponse.json()).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 'binance', name: 'Binance' }),
+      ]));
     } finally {
       await app.close();
     }
@@ -93,4 +95,5 @@ describe('exchange live fidelity contracts', () => {
     expect(contents).toContain('/exchanges/{id}/tickers');
     expect(contents).toContain('/derivatives');
   });
+
 });

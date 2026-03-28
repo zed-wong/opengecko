@@ -253,12 +253,33 @@ function seedRuntimeSnapshotsFromPersistentStore(
         ms.source_providers_json,
         ms.source_count,
         ms.updated_at AS updated_snapshot_at,
-        ms.last_updated
+        ms.last_updated,
+        e.id AS exchange_id,
+        ct.base,
+        ct.target,
+        ct.market_name,
+        ct.last AS ticker_last,
+        ct.volume AS ticker_volume,
+        ct.converted_last_usd,
+        ct.converted_last_btc,
+        ct.converted_volume_usd,
+        ct.bid_ask_spread_percentage,
+        ct.trust_score,
+        ct.last_traded_at,
+        ct.last_fetch_at,
+        ct.is_anomaly,
+        ct.is_stale,
+        ct.trade_url,
+        ct.token_info_url,
+        ct.coin_gecko_url
       FROM market_snapshots ms
       INNER JOIN coins c ON c.id = ms.coin_id
+      LEFT JOIN coin_tickers ct ON ct.coin_id = ms.coin_id
+      LEFT JOIN exchanges e ON e.id = ct.exchange_id
       WHERE ms.vs_currency = 'usd'
         AND ms.source_count > 0
-      ORDER BY ms.coin_id
+        AND (ct.exchange_id IS NULL OR e.id IS NOT NULL)
+      ORDER BY ms.coin_id, ct.exchange_id, ct.base, ct.target
     `).all();
 
     if (sourceRows.length === 0) {
@@ -314,6 +335,30 @@ function seedRuntimeSnapshotsFromPersistentStore(
         updated_at = excluded.updated_at,
         last_updated = excluded.last_updated
     `);
+    const insertTicker = runtimeDatabase.client.prepare(`
+      INSERT INTO coin_tickers (
+        coin_id, exchange_id, base, target, market_name, last, volume,
+        converted_last_usd, converted_last_btc, converted_volume_usd,
+        bid_ask_spread_percentage, trust_score, last_traded_at, last_fetch_at,
+        is_anomaly, is_stale, trade_url, token_info_url, coin_gecko_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(coin_id, exchange_id, base, target) DO UPDATE SET
+        market_name = excluded.market_name,
+        last = excluded.last,
+        volume = excluded.volume,
+        converted_last_usd = excluded.converted_last_usd,
+        converted_last_btc = excluded.converted_last_btc,
+        converted_volume_usd = excluded.converted_volume_usd,
+        bid_ask_spread_percentage = excluded.bid_ask_spread_percentage,
+        trust_score = excluded.trust_score,
+        last_traded_at = excluded.last_traded_at,
+        last_fetch_at = excluded.last_fetch_at,
+        is_anomaly = excluded.is_anomaly,
+        is_stale = excluded.is_stale,
+        trade_url = excluded.trade_url,
+        token_info_url = excluded.token_info_url,
+        coin_gecko_url = excluded.coin_gecko_url
+    `);
 
     let latestSnapshotTimestamp: string | null = null;
     let latestSourceCount: number | null = null;
@@ -354,7 +399,6 @@ function seedRuntimeSnapshotsFromPersistentStore(
           row.updated_snapshot_at,
           row.last_updated,
         );
-
         const lastUpdatedIso = new Date(row.last_updated).toISOString();
         if (latestSnapshotTimestamp === null || lastUpdatedIso > latestSnapshotTimestamp) {
           latestSnapshotTimestamp = lastUpdatedIso;
