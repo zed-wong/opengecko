@@ -1,6 +1,6 @@
 {
   "reportFormatVersion": 1,
-  "generatedAt": "2026-03-28T13:51:47.060Z",
+  "generatedAt": "2026-03-28T14:04:17.819Z",
   "corpusIdentity": "e9b06018d3038ea547af71e6c0c8726f2ca4c4e51439219f7a810c6a81cdc69a",
   "manifestId": "coingecko-pro-bounded-v1",
   "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -9,8 +9,8 @@
   "replayReportPath": "/home/whoami/dev/openGecko/data/coingecko-snapshots/replay/report.json",
   "totals": {
     "findings": 9,
-    "actionable": 4,
-    "expected": 5
+    "actionable": 2,
+    "expected": 7
   },
   "actionableFindings": [
     {
@@ -962,77 +962,6 @@
       "diffPaths": [
         "$array"
       ]
-    },
-    {
-      "findingId": "d0a49805ffcdb493",
-      "findingKey": "simple-price-canonical:freshness:bitcoin.last_updated_at|ethereum.last_updated_at|bitcoin.usd|bitcoin.usd_24h_change|bitcoin.usd_24h_vol|bitcoin.usd_market_cap|ethereum.usd|ethereum.usd_24h_change|ethereum.usd_24h_vol|ethereum.usd_market_cap",
-      "entryId": "simple-price-canonical",
-      "normalizedPath": "/simple/price?ids=bitcoin%2Cethereum&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true&include_market_cap=true&vs_currencies=usd",
-      "gapClass": "freshness",
-      "classificationReason": "Freshness-sensitive field differs.",
-      "status": "actionable",
-      "divergenceId": null,
-      "divergenceReason": null,
-      "ownershipHints": [
-        {
-          "module_path": "src/modules/simple.ts",
-          "provider_name": "ccxt",
-          "endpoint_family": "simple"
-        }
-      ],
-      "upstreamArtifactPath": "artifacts/simple-price-canonical-f1665b11559445e7.json",
-      "replayArtifactPath": "artifacts/simple-price-canonical-f1665b11559445e7.json",
-      "upstreamStatus": 200,
-      "replayStatus": 200,
-      "evidencePaths": {
-        "upstreamArtifactPath": "artifacts/simple-price-canonical-f1665b11559445e7.json",
-        "replayArtifactPath": "artifacts/simple-price-canonical-f1665b11559445e7.json"
-      },
-      "diffPaths": [
-        "bitcoin.last_updated_at",
-        "ethereum.last_updated_at",
-        "bitcoin.usd",
-        "bitcoin.usd_24h_change",
-        "bitcoin.usd_24h_vol",
-        "bitcoin.usd_market_cap",
-        "ethereum.usd",
-        "ethereum.usd_24h_change",
-        "ethereum.usd_24h_vol",
-        "ethereum.usd_market_cap"
-      ]
-    },
-    {
-      "findingId": "bcd8f4d7c3e4a584",
-      "findingKey": "simple-token-price-ethereum-usdc:freshness:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.last_updated_at|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_24h_change|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_24h_vol|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_market_cap",
-      "entryId": "simple-token-price-ethereum-usdc",
-      "normalizedPath": "/simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true&include_market_cap=true&vs_currencies=usd",
-      "gapClass": "freshness",
-      "classificationReason": "Freshness-sensitive field differs.",
-      "status": "actionable",
-      "divergenceId": null,
-      "divergenceReason": null,
-      "ownershipHints": [
-        {
-          "module_path": "src/modules/simple.ts",
-          "provider_name": "ccxt",
-          "endpoint_family": "simple"
-        }
-      ],
-      "upstreamArtifactPath": "artifacts/simple-token-price-ethereum-usdc-4eee7197a10aab86.json",
-      "replayArtifactPath": "artifacts/simple-token-price-ethereum-usdc-4eee7197a10aab86.json",
-      "upstreamStatus": 200,
-      "replayStatus": 200,
-      "evidencePaths": {
-        "upstreamArtifactPath": "artifacts/simple-token-price-ethereum-usdc-4eee7197a10aab86.json",
-        "replayArtifactPath": "artifacts/simple-token-price-ethereum-usdc-4eee7197a10aab86.json"
-      },
-      "diffPaths": [
-        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.last_updated_at",
-        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd",
-        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_24h_change",
-        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_24h_vol",
-        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_market_cap"
-      ]
     }
   ],
   "expectedFindings": [
@@ -1327,6 +1256,77 @@
         "data.total_volume.usd",
         "data.updated_at",
         "data.volume_change_percentage_24h_usd"
+      ]
+    },
+    {
+      "findingId": "d0a49805ffcdb493",
+      "findingKey": "simple-price-canonical:freshness:bitcoin.last_updated_at|ethereum.last_updated_at|bitcoin.usd|bitcoin.usd_24h_change|bitcoin.usd_24h_vol|bitcoin.usd_market_cap|ethereum.usd|ethereum.usd_24h_change|ethereum.usd_24h_vol|ethereum.usd_market_cap",
+      "entryId": "simple-price-canonical",
+      "normalizedPath": "/simple/price?ids=bitcoin%2Cethereum&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true&include_market_cap=true&vs_currencies=usd",
+      "gapClass": "freshness",
+      "classificationReason": "Freshness-sensitive field differs.",
+      "status": "expected",
+      "divergenceId": "expected-simple-price-freshness-gap",
+      "divergenceReason": "The canonical simple-price replay payload now matches fresh 3102 seeded-bootstrap behavior, but quote values and update timestamps remain inherently fresher than the approved upstream snapshot corpus because replay compares current seeded live snapshots against a one-time stored CoinGecko capture.",
+      "ownershipHints": [
+        {
+          "module_path": "src/modules/simple.ts",
+          "provider_name": "ccxt",
+          "endpoint_family": "simple"
+        }
+      ],
+      "upstreamArtifactPath": "artifacts/simple-price-canonical-f1665b11559445e7.json",
+      "replayArtifactPath": "artifacts/simple-price-canonical-f1665b11559445e7.json",
+      "upstreamStatus": 200,
+      "replayStatus": 200,
+      "evidencePaths": {
+        "upstreamArtifactPath": "artifacts/simple-price-canonical-f1665b11559445e7.json",
+        "replayArtifactPath": "artifacts/simple-price-canonical-f1665b11559445e7.json"
+      },
+      "diffPaths": [
+        "bitcoin.last_updated_at",
+        "ethereum.last_updated_at",
+        "bitcoin.usd",
+        "bitcoin.usd_24h_change",
+        "bitcoin.usd_24h_vol",
+        "bitcoin.usd_market_cap",
+        "ethereum.usd",
+        "ethereum.usd_24h_change",
+        "ethereum.usd_24h_vol",
+        "ethereum.usd_market_cap"
+      ]
+    },
+    {
+      "findingId": "bcd8f4d7c3e4a584",
+      "findingKey": "simple-token-price-ethereum-usdc:freshness:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.last_updated_at|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_24h_change|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_24h_vol|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_market_cap",
+      "entryId": "simple-token-price-ethereum-usdc",
+      "normalizedPath": "/simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true&include_market_cap=true&vs_currencies=usd",
+      "gapClass": "freshness",
+      "classificationReason": "Freshness-sensitive field differs.",
+      "status": "expected",
+      "divergenceId": "expected-token-price-freshness-gap",
+      "divergenceReason": "The canonical token-price replay payload now matches fresh 3102 seeded-bootstrap behavior, but quote values and update timestamps remain inherently fresher than the approved upstream snapshot corpus because replay compares current seeded live snapshots against a one-time stored CoinGecko capture.",
+      "ownershipHints": [
+        {
+          "module_path": "src/modules/simple.ts",
+          "provider_name": "ccxt",
+          "endpoint_family": "simple"
+        }
+      ],
+      "upstreamArtifactPath": "artifacts/simple-token-price-ethereum-usdc-4eee7197a10aab86.json",
+      "replayArtifactPath": "artifacts/simple-token-price-ethereum-usdc-4eee7197a10aab86.json",
+      "upstreamStatus": 200,
+      "replayStatus": 200,
+      "evidencePaths": {
+        "upstreamArtifactPath": "artifacts/simple-token-price-ethereum-usdc-4eee7197a10aab86.json",
+        "replayArtifactPath": "artifacts/simple-token-price-ethereum-usdc-4eee7197a10aab86.json"
+      },
+      "diffPaths": [
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.last_updated_at",
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd",
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_24h_change",
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_24h_vol",
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_market_cap"
       ]
     }
   ]

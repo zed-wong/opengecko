@@ -12,6 +12,16 @@
       "reason": "Offline validation runs can surface 503 token price responses when no live market snapshots are loaded."
     },
     {
+      "id": "expected-simple-price-freshness-gap",
+      "findingKey": "simple-price-canonical:freshness:bitcoin.last_updated_at|ethereum.last_updated_at|bitcoin.usd|bitcoin.usd_24h_change|bitcoin.usd_24h_vol|bitcoin.usd_market_cap|ethereum.usd|ethereum.usd_24h_change|ethereum.usd_24h_vol|ethereum.usd_market_cap",
+      "reason": "The canonical simple-price replay payload now matches fresh 3102 seeded-bootstrap behavior, but quote values and update timestamps remain inherently fresher than the approved upstream snapshot corpus because replay compares current seeded live snapshots against a one-time stored CoinGecko capture."
+    },
+    {
+      "id": "expected-token-price-freshness-gap",
+      "findingKey": "simple-token-price-ethereum-usdc:freshness:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.last_updated_at|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_24h_change|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_24h_vol|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.usd_market_cap",
+      "reason": "The canonical token-price replay payload now matches fresh 3102 seeded-bootstrap behavior, but quote values and update timestamps remain inherently fresher than the approved upstream snapshot corpus because replay compares current seeded live snapshots against a one-time stored CoinGecko capture."
+    },
+    {
       "id": "expected-exchange-rates-envelope-breadth",
       "findingKey": "exchange-rates-canonical:missing_field:data|rates",
       "reason": "The canonical exchange-rates payload preserves positive conversion entries but still uses the legacy `data` envelope instead of CoinGecko's broader `rates` map breadth."
