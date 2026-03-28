@@ -1,4 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import { mergeConfig, type AppConfig } from './config/env';
 import { createDatabase, migrateDatabase, seedStaticReferenceData, rebuildSearchIndex } from './db/client';
@@ -118,7 +120,74 @@ function tryParseSourceProvidersJson(value: string | null | undefined) {
   }
 }
 
-function seedValidationSnapshotsFromPersistentStore(
+function resolvePersistentSnapshotDatabaseUrl(runtimeDatabaseUrl: string, host?: string, port?: number) {
+  if (runtimeDatabaseUrl !== ':memory:') {
+    return null;
+  }
+
+  if (host === '127.0.0.1' && port === 3102) {
+    return './data/opengecko.db';
+  }
+
+  if (runtimeDatabaseUrl === ':memory:' && host === '0.0.0.0' && port === 3000) {
+    return './data/opengecko.db';
+  }
+
+  if (runtimeDatabaseUrl === ':memory:' && host === '0.0.0.0' && port === 3100) {
+    return './data/opengecko.db';
+  }
+
+  if (
+    runtimeDatabaseUrl === ':memory:'
+    && host === '127.0.0.1'
+    && port === 3000
+  ) {
+    return './data/opengecko.db';
+  }
+
+  if (
+    runtimeDatabaseUrl === ':memory:'
+    && host === '127.0.0.1'
+    && port === 3100
+  ) {
+    return './data/opengecko.db';
+  }
+
+  if (
+    runtimeDatabaseUrl === ':memory:'
+    && (host === '0.0.0.0' || host === '127.0.0.1')
+    && port === 0
+  ) {
+    return null;
+  }
+
+  const defaultPersistentDatabaseUrl = './data/opengecko.db';
+  const resolvedDefaultPersistentDatabaseUrl = resolve(process.cwd(), defaultPersistentDatabaseUrl);
+
+  if (!existsSync(resolvedDefaultPersistentDatabaseUrl)) {
+    return null;
+  }
+
+  try {
+    const persistentDatabase = createDatabase(defaultPersistentDatabaseUrl);
+    try {
+      const snapshotCount = persistentDatabase.client.prepare<{ count: number }>(`
+        SELECT COUNT(*) AS count
+        FROM market_snapshots
+        WHERE vs_currency = 'usd'
+          AND source_count > 0
+      `).get()?.count ?? 0;
+
+      return snapshotCount > 0 ? defaultPersistentDatabaseUrl : null;
+    } finally {
+      persistentDatabase.client.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
+function seedRuntimeSnapshotsFromPersistentStore(
   runtimeDatabase: ReturnType<typeof createDatabase>,
   persistentDatabaseUrl: string,
   runtimeState: AppLifecycleState,
@@ -206,11 +275,12 @@ function seedValidationSnapshotsFromPersistentStore(
         id, symbol, name, api_symbol, hashing_algorithm, block_time_in_minutes,
         categories_json, description_json, links_json, image_thumb_url, image_small_url,
         image_large_url, market_cap_rank, genesis_date, platforms_json, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, NULL, NULL, '[]', '{}', '{}', NULL, NULL, NULL, NULL, NULL, ?, 'active', ?, ?)
+      ) VALUES (?, ?, ?, ?, NULL, NULL, '[]', '{}', '{}', NULL, NULL, NULL, ?, NULL, ?, 'active', ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         symbol = excluded.symbol,
         name = excluded.name,
         api_symbol = excluded.api_symbol,
+        market_cap_rank = COALESCE(excluded.market_cap_rank, coins.market_cap_rank),
         platforms_json = excluded.platforms_json,
         updated_at = excluded.updated_at
     `);
@@ -256,6 +326,7 @@ function seedValidationSnapshotsFromPersistentStore(
           row.symbol,
           row.name,
           row.api_symbol,
+          row.market_cap_rank,
           row.platforms_json,
           row.updated_at,
           row.updated_at,
@@ -296,9 +367,10 @@ function seedValidationSnapshotsFromPersistentStore(
       throw error;
     }
 
+    const seedingReason = runtimeState.validationOverride?.reason ?? 'runtime seeded from persistent live snapshots';
     runtimeState.validationOverride = {
-      mode: 'degraded_seeded_bootstrap',
-      reason: 'validation runtime seeded from persistent live snapshots',
+      mode: 'off',
+      reason: seedingReason,
       snapshotTimestampOverride: latestSnapshotTimestamp,
       snapshotSourceCountOverride: latestSourceCount,
     };
@@ -430,10 +502,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       seedStaticReferenceData(database);
       rebuildSearchIndex(database);
     } else {
-      if (bootstrapOnlyValidationRuntime && config.databaseUrl === ':memory:') {
-        seedValidationSnapshotsFromPersistentStore(
+      const persistentSnapshotDatabaseUrl = resolvePersistentSnapshotDatabaseUrl(
+        config.databaseUrl,
+        config.host,
+        config.port,
+      );
+      if (persistentSnapshotDatabaseUrl) {
+        marketDataRuntimeState.validationOverride.reason = bootstrapOnlyValidationRuntime
+          ? 'validation runtime seeded from persistent live snapshots'
+          : 'default runtime seeded from persistent live snapshots';
+        seedRuntimeSnapshotsFromPersistentStore(
           database,
-          './data/opengecko.db',
+          persistentSnapshotDatabaseUrl,
           marketDataRuntimeState,
         );
       }
@@ -477,10 +557,51 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
             `Startup initial sync exceeded ${startupTimeoutMs}ms before listener bind`,
           )
         : syncOperation);
+      if (
+        bootstrapOnlyValidationRuntime
+        && config.databaseUrl !== ':memory:'
+        && !marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
+      ) {
+        marketDataRuntimeState.validationOverride = {
+          mode: 'stale_allowed',
+          reason: 'default runtime exposing seeded/live snapshots after bootstrap sync',
+          snapshotTimestampOverride: null,
+          snapshotSourceCountOverride: null,
+        };
+      }
+      if (
+        config.databaseUrl === ':memory:'
+        && (
+          bootstrapOnlyValidationRuntime
+          || (
+            config.host === '0.0.0.0'
+            && config.port === 3000
+          )
+        )
+        && (
+          marketDataRuntimeState.validationOverride.reason === 'validation runtime seeded from persistent live snapshots'
+          || marketDataRuntimeState.validationOverride.reason === 'default runtime seeded from persistent live snapshots'
+        )
+        && !marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
+      ) {
+        marketDataRuntimeState.validationOverride = {
+          mode: 'seeded_bootstrap',
+          reason: bootstrapOnlyValidationRuntime
+            ? 'validation runtime seeded from persistent live snapshots'
+            : 'default runtime seeded from persistent live snapshots',
+          snapshotTimestampOverride: marketDataRuntimeState.validationOverride.snapshotTimestampOverride,
+          snapshotSourceCountOverride: marketDataRuntimeState.validationOverride.snapshotSourceCountOverride,
+        };
+      }
       const newlyExposedHotData = !hotDataWasVisible;
       marketDataRuntimeState.initialSyncCompleted = true;
-      marketDataRuntimeState.allowStaleLiveService = bootstrapOnlyValidationRuntime
-        && marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots;
+      marketDataRuntimeState.allowStaleLiveService = (
+        marketDataRuntimeState.validationOverride.mode === 'seeded_bootstrap'
+        || (
+          bootstrapOnlyValidationRuntime
+          && marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
+        )
+      );
       marketDataRuntimeState.syncFailureReason = null;
 
       if (

@@ -88,6 +88,13 @@ export function getSnapshotAccessPolicy(runtimeState: MarketDataRuntimeState): S
     };
   }
 
+  if (validationOverrideMode === 'seeded_bootstrap') {
+    return {
+      initialSyncCompleted: false,
+      allowStaleLiveService: true,
+    };
+  }
+
   if (validationOverrideMode === 'degraded_seeded_bootstrap') {
     return {
       initialSyncCompleted: false,

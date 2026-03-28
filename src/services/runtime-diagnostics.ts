@@ -21,7 +21,7 @@ export type RuntimeDiagnostics = {
     };
     validation_override: {
       active: boolean;
-      mode: 'off' | 'stale_disallowed' | 'stale_allowed' | 'degraded_seeded_bootstrap';
+      mode: 'off' | 'stale_disallowed' | 'stale_allowed' | 'degraded_seeded_bootstrap' | 'seeded_bootstrap';
       reason: string | null;
     };
   };
@@ -71,14 +71,14 @@ export function buildRuntimeDiagnostics(
     reason: null,
   };
   const validationOverrideActive = validationOverride.mode !== 'off';
-  const effectiveInitialSyncCompleted = validationOverride.mode === 'degraded_seeded_bootstrap'
+  const effectiveInitialSyncCompleted = validationOverride.mode === 'degraded_seeded_bootstrap' || validationOverride.mode === 'seeded_bootstrap'
     ? false
     : validationOverrideActive
       ? true
       : runtimeState.initialSyncCompleted;
   const effectiveAllowStaleLiveService = validationOverride.mode === 'stale_disallowed'
     ? false
-    : validationOverride.mode === 'stale_allowed' || validationOverride.mode === 'degraded_seeded_bootstrap'
+    : validationOverride.mode === 'stale_allowed' || validationOverride.mode === 'degraded_seeded_bootstrap' || validationOverride.mode === 'seeded_bootstrap'
       ? true
       : runtimeState.allowStaleLiveService;
   const effectiveFailureReason = validationOverride.reason ?? runtimeState.syncFailureReason;
@@ -91,11 +91,18 @@ export function buildRuntimeDiagnostics(
   const effectiveStaleLiveFallbackActive = validationOverride.mode === 'stale_allowed'
     || effectiveAllowStaleLiveService
     || (effectiveFailureReason !== null && latestSnapshotFreshness?.isStale === true);
-  const effectiveDegradedActive = effectiveStaleLiveFallbackActive || effectiveSeededBootstrapFallbackActive;
+  const effectiveDegradedActive = (
+    validationOverride.mode !== 'seeded_bootstrap'
+    && (effectiveStaleLiveFallbackActive || effectiveSeededBootstrapFallbackActive)
+  );
   const sourceClass = effectiveLatestUsdSnapshot
     ? (() => {
       if (validationOverride.mode === 'degraded_seeded_bootstrap') {
         return 'degraded_seeded_bootstrap' as const;
+      }
+
+      if (validationOverride.mode === 'seeded_bootstrap') {
+        return 'seeded_bootstrap' as const;
       }
 
       if (validationOverride.mode === 'stale_allowed' && latestSnapshotOwnership === 'live' && latestSnapshotFreshness?.isStale) {

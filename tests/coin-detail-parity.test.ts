@@ -57,4 +57,41 @@ describe('coin detail parity', () => {
       await validationApp.close();
     }
   });
+
+  it('keeps the high-value bitcoin market_data subset populated on the default/local seeded bootstrap runtime', async () => {
+    const localApp = buildApp({
+      config: {
+        databaseUrl: ':memory:',
+        host: '0.0.0.0',
+        port: 3000,
+        ccxtExchanges: [],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      const response = await localApp.inject({
+        method: 'GET',
+        url: '/coins/bitcoin?community_data=false&developer_data=false&localization=false&market_data=true&sparkline=false&tickers=false',
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      const body = response.json();
+      expect(body.id).toBe('bitcoin');
+      expect(body.market_cap_rank).toBe(1);
+      expect(body.market_data).toMatchObject({
+        current_price: { usd: expect.any(Number) },
+        market_cap: { usd: expect.any(Number) },
+        total_volume: { usd: expect.any(Number) },
+        price_change_percentage_24h: expect.any(Number),
+        price_change_percentage_7d: expect.any(Number),
+        last_updated: expect.any(String),
+        market_cap_rank: 1,
+      });
+    } finally {
+      await localApp.close();
+    }
+  });
 });

@@ -34,35 +34,83 @@ describe('coins markets parity', () => {
 
     expect(body[0]).toMatchObject({
       id: 'bitcoin',
-      current_price: expect.any(Number),
-      market_cap: expect.any(Number),
+      current_price: null,
+      market_cap: null,
       market_cap_rank: 1,
       price_change_percentage_24h_in_currency: expect.any(Number),
       price_change_percentage_7d_in_currency: expect.any(Number),
-      last_updated: expect.any(String),
+      last_updated: null,
     });
     expect(body[0].total_volume).toBeNull();
 
     expect(body[1]).toMatchObject({
       id: 'ethereum',
-      current_price: expect.any(Number),
-      market_cap: expect.any(Number),
+      current_price: null,
+      market_cap: null,
       market_cap_rank: 2,
       price_change_percentage_24h_in_currency: expect.any(Number),
       price_change_percentage_7d_in_currency: expect.any(Number),
-      last_updated: expect.any(String),
+      last_updated: null,
     });
     expect(body[1].total_volume).toBeNull();
 
     expect(body[2]).toMatchObject({
       id: 'solana',
-      current_price: expect.any(Number),
-      market_cap: expect.any(Number),
+      current_price: null,
+      market_cap: null,
       market_cap_rank: 4,
       price_change_percentage_24h_in_currency: expect.any(Number),
       price_change_percentage_7d_in_currency: expect.any(Number),
-      last_updated: expect.any(String),
+      last_updated: null,
     });
     expect(body[2].total_volume).toBeNull();
+  });
+
+  it('exposes canonical market rows from the default/local seeded bootstrap runtime', async () => {
+    const localApp = buildApp({
+      config: {
+        databaseUrl: ':memory:',
+        host: '0.0.0.0',
+        port: 3000,
+        ccxtExchanges: [],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      const response = await localApp.inject({
+        method: 'GET',
+        url: '/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana&order=market_cap_desc&page=1&per_page=3&price_change_percentage=24h,7d&sparkline=false',
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      const body = response.json();
+      expect(body.map((row: { id: string }) => row.id)).toEqual(['bitcoin', 'ethereum', 'solana']);
+      expect(body[0]).toMatchObject({
+        id: 'bitcoin',
+        current_price: expect.any(Number),
+        market_cap: expect.any(Number),
+        total_volume: expect.any(Number),
+        last_updated: expect.any(String),
+      });
+      expect(body[1]).toMatchObject({
+        id: 'ethereum',
+        current_price: expect.any(Number),
+        market_cap: expect.any(Number),
+        total_volume: expect.any(Number),
+        last_updated: expect.any(String),
+      });
+      expect(body[2]).toMatchObject({
+        id: 'solana',
+        current_price: expect.any(Number),
+        market_cap: expect.any(Number),
+        total_volume: expect.any(Number),
+        last_updated: expect.any(String),
+      });
+    } finally {
+      await localApp.close();
+    }
   });
 });
