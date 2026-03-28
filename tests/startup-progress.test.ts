@@ -25,6 +25,7 @@ describe('startup progress tracker', () => {
     const output = writes.join('');
     expect(output).toContain('░█▀█░█▀█░█▀▀░█▀█░█▀▀░█▀▀░█▀▀░█░█░█▀█');
     expect(output).toContain('System boot initialized');
+    expect(output).toMatch(/\[20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z\] INFO  System boot initialized/);
     expect(output).toContain('runtime: node | driver: better-sqlite3');
     expect(output).toContain('db: /tmp/opengecko.db');
     expect(output).toContain('PRE-FLIGHT CHECKS');

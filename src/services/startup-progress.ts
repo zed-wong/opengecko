@@ -117,7 +117,7 @@ export function createStartupProgressTracker(
   }
 
   function timestamp() {
-    return new Date().toTimeString().slice(0, 8);
+    return new Date().toISOString().replace('.000Z', 'Z');
   }
 
   function padRight(value: string, width: number) {

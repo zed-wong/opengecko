@@ -17,7 +17,7 @@ function pad(value: number, width: number) {
 }
 
 function formatTimestamp(date: Date) {
-  return `${pad(date.getHours(), 2)}:${pad(date.getMinutes(), 2)}:${pad(date.getSeconds(), 2)}.${pad(Math.floor(date.getMilliseconds() / 10), 2)}`;
+  return date.toISOString().replace('.000Z', 'Z');
 }
 
 function statusTrafficEmoji(statusCode: number) {

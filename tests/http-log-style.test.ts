@@ -17,6 +17,7 @@ describe('http log style', () => {
     expect(message).toContain('GET /coins/markets?vs_currency=usd');
     expect(message).toContain('| 200 | ⏱ 7118ms | 🆔 req-t | 🐢SLOW');
     expect(message).toContain('🟢 GET /coins/markets?vs_currency=usd');
+    expect(message.startsWith('2026-03-23T09:46:27.340Z')).toBe(true);
   });
 
   it('uses status traffic emoji based on response class', () => {

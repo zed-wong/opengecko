@@ -101,6 +101,10 @@ export function getDatabaseStartupLogContext(database: { runtime: 'bun' | 'node'
   };
 }
 
+function formatRfc3339Timestamp() {
+  return new Date().toISOString().replace('.000Z', 'Z');
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const config = mergeConfig(options.config);
   const useEmojiCompactHttpLogs = config.logPretty && config.httpLogStyle === 'emoji_compact_p';
@@ -114,7 +118,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
             target: 'pino-pretty',
             options: {
               colorize: true,
-              translateTime: 'HH:MM:ss.L',
+              translateTime: 'SYS:standard',
               ignore: useEmojiCompactHttpLogs ? 'pid,hostname,req,res,responseTime' : 'pid,hostname',
             },
           },
@@ -148,7 +152,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   options.startupProgress?.begin('connect_database');
   const database = createDatabase(config.databaseUrl);
   if (!options.startupProgress) {
-    app.log.info(getDatabaseStartupLogContext(database), 'database initialized');
+    app.log.info({ timestamp: formatRfc3339Timestamp(), ...getDatabaseStartupLogContext(database) }, 'database initialized');
   }
   const shouldStartBackgroundJobs = options.startBackgroundJobs ?? false;
   const marketDataRuntimeState = createMarketDataRuntimeState();

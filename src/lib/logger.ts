@@ -16,7 +16,7 @@ export function createLogger(options: LoggerOptions = {}) {
       target: 'pino-pretty',
       options: {
         colorize: true,
-        translateTime: 'HH:MM:ss.L',
+        translateTime: 'SYS:standard',
         ignore: 'pid,hostname',
         customLogLevel: (_: unknown, method: number) => {
           if (method >= 60) return 'error';
