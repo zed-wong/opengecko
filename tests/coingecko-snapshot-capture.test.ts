@@ -15,6 +15,7 @@ import {
   coingeckoSnapshotManifest,
   type SnapshotManifest,
 } from '../src/coingecko/snapshot-manifest';
+import { resetRepoDotenvLoaderForTests } from '../src/config/env';
 
 describe('CoinGecko snapshot capture', () => {
   const tempDirs: string[] = [];
@@ -22,7 +23,9 @@ describe('CoinGecko snapshot capture', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    resetRepoDotenvLoaderForTests();
     process.chdir(originalCwd);
+    delete process.env.COINGECKO_API_KEY;
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -50,6 +53,7 @@ describe('CoinGecko snapshot capture', () => {
   });
 
   it('loads COINGECKO_API_KEY through the centralized repo env loader when not passed explicitly', async () => {
+    resetRepoDotenvLoaderForTests();
     const cwd = createTempDir();
     const outputDir = createTempDir();
     writeFileSync(join(cwd, '.env'), 'COINGECKO_API_KEY=repo-dotenv-key\n', 'utf8');
@@ -73,6 +77,49 @@ describe('CoinGecko snapshot capture', () => {
     });
 
     expect((fetchMock.mock.calls[0]?.[1] as { headers: Headers }).headers.get('x-cg-pro-api-key')).toBe('repo-dotenv-key');
+  });
+
+  it('reloads the centralized env loader for a new cwd even after earlier state was consumed elsewhere', async () => {
+    const firstCwd = createTempDir();
+    const secondCwd = createTempDir();
+    const outputDir = createTempDir();
+    writeFileSync(join(firstCwd, '.env'), 'COINGECKO_API_KEY=first-repo-key\n', 'utf8');
+    writeFileSync(join(secondCwd, '.env'), 'COINGECKO_API_KEY=second-repo-key\n', 'utf8');
+    delete process.env.COINGECKO_API_KEY;
+
+    resetRepoDotenvLoaderForTests();
+    process.chdir(firstCwd);
+    await captureCoinGeckoSnapshots({
+      outputDir,
+      manifest: {
+        manifestId: 'first-manifest',
+        formatVersion: 1,
+        artifactFormatVersion: SNAPSHOT_ARTIFACT_FORMAT_VERSION,
+        maxRequests: 10,
+        entries: [{ id: 'ping-first', path: '/ping' }],
+      },
+      fetchImpl: vi.fn().mockResolvedValue(createFetchResponse({ first: true })) as typeof fetch,
+      capturedAt: () => new Date('2026-03-28T00:00:00.000Z'),
+    });
+
+    delete process.env.COINGECKO_API_KEY;
+    process.chdir(secondCwd);
+
+    const fetchMock = vi.fn().mockResolvedValue(createFetchResponse({ second: true }));
+    await captureCoinGeckoSnapshots({
+      outputDir,
+      manifest: {
+        manifestId: 'second-manifest',
+        formatVersion: 1,
+        artifactFormatVersion: SNAPSHOT_ARTIFACT_FORMAT_VERSION,
+        maxRequests: 10,
+        entries: [{ id: 'ping-second', path: '/ping' }],
+      },
+      fetchImpl: fetchMock as typeof fetch,
+      capturedAt: () => new Date('2026-03-28T00:01:00.000Z'),
+    });
+
+    expect((fetchMock.mock.calls[0]?.[1] as { headers: Headers }).headers.get('x-cg-pro-api-key')).toBe('second-repo-key');
   });
 
   it('captures raw payloads and stores metadata/index accounting', async () => {

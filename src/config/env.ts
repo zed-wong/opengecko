@@ -62,6 +62,7 @@ export type AppConfig = {
 };
 
 let repoEnvLoaded = false;
+let repoEnvLoadedFromCwd: string | null = null;
 
 function parseDotenv(contents: string) {
   const parsed: Record<string, string> = {};
@@ -97,20 +98,24 @@ function parseDotenv(contents: string) {
 }
 
 export function loadRepoDotenv(options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}) {
-  if (repoEnvLoaded) {
+  const cwd = options.cwd ?? process.cwd();
+  const env = options.env ?? process.env;
+  const normalizedCwd = resolve(cwd);
+
+  if (repoEnvLoaded && repoEnvLoadedFromCwd === normalizedCwd) {
     return false;
   }
 
-  const cwd = options.cwd ?? process.cwd();
-  const env = options.env ?? process.env;
   if (env.OPEN_GECKO_DISABLE_REPO_DOTENV === '1') {
     repoEnvLoaded = true;
+    repoEnvLoadedFromCwd = normalizedCwd;
     return false;
   }
-  const dotenvPath = resolve(cwd, '.env');
+  const dotenvPath = resolve(normalizedCwd, '.env');
 
   if (!existsSync(dotenvPath)) {
     repoEnvLoaded = true;
+    repoEnvLoadedFromCwd = normalizedCwd;
     return false;
   }
 
@@ -123,11 +128,13 @@ export function loadRepoDotenv(options: { cwd?: string; env?: NodeJS.ProcessEnv 
   }
 
   repoEnvLoaded = true;
+  repoEnvLoadedFromCwd = normalizedCwd;
   return true;
 }
 
 export function resetRepoDotenvLoaderForTests() {
   repoEnvLoaded = false;
+  repoEnvLoadedFromCwd = null;
 }
 
 export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {

@@ -60,4 +60,25 @@ describe('repo dotenv loading', () => {
       rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it('reloads repo .env when the cwd changes', () => {
+    const firstDir = mkdtempSync(join(tmpdir(), 'opengecko-env-'));
+    const secondDir = mkdtempSync(join(tmpdir(), 'opengecko-env-'));
+
+    try {
+      writeFileSync(join(firstDir, '.env'), 'THEGRAPH_API_KEY=first-key\n');
+      writeFileSync(join(secondDir, '.env'), 'THEGRAPH_API_KEY=second-key\n');
+      const env: NodeJS.ProcessEnv = {};
+
+      expect(loadRepoDotenv({ cwd: firstDir, env })).toBe(true);
+      expect(env.THEGRAPH_API_KEY).toBe('first-key');
+
+      delete env.THEGRAPH_API_KEY;
+      expect(loadRepoDotenv({ cwd: secondDir, env })).toBe(true);
+      expect(loadConfig(env).thegraphApiKey).toBe('second-key');
+    } finally {
+      rmSync(firstDir, { recursive: true, force: true });
+      rmSync(secondDir, { recursive: true, force: true });
+    }
+  });
 });
