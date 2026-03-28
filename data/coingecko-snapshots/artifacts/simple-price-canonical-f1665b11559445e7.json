@@ -1,0 +1,16 @@
+{
+  "bitcoin": {
+    "usd": 66194,
+    "usd_market_cap": 1323878876195.027,
+    "usd_24h_vol": 47657767940.0297,
+    "usd_24h_change": -3.6821618128964673,
+    "last_updated_at": 1774674882
+  },
+  "ethereum": {
+    "usd": 1987.94,
+    "usd_market_cap": 239883065644.24435,
+    "usd_24h_vol": 18589171218.177616,
+    "usd_24h_change": -3.509680921533086,
+    "last_updated_at": 1774674873
+  }
+}

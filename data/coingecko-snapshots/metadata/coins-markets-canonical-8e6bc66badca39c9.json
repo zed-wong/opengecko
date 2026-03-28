@@ -1,0 +1,18 @@
+{
+  "entryId": "coins-markets-canonical",
+  "manifestId": "coingecko-pro-bounded-v1",
+  "manifestFormatVersion": 1,
+  "artifactFormatVersion": 1,
+  "path": "/coins/markets",
+  "normalizedPath": "/coins/markets?ids=bitcoin%2Cethereum%2Csolana&order=market_cap_desc&page=1&per_page=3&price_change_percentage=24h%2C7d&sparkline=false&vs_currency=usd",
+  "normalizedQuery": "ids=bitcoin%2Cethereum%2Csolana&order=market_cap_desc&page=1&per_page=3&price_change_percentage=24h%2C7d&sparkline=false&vs_currency=usd",
+  "variantId": "coins-markets-canonical",
+  "url": "https://pro-api.coingecko.com/api/v3/coins/markets?ids=bitcoin%2Cethereum%2Csolana&order=market_cap_desc&page=1&per_page=3&price_change_percentage=24h%2C7d&sparkline=false&vs_currency=usd",
+  "capturedAt": "2026-03-28T05:14:43.347Z",
+  "upstreamStatus": 200,
+  "artifactRelativePath": "artifacts/coins-markets-canonical-8e6bc66badca39c9.json",
+  "payloadSha256": "497bfdbf26fdba7707454cc96129dd2418b8102ea9e18d3c866c6420105e0707",
+  "byteLength": 2794,
+  "reusedFromExisting": false,
+  "refreshed": false
+}

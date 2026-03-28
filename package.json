@@ -22,7 +22,8 @@
     "charts:backfill": "tsx src/jobs/backfill-ohlcv.ts",
     "ohlcv:worker": "tsx src/jobs/run-ohlcv-worker.ts",
     "search:rebuild": "tsx src/jobs/rebuild-search-index.ts",
-    "markets:refresh": "tsx src/jobs/refresh-market-snapshots.ts"
+    "markets:refresh": "tsx src/jobs/refresh-market-snapshots.ts",
+    "coingecko:snapshots:capture": "tsx src/jobs/capture-coingecko-snapshots.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",

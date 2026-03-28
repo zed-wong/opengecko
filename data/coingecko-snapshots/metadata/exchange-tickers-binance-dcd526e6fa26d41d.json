@@ -1,0 +1,18 @@
+{
+  "entryId": "exchange-tickers-binance",
+  "manifestId": "coingecko-pro-bounded-v1",
+  "manifestFormatVersion": 1,
+  "artifactFormatVersion": 1,
+  "path": "/exchanges/binance/tickers",
+  "normalizedPath": "/exchanges/binance/tickers?page=1",
+  "normalizedQuery": "page=1",
+  "variantId": "exchange-tickers-binance",
+  "url": "https://pro-api.coingecko.com/api/v3/exchanges/binance/tickers?page=1",
+  "capturedAt": "2026-03-28T05:14:45.144Z",
+  "upstreamStatus": 200,
+  "artifactRelativePath": "artifacts/exchange-tickers-binance-dcd526e6fa26d41d.json",
+  "payloadSha256": "786f28d37b60ae7b3ea48e278dc5e2ac9c3f699bc1a6e64109f3fe04e1a8dbe1",
+  "byteLength": 66403,
+  "reusedFromExisting": false,
+  "refreshed": false
+}

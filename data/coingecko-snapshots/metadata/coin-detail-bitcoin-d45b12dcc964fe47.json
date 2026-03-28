@@ -1,0 +1,18 @@
+{
+  "entryId": "coin-detail-bitcoin",
+  "manifestId": "coingecko-pro-bounded-v1",
+  "manifestFormatVersion": 1,
+  "artifactFormatVersion": 1,
+  "path": "/coins/bitcoin",
+  "normalizedPath": "/coins/bitcoin?community_data=false&developer_data=false&localization=false&market_data=true&sparkline=false&tickers=false",
+  "normalizedQuery": "community_data=false&developer_data=false&localization=false&market_data=true&sparkline=false&tickers=false",
+  "variantId": "coin-detail-bitcoin",
+  "url": "https://pro-api.coingecko.com/api/v3/coins/bitcoin?community_data=false&developer_data=false&localization=false&market_data=true&sparkline=false&tickers=false",
+  "capturedAt": "2026-03-28T05:14:43.638Z",
+  "upstreamStatus": 200,
+  "artifactRelativePath": "artifacts/coin-detail-bitcoin-d45b12dcc964fe47.json",
+  "payloadSha256": "2103a2c762407614fd0e5ce1e50c2df8d1a730434098e09a8dc30ef8bdd77a8c",
+  "byteLength": 31069,
+  "reusedFromExisting": false,
+  "refreshed": false
+}

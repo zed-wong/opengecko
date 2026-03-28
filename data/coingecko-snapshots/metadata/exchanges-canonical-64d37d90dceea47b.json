@@ -1,0 +1,18 @@
+{
+  "entryId": "exchanges-canonical",
+  "manifestId": "coingecko-pro-bounded-v1",
+  "manifestFormatVersion": 1,
+  "artifactFormatVersion": 1,
+  "path": "/exchanges",
+  "normalizedPath": "/exchanges?page=1&per_page=5",
+  "normalizedQuery": "page=1&per_page=5",
+  "variantId": "exchanges-canonical",
+  "url": "https://pro-api.coingecko.com/api/v3/exchanges?page=1&per_page=5",
+  "capturedAt": "2026-03-28T05:14:44.525Z",
+  "upstreamStatus": 200,
+  "artifactRelativePath": "artifacts/exchanges-canonical-64d37d90dceea47b.json",
+  "payloadSha256": "03c868ea16134b88ae595ea7649d586cf3e6a26e743f08978d611237cd1263dd",
+  "byteLength": 4060,
+  "reusedFromExisting": false,
+  "refreshed": false
+}

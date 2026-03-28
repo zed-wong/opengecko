@@ -1,0 +1,18 @@
+{
+  "entryId": "exchange-rates-canonical",
+  "manifestId": "coingecko-pro-bounded-v1",
+  "manifestFormatVersion": 1,
+  "artifactFormatVersion": 1,
+  "path": "/exchange_rates",
+  "normalizedPath": "/exchange_rates",
+  "normalizedQuery": "",
+  "variantId": "exchange-rates-canonical",
+  "url": "https://pro-api.coingecko.com/api/v3/exchange_rates",
+  "capturedAt": "2026-03-28T05:14:44.247Z",
+  "upstreamStatus": 200,
+  "artifactRelativePath": "artifacts/exchange-rates-canonical-27a57fc26d421567.json",
+  "payloadSha256": "debdf94fddc9f764aa47d294a9b1a2f079c334f1070d63c396a4b6ea8298a307",
+  "byteLength": 5941,
+  "reusedFromExisting": false,
+  "refreshed": false
+}

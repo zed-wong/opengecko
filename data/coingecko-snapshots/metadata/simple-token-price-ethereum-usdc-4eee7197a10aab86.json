@@ -1,0 +1,18 @@
+{
+  "entryId": "simple-token-price-ethereum-usdc",
+  "manifestId": "coingecko-pro-bounded-v1",
+  "manifestFormatVersion": 1,
+  "artifactFormatVersion": 1,
+  "path": "/simple/token_price/ethereum",
+  "normalizedPath": "/simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true&include_market_cap=true&vs_currencies=usd",
+  "normalizedQuery": "contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true&include_market_cap=true&vs_currencies=usd",
+  "variantId": "simple-token-price-ethereum-usdc",
+  "url": "https://pro-api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true&include_market_cap=true&vs_currencies=usd",
+  "capturedAt": "2026-03-28T05:14:43.073Z",
+  "upstreamStatus": 200,
+  "artifactRelativePath": "artifacts/simple-token-price-ethereum-usdc-4eee7197a10aab86.json",
+  "payloadSha256": "ae4478ef79be2a110b5b8f9d876441bbc32392c80f1beecb488a641509f55fcb",
+  "byteLength": 199,
+  "reusedFromExisting": false,
+  "refreshed": false
+}

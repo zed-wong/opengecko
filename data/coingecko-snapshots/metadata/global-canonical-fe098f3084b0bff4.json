@@ -1,0 +1,18 @@
+{
+  "entryId": "global-canonical",
+  "manifestId": "coingecko-pro-bounded-v1",
+  "manifestFormatVersion": 1,
+  "artifactFormatVersion": 1,
+  "path": "/global",
+  "normalizedPath": "/global",
+  "normalizedQuery": "",
+  "variantId": "global-canonical",
+  "url": "https://pro-api.coingecko.com/api/v3/global",
+  "capturedAt": "2026-03-28T05:14:43.971Z",
+  "upstreamStatus": 200,
+  "artifactRelativePath": "artifacts/global-canonical-fe098f3084b0bff4.json",
+  "payloadSha256": "d0238bbd5808dd3b645dc1540f7a5a0b98822c17d38144c60910a4cfc8aeb0e0",
+  "byteLength": 3677,
+  "reusedFromExisting": false,
+  "refreshed": false
+}

@@ -1,0 +1,18 @@
+{
+  "entryId": "exchange-detail-binance",
+  "manifestId": "coingecko-pro-bounded-v1",
+  "manifestFormatVersion": 1,
+  "artifactFormatVersion": 1,
+  "path": "/exchanges/binance",
+  "normalizedPath": "/exchanges/binance",
+  "normalizedQuery": "",
+  "variantId": "exchange-detail-binance",
+  "url": "https://pro-api.coingecko.com/api/v3/exchanges/binance",
+  "capturedAt": "2026-03-28T05:14:44.811Z",
+  "upstreamStatus": 200,
+  "artifactRelativePath": "artifacts/exchange-detail-binance-5aaa2abfd9182393.json",
+  "payloadSha256": "7d22eb11519f5224ce01d9b53b6c2a5408bba47c3d8b8b7976df91b4f53d710a",
+  "byteLength": 71556,
+  "reusedFromExisting": false,
+  "refreshed": false
+}
