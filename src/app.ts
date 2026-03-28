@@ -640,11 +640,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         );
       }
       const { runInitialMarketSync } = await import('./services/initial-sync');
-      const hotDataWasVisible =
-        marketDataRuntimeState.initialSyncCompleted
-        || marketDataRuntimeState.allowStaleLiveService
-        || marketDataRuntimeState.syncFailureReason !== null;
-      const syncOperation = runInitialMarketSync(database, config, undefined, {
+      const seededBootstrapPreserved = marketDataRuntimeState.validationOverride.reason === 'validation runtime seeded from persistent live snapshots'
+        || marketDataRuntimeState.validationOverride.reason === 'default runtime seeded from persistent live snapshots';
+      if (!seededBootstrapPreserved) {
+        const hotDataWasVisible =
+          marketDataRuntimeState.initialSyncCompleted
+          || marketDataRuntimeState.allowStaleLiveService
+          || marketDataRuntimeState.syncFailureReason !== null;
+        void hotDataWasVisible;
+      }
+      const shouldRunBootstrapInitialSync = !seededBootstrapPreserved;
+      const syncOperation = shouldRunBootstrapInitialSync
+        ? runInitialMarketSync(database, config, undefined, {
         onStepChange: (stepId) => {
           options.startupProgress?.begin(stepId);
         },
@@ -672,7 +679,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         onWaitingExchangeStatus: (exchangeIds) => {
           options.startupProgress?.reportStatus(`Still waiting for ticker responses: ${exchangeIds.join(', ')}`);
         },
-      }, marketDataRuntimeState);
+      }, marketDataRuntimeState)
+        : Promise.resolve({
+            coinsDiscovered: 0,
+            chainsDiscovered: 0,
+            snapshotsCreated: 0,
+            tickersWritten: 0,
+            exchangesSynced: 0,
+            ohlcvCandlesWritten: 0,
+          });
       await (shouldEnforceInitialSyncTimeout
         ? withStartupTimeout(
             syncOperation,
@@ -718,22 +733,22 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
             : marketDataRuntimeState.validationOverride.snapshotSourceCountOverride,
         };
       }
-      const newlyExposedHotData = !hotDataWasVisible;
-      marketDataRuntimeState.initialSyncCompleted = true;
-      marketDataRuntimeState.allowStaleLiveService = (
-        marketDataRuntimeState.validationOverride.mode === 'seeded_bootstrap'
-        || (
-          bootstrapOnlyValidationRuntime
-          && marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
-        )
-      );
-      marketDataRuntimeState.syncFailureReason = null;
+      if (seededBootstrapPreserved) {
+        marketDataRuntimeState.initialSyncCompleted = false;
+        marketDataRuntimeState.allowStaleLiveService = true;
+        marketDataRuntimeState.syncFailureReason = null;
+      } else {
+        marketDataRuntimeState.initialSyncCompleted = true;
+        marketDataRuntimeState.allowStaleLiveService = bootstrapOnlyValidationRuntime
+          && marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots;
+        marketDataRuntimeState.syncFailureReason = null;
 
-      if (
-        !marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
-        && (newlyExposedHotData || marketDataRuntimeState.hotDataRevision > 0)
-      ) {
-        marketDataRuntimeState.hotDataRevision += 1;
+        if (
+          !marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
+          && marketDataRuntimeState.hotDataRevision > 0
+        ) {
+          marketDataRuntimeState.hotDataRevision += 1;
+        }
       }
 
       // Seed static reference data (treasury, derivatives, onchain) after coins exist

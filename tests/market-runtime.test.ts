@@ -591,6 +591,41 @@ describe('market runtime', () => {
     }
   });
 
+
+  it('does not schedule a listener-bound refresh before seeded bootstrap validation ownership is handed off', async () => {
+    const state = createState({
+      validationOverride: {
+        mode: 'seeded_bootstrap',
+        reason: 'validation runtime seeded from persistent live snapshots',
+        snapshotTimestampOverride: '2026-03-29T00:00:00.000Z',
+        snapshotSourceCountOverride: 3,
+      },
+    });
+    const runMarketRefreshOnce = vi.fn().mockResolvedValue(undefined);
+    const runtime = createMarketRuntime({ inject: vi.fn().mockResolvedValue(injectedResponse) } as never, {} as never, baseConfig as never, logger, state, metrics, {
+      runInitialMarketSync: vi.fn().mockResolvedValue({}),
+      runCurrencyRefreshOnce: vi.fn().mockResolvedValue(undefined),
+      runMarketRefreshOnce,
+      runSearchRebuildOnce: vi.fn().mockResolvedValue(undefined),
+      startOhlcvRuntime: vi.fn().mockResolvedValue(undefined),
+      stopOhlcvRuntime: vi.fn().mockResolvedValue(undefined),
+    });
+
+    await runtime.start();
+    await runtime.whenReady();
+
+    expect(state.initialSyncCompleted).toBe(true);
+    expect(state.listenerBindDeferred).toBe(true);
+    expect(runMarketRefreshOnce).toHaveBeenCalledTimes(0);
+
+    runtime.markListenerBound();
+    await flushAsyncWork();
+
+    expect(runMarketRefreshOnce).toHaveBeenCalledTimes(1);
+
+    await runtime.stop();
+  });
+
   it('resolves background runtime readiness at the prewarm budget boundary and defers trailing timed-out work', async () => {
     const state = createState();
     let releaseTrailingPrewarm!: () => void;
