@@ -1,0 +1,55 @@
+{
+  "milestone": "snapshot-capture-and-baselines",
+  "round": 2,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": false,
+      "command": "bun run test -- --maxWorkers=4",
+      "exitCode": 1
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "bun run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "echo \"no lint configured\"",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 4,
+    "passed": 3,
+    "failed": 1,
+    "failedFeatures": [
+      "snapshot-capture-foundation"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "snapshot-capture-foundation",
+      "severity": "blocking",
+      "description": "The transcript shows a direct `Read` of `/home/whoami/dev/openGecko/.env`, which violates the mission boundary 'Do not read .env directly.' The feature description explicitly required use of the centralized env-loading path without ad hoc `.env` parsing. Even though the committed code calls `loadRepoDotenv()`, the implementation session itself broke a non-negotiable mission constraint."
+    },
+    {
+      "featureId": "snapshot-capture-foundation",
+      "severity": "blocking",
+      "description": "The assigned behavior required running the approved bounded capture once so the stored corpus exists, then verifying a second no-refresh run reuses artifacts. The final worker session evidence shows both `bun run coingecko:snapshots:capture` invocations reported `request_total 0` and `reused=9`, meaning this session only verified reuse against a preexisting corpus and did not demonstrate an initial capture in the reviewed run."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [],
+  "rejectedObservations": [
+    {
+      "observation": "The worker followed the compatibility-hardening skill at a high level, but the transcript includes a direct read of `.env` despite mission guidance and library docs already stating that `COINGECKO_API_KEY` must come from runtime environment or the centralized env-loading path only.",
+      "reason": "already-documented"
+    },
+    {
+      "observation": "The replay workflow records `normalizationRulesId`, but the repository still lacks a checked-in normalization rules file for offline replay; the ruleset currently exists only as an in-code identifier.",
+      "reason": "ambiguous"
+    }
+  ],
+  "previousRound": ".factory/validation/snapshot-capture-and-baselines/scrutiny/synthesis.json"
+}
