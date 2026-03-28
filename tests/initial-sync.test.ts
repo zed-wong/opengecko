@@ -232,11 +232,64 @@ describe('initial market sync', () => {
       marketFreshnessThresholdSeconds: 300,
       providerFanoutConcurrency: 2,
     })).resolves.toMatchObject({
-      exchangesSynced: 2,
+      exchangesSynced: 1,
     });
 
     const bitcoin = database.db.select().from(coins).where(eq(coins.id, 'bitcoin')).get();
     expect(bitcoin).toBeDefined();
+  });
+
+  it('skips failed exchange discovery results in subsequent catalog and snapshot stages', async () => {
+    mockedFetchExchangeMarkets.mockImplementation(async (exchangeId) => {
+      if (exchangeId === 'bybit') {
+        throw new Error('regional block');
+      }
+
+      if (exchangeId === 'binance') {
+        return [
+          { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin', raw: {} },
+        ];
+      }
+
+      return [];
+    });
+    mockedFetchExchangeTickers.mockImplementation(async (exchangeId) => {
+      if (exchangeId === 'bybit') {
+        throw new Error('should not fetch tickers for failed exchange');
+      }
+
+      if (exchangeId === 'binance') {
+        return [{
+          exchangeId: 'binance',
+          symbol: 'BTC/USDT',
+          base: 'BTC',
+          quote: 'USDT',
+          last: 90_000,
+          bid: null,
+          ask: null,
+          high: null,
+          low: null,
+          baseVolume: 1_000,
+          quoteVolume: 90_000_000,
+          percentage: 2,
+          timestamp: Date.now(),
+          raw: {} as never,
+        }];
+      }
+
+      return [];
+    });
+    mockedFetchExchangeOHLCV.mockResolvedValue([]);
+
+    const result = await runInitialMarketSync(database, {
+      ccxtExchanges: ['binance', 'bybit'],
+      marketFreshnessThresholdSeconds: 300,
+      providerFanoutConcurrency: 2,
+    });
+
+    expect(result.exchangesSynced).toBe(1);
+    expect(mockedFetchExchangeTickers).toHaveBeenCalledTimes(1);
+    expect(mockedFetchExchangeTickers).toHaveBeenCalledWith('binance', expect.any(Array));
   });
 
   it('discovers and upserts chain catalogs from exchange network metadata', async () => {

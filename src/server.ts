@@ -1,18 +1,23 @@
 import { buildApp } from './app';
 import { loadConfig } from './config/env';
+import { detectSqliteRuntime } from './db/client';
 import { createStartupProgressTracker } from './services/startup-progress';
 
 async function start() {
   const startupProgress = createStartupProgressTracker();
-  startupProgress.start();
 
   try {
     const config = loadConfig();
+    startupProgress.start({
+      runtime: detectSqliteRuntime(),
+      driver: 'better-sqlite3',
+      databaseUrl: config.databaseUrl,
+    });
     startupProgress.complete('load_config');
     const app = buildApp({
       config,
       startBackgroundJobs: true,
-      pluginTimeout: 120_000,
+      pluginTimeout: 0,
       startupPluginTimeout: 110_000,
       startupProgress,
     });
@@ -24,7 +29,7 @@ async function start() {
     app.marketRuntime?.markListenerBound();
     app.marketDataRuntimeState.listenerBound = true;
     startupProgress.complete('start_http_listener');
-    startupProgress.start(config.port);
+    startupProgress.finish(config.port);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     startupProgress.failCurrent(message);

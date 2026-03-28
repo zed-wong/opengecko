@@ -14,9 +14,20 @@ function didInitialSyncProduceUsableLiveSnapshots(result: InitialSyncResult) {
   return result.snapshotsCreated > 0 && result.tickersWritten > 0;
 }
 
+function shouldEmitStartupLogger(progress?: InitialSyncProgressHandlers) {
+  return progress === undefined;
+}
+
 export type InitialSyncProgressHandlers = {
   onStepChange?: (stepId: 'sync_exchange_metadata' | 'sync_coin_catalog' | 'sync_chain_catalog' | 'build_market_snapshots' | 'start_ohlcv_worker') => void;
   onOhlcvBackfillProgress?: (current: number, total: number) => void;
+  onExchangeResult?: (exchangeId: string, status: 'ok' | 'failed', message?: string) => void;
+  onCatalogResult?: (id: string, category: string, count: number, durationMs: number) => void;
+};
+
+export type ExchangeSyncResult = {
+  succeededExchangeIds: ExchangeId[];
+  failedExchangeIds: ExchangeId[];
 };
 
 export async function syncExchangesFromCCXT(
@@ -24,7 +35,8 @@ export async function syncExchangesFromCCXT(
   exchangeIds: ExchangeId[],
   logger: Logger,
   concurrency = exchangeIds.length,
-) {
+  progress?: Pick<InitialSyncProgressHandlers, 'onExchangeResult'>,
+): Promise<ExchangeSyncResult> {
   const results = await mapWithConcurrency(
     exchangeIds,
     concurrency,
@@ -34,6 +46,8 @@ export async function syncExchangesFromCCXT(
   const now = new Date();
   let succeeded = 0;
   let failed = 0;
+  const succeededExchangeIds: ExchangeId[] = [];
+  const failedExchangeIds: ExchangeId[] = [];
 
   for (let i = 0; i < exchangeIds.length; i++) {
     const exchangeId = exchangeIds[i];
@@ -42,10 +56,14 @@ export async function syncExchangesFromCCXT(
 
     if (result.status === 'rejected') {
       failed += 1;
+      failedExchangeIds.push(exchangeId);
       const errorInfo = result.reason instanceof Error
         ? { message: result.reason.message }
         : { message: String(result.reason) };
-      exchangeLogger.warn(errorInfo, 'exchange metadata sync failed');
+      if (shouldEmitStartupLogger(progress)) {
+        exchangeLogger.warn(errorInfo, 'exchange metadata sync failed');
+      }
+      progress?.onExchangeResult?.(exchangeId, 'failed', errorInfo.message);
       continue;
     }
 
@@ -53,10 +71,12 @@ export async function syncExchangesFromCCXT(
     exchangeLogger.debug({ marketCount: markets.length }, 'fetched exchange markets');
 
     if (markets.length === 0) {
+      succeededExchangeIds.push(exchangeId);
       continue;
     }
 
     succeeded += 1;
+    succeededExchangeIds.push(exchangeId);
     database.db
       .insert(exchanges)
       .values({
@@ -73,9 +93,11 @@ export async function syncExchangesFromCCXT(
         },
       })
       .run();
+    progress?.onExchangeResult?.(exchangeId, 'ok');
   }
 
   logger.debug({ succeeded, failed }, 'exchange metadata sync complete');
+  return { succeededExchangeIds, failedExchangeIds };
 }
 
 export type InitialSyncResult = {
@@ -98,40 +120,57 @@ export async function runInitialMarketSync(
   const startTime = Date.now();
   const exchangeIds = config.ccxtExchanges.filter(isValidExchangeId);
 
-  syncLogger.info({ exchanges: exchangeIds }, 'starting initial market sync');
+  if (shouldEmitStartupLogger(progress)) {
+    syncLogger.info({ exchanges: exchangeIds }, 'starting initial market sync');
+  }
 
   // Step 1: Sync exchanges first (required for coin_tickers FK)
   progress?.onStepChange?.('sync_exchange_metadata');
   syncLogger.debug('syncing exchange metadata');
-  await syncExchangesFromCCXT(database, exchangeIds, syncLogger, config.providerFanoutConcurrency);
+  const { succeededExchangeIds } = await syncExchangesFromCCXT(
+    database,
+    exchangeIds,
+    syncLogger,
+    config.providerFanoutConcurrency,
+    progress,
+  );
+  const activeExchangeIds = succeededExchangeIds.length > 0 ? succeededExchangeIds : exchangeIds;
 
   // Step 2: Discover coins from all exchanges
   progress?.onStepChange?.('sync_coin_catalog');
   syncLogger.debug('discovering coins from exchanges');
+  const coinCatalogStartTime = Date.now();
   const { insertedOrUpdated: coinsDiscovered } = await syncCoinCatalogFromExchanges(
     database,
-    exchangeIds,
+    activeExchangeIds,
     syncLogger,
     config.providerFanoutConcurrency,
   );
-  syncLogger.info({ coinsDiscovered }, 'coin catalog sync complete');
+  progress?.onCatalogResult?.('cat_01', 'Coin Catalog', coinsDiscovered, Date.now() - coinCatalogStartTime);
+  if (shouldEmitStartupLogger(progress)) {
+    syncLogger.info({ coinsDiscovered }, 'coin catalog sync complete');
+  }
 
   // Step 2.5: Discover chains/networks from all exchanges
   progress?.onStepChange?.('sync_chain_catalog');
   syncLogger.debug('discovering chains from exchanges');
+  const chainCatalogStartTime = Date.now();
   const { insertedOrUpdated: chainsDiscovered } = await syncChainCatalogFromExchanges(
     database,
-    exchangeIds,
+    activeExchangeIds,
     syncLogger,
     config.providerFanoutConcurrency,
   );
-  syncLogger.info({ chainsDiscovered }, 'chain catalog sync complete');
+  progress?.onCatalogResult?.('cat_02', 'Chain Catalog', chainsDiscovered, Date.now() - chainCatalogStartTime);
+  if (shouldEmitStartupLogger(progress)) {
+    syncLogger.info({ chainsDiscovered }, 'chain catalog sync complete');
+  }
 
   // Step 3: Fetch tickers and build market snapshots + coin tickers
   progress?.onStepChange?.('build_market_snapshots');
   syncLogger.debug('running market refresh');
   await runMarketRefreshOnce(database, {
-    ccxtExchanges: exchangeIds,
+    ccxtExchanges: activeExchangeIds,
     providerFanoutConcurrency: config.providerFanoutConcurrency,
   }, syncLogger, runtimeState);
 
@@ -143,21 +182,23 @@ export async function runInitialMarketSync(
   const ohlcvCandlesWritten = 0;
 
   const durationMs = Date.now() - startTime;
-  syncLogger.info({
-    coinsDiscovered,
-    chainsDiscovered,
-    snapshotsCreated: snapshotCount,
-    ohlcvCandlesWritten,
-    exchangesSynced: exchangeIds.length,
-    durationMs,
-  }, 'initial market sync complete');
+  if (shouldEmitStartupLogger(progress)) {
+    syncLogger.info({
+      coinsDiscovered,
+      chainsDiscovered,
+      snapshotsCreated: snapshotCount,
+      ohlcvCandlesWritten,
+      exchangesSynced: activeExchangeIds.length,
+      durationMs,
+    }, 'initial market sync complete');
+  }
 
   const result = {
     coinsDiscovered,
     chainsDiscovered,
     snapshotsCreated: snapshotCount,
     tickersWritten: snapshotCount,
-    exchangesSynced: exchangeIds.length,
+    exchangesSynced: activeExchangeIds.length,
     ohlcvCandlesWritten,
   };
 

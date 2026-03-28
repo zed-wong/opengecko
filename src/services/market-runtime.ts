@@ -125,7 +125,10 @@ export function createMarketRuntime(
 
     if (snapshotCount > 0) {
       enableFallbackFromExistingSnapshots(state);
-      logger.warn('using residual stale data while bootstrap is still running');
+      if (!startupProgress) {
+        logger.warn('using residual stale data while bootstrap is still running');
+      }
+      startupProgress?.reportWarning('Using residual stale data while bootstrap is still running');
     }
   }
 
@@ -161,9 +164,16 @@ export function createMarketRuntime(
                 onOhlcvBackfillProgress: (current, total) => {
                   startupProgress?.updateOhlcvProgress(current, total);
                 },
+                onExchangeResult: (exchangeId, status, message) => {
+                  startupProgress?.reportExchangeResult(exchangeId, status, message);
+                },
+                onCatalogResult: (id, category, count, durationMs) => {
+                  startupProgress?.reportCatalogResult(id, category, count, durationMs);
+                },
               }, state);
 
           await initialSync();
+          startupProgress?.complete('build_market_snapshots');
           startupProgress?.begin('start_ohlcv_worker');
           // Start OHLCV runtime without awaiting — it runs independently
           void (overrides.startOhlcvRuntime ?? (() => ohlcvRuntime.start()))();
@@ -174,6 +184,7 @@ export function createMarketRuntime(
 
           const { seedStaticReferenceData, rebuildSearchIndex } = await import('../db/client');
           startupProgress?.begin('seed_reference_data');
+          startupProgress?.reportStatus('Preparing reference data and search index before opening the listener');
           seedStaticReferenceData(database);
           startupProgress?.complete('seed_reference_data');
           startupProgress?.begin('rebuild_search_index');
@@ -181,9 +192,13 @@ export function createMarketRuntime(
           startupProgress?.complete('rebuild_search_index');
           finalizeStartupHotDataRevision(state);
           state.listenerBindDeferred = true;
+          startupProgress?.begin('start_http_listener');
+          startupProgress?.reportStatus('Waiting for Fastify to bind the HTTP listener');
           readinessTask = Promise.resolve();
 
-          logger.info('initial market sync completed successfully');
+          if (!startupProgress) {
+            logger.info('initial market sync completed successfully');
+          }
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
           state.syncFailureReason = reason;

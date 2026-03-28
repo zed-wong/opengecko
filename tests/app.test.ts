@@ -5693,6 +5693,121 @@ describe('OpenGecko app scaffold', () => {
     await bootstrapApp.close();
   });
 
+  it('does not enforce the initial sync timeout on the background-runtime startup path', async () => {
+    const initialSyncModule = await import('../src/services/initial-sync');
+    const runInitialMarketSyncSpy = vi.spyOn(initialSyncModule, 'runInitialMarketSync')
+      .mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return {
+          coinsDiscovered: 0,
+          chainsDiscovered: 0,
+          snapshotsCreated: 0,
+          tickersWritten: 0,
+          exchangesSynced: 0,
+          ohlcvCandlesWritten: 0,
+        };
+      });
+
+    const bootstrapApp = buildApp({
+      config: {
+        databaseUrl: ':memory:',
+        ccxtExchanges: ['binance'],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: true,
+      startupPluginTimeout: 10,
+    });
+
+    await expect(bootstrapApp.ready()).resolves.toBe(bootstrapApp);
+
+    runInitialMarketSyncSpy.mockRestore();
+    await bootstrapApp.close();
+  });
+
+  it('allows background-runtime startup when fastify plugin timeout is disabled', async () => {
+    const initialSyncModule = await import('../src/services/initial-sync');
+    const runInitialMarketSyncSpy = vi.spyOn(initialSyncModule, 'runInitialMarketSync')
+      .mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return {
+          coinsDiscovered: 0,
+          chainsDiscovered: 0,
+          snapshotsCreated: 0,
+          tickersWritten: 0,
+          exchangesSynced: 0,
+          ohlcvCandlesWritten: 0,
+        };
+      });
+
+    const bootstrapApp = buildApp({
+      config: {
+        databaseUrl: ':memory:',
+        ccxtExchanges: ['binance'],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: true,
+      pluginTimeout: 0,
+      startupPluginTimeout: 10,
+    });
+
+    await expect(bootstrapApp.ready()).resolves.toBe(bootstrapApp);
+
+    runInitialMarketSyncSpy.mockRestore();
+    await bootstrapApp.close();
+  });
+
+  it('passes pluginTimeout=0 through to Fastify config', () => {
+    const bootstrapApp = buildApp({
+      config: {
+        databaseUrl: ':memory:',
+        ccxtExchanges: ['binance'],
+        logLevel: 'silent',
+      },
+      pluginTimeout: 0,
+    });
+
+    expect(bootstrapApp.initialConfig.pluginTimeout).toBe(0);
+
+    void bootstrapApp.close();
+  });
+
+  it('emits the final listener-ready line after background startup completes', async () => {
+    const writes: string[] = [];
+    const startupProgressModule = await import('../src/services/startup-progress');
+    const tracker = startupProgressModule.createStartupProgressTracker({
+      write: (value: string) => {
+        writes.push(value);
+      },
+    });
+
+    const bootstrapApp = buildApp({
+      config: {
+        databaseUrl: ':memory:',
+        ccxtExchanges: ['binance'],
+        logLevel: 'silent',
+        host: '127.0.0.1',
+        port: 0,
+      },
+      startBackgroundJobs: true,
+      pluginTimeout: 0,
+      startupProgress: tracker,
+    });
+
+    tracker.start({ runtime: 'node', driver: 'better-sqlite3', databaseUrl: ':memory:' });
+    tracker.complete('load_config');
+
+    await bootstrapApp.listen({ host: '127.0.0.1', port: 0 });
+    const address = bootstrapApp.server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+    bootstrapApp.marketRuntime?.markListenerBound();
+    tracker.complete('start_http_listener');
+    tracker.finish(port);
+
+    expect(writes.join('')).toContain(`System ready. Listening on http://localhost:${port}`);
+
+    await bootstrapApp.close();
+  });
+
   it('clears stale-live recovery flags and bumps revision when bootstrap-only sync recovers stale-visible state', async () => {
     await getApp().close();
     app = undefined;

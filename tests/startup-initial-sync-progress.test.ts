@@ -68,6 +68,8 @@ describe('initial sync startup progress', () => {
 
     const transitions: string[] = [];
     const subprogress: Array<{ current: number; total: number }> = [];
+    const exchangeResults: Array<{ exchangeId: string; status: 'ok' | 'failed'; message?: string }> = [];
+    const catalogResults: Array<{ id: string; category: string; count: number; durationMs: number }> = [];
     let selectCall = 0;
     const database = {
       db: {
@@ -101,6 +103,12 @@ describe('initial sync startup progress', () => {
         onOhlcvBackfillProgress: (current: number, total: number) => {
           subprogress.push({ current, total });
         },
+        onExchangeResult: (exchangeId, status, message) => {
+          exchangeResults.push({ exchangeId, status, message });
+        },
+        onCatalogResult: (id, category, count, durationMs) => {
+          catalogResults.push({ id, category, count, durationMs });
+        },
       },
     );
 
@@ -112,5 +120,12 @@ describe('initial sync startup progress', () => {
       'start_ohlcv_worker',
     ]);
     expect(subprogress).toEqual([]);
+    expect(exchangeResults).toEqual([
+      { exchangeId: 'binance', status: 'ok', message: undefined },
+    ]);
+    expect(catalogResults).toHaveLength(2);
+    expect(catalogResults[0]).toMatchObject({ id: 'cat_01', category: 'Coin Catalog', count: 1 });
+    expect(catalogResults[1]).toMatchObject({ id: 'cat_02', category: 'Chain Catalog', count: 0 });
+    expect(catalogResults.every((result) => result.durationMs >= 0)).toBe(true);
   });
 });
