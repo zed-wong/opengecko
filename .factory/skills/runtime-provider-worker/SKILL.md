@@ -34,14 +34,15 @@ None.
 4. Prefer service-layer fixes over route-local patches. Keep provider failure control, concurrency, and fallback policy centralized.
 5. Preserve CoinGecko contracts. Runtime hardening may add health/diagnostic surfaces, but it must not silently change `/ping`, `/simple/price`, or `/coins/markets` payload semantics.
 6. If the feature exposes runtime state externally, ensure the state is machine-readable and aligned with actual hot-endpoint behavior; do not expose vague booleans without cause/source context.
-7. Run targeted tests covering startup/shutdown, provider coordination, stale/degraded behavior, and the touched health/diagnostics surfaces.
-8. Run `bun run typecheck` before finishing.
-9. Manually verify with live probes:
+7. If bootstrap-only persisted rows become an intended runtime source, implement that through a distinct runtime mode or equally first-class access-policy signal rather than by piggybacking on validation-only overrides. Update characterization tests for diagnostics, `/simple/price`, `/simple/token_price`, `/coins/markets`, and `/coins/{id}` together so they all agree on the new mode.
+8. Run targeted tests covering startup/shutdown, provider coordination, stale/degraded behavior, and the touched health/diagnostics surfaces.
+9. Run `bun run typecheck` before finishing.
+10. Manually verify with live probes:
    - startup or restart sequence on the declared mission port
    - `/ping`
    - the affected hot endpoint(s)
    - health/diagnostics endpoints if touched
-10. If validation finds a pre-existing unrelated repo failure, record it exactly and continue with scoped verification. If you need a new contract decision, return to the orchestrator instead of guessing.
+11. If validation finds a pre-existing unrelated repo failure, record it exactly and continue with scoped verification. If you need a new contract decision, return to the orchestrator instead of guessing.
 
 ## Example Handoff
 
