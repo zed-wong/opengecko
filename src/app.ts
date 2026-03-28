@@ -390,6 +390,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const bootstrapOnlyValidationRuntime = !options.startBackgroundJobs
     && config.host === '127.0.0.1'
     && config.port === 3102;
+  const seedValidationSnapshotMode = !options.startBackgroundJobs
+    && config.host === '127.0.0.1'
+    && config.port === 3102
+    && config.databaseUrl === ':memory:';
   const suppressBuiltInLogsUntilReady = options.startupProgress != null;
   const useEmojiCompactHttpLogs = config.logPretty && config.httpLogStyle === 'emoji_compact_p';
   const loggerOpts = config.logLevel === 'silent'
@@ -572,7 +576,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       if (
         config.databaseUrl === ':memory:'
         && (
-          bootstrapOnlyValidationRuntime
+          seedValidationSnapshotMode
           || (
             config.host === '0.0.0.0'
             && config.port === 3000
@@ -582,15 +586,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
           marketDataRuntimeState.validationOverride.reason === 'validation runtime seeded from persistent live snapshots'
           || marketDataRuntimeState.validationOverride.reason === 'default runtime seeded from persistent live snapshots'
         )
-        && !marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
       ) {
         marketDataRuntimeState.validationOverride = {
-          mode: 'seeded_bootstrap',
+          mode: marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
+            ? 'degraded_seeded_bootstrap'
+            : 'seeded_bootstrap',
           reason: bootstrapOnlyValidationRuntime
             ? 'validation runtime seeded from persistent live snapshots'
             : 'default runtime seeded from persistent live snapshots',
           snapshotTimestampOverride: marketDataRuntimeState.validationOverride.snapshotTimestampOverride,
-          snapshotSourceCountOverride: marketDataRuntimeState.validationOverride.snapshotSourceCountOverride,
+          snapshotSourceCountOverride: marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
+            ? 0
+            : marketDataRuntimeState.validationOverride.snapshotSourceCountOverride,
         };
       }
       const newlyExposedHotData = !hotDataWasVisible;
