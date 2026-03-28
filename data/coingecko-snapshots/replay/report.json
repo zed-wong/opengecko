@@ -4,12 +4,12 @@
   "manifestId": "coingecko-pro-bounded-v1",
   "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
   "normalizationRulesId": "coingecko-offline-replay-rules-v1",
-  "replayedAt": "2026-03-28T13:16:56.008Z",
+  "replayedAt": "2026-03-28T13:51:44.864Z",
   "validationApiBaseUrl": "http://127.0.0.1:3102",
   "entryCount": 9,
   "findings": [
     {
-      "findingId": "30e9188c3c0474fa",
+      "findingId": "c02275948131c140",
       "entryId": "coin-detail-bitcoin",
       "normalizedPath": "/coins/bitcoin?community_data=false&developer_data=false&localization=false&market_data=true&sparkline=false&tickers=false",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -21,7 +21,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "5a8c471b8020d7a4",
+      "findingId": "77373f80500b3e61",
       "entryId": "coins-markets-canonical",
       "normalizedPath": "/coins/markets?ids=bitcoin%2Cethereum%2Csolana&order=market_cap_desc&page=1&per_page=3&price_change_percentage=24h%2C7d&sparkline=false&vs_currency=usd",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -33,7 +33,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "b6065c807ac429f9",
+      "findingId": "6ad6d095900c8e39",
       "entryId": "exchange-detail-binance",
       "normalizedPath": "/exchanges/binance",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -45,7 +45,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "0ea82658e1205dd6",
+      "findingId": "11bb66af3f31adeb",
       "entryId": "exchange-rates-canonical",
       "normalizedPath": "/exchange_rates",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -57,7 +57,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "323762f06d778e0d",
+      "findingId": "5c6503e0da23ae62",
       "entryId": "exchange-tickers-binance",
       "normalizedPath": "/exchanges/binance/tickers?page=1",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -81,7 +81,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "9e6249d01712c728",
+      "findingId": "9b227dbf0470a0f6",
       "entryId": "global-canonical",
       "normalizedPath": "/global",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -93,7 +93,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "06baa4b85b1e2ef5",
+      "findingId": "d0a49805ffcdb493",
       "entryId": "simple-price-canonical",
       "normalizedPath": "/simple/price?ids=bitcoin%2Cethereum&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true&include_market_cap=true&vs_currencies=usd",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -105,7 +105,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "c0f1a66bc8c735db",
+      "findingId": "bcd8f4d7c3e4a584",
       "entryId": "simple-token-price-ethereum-usdc",
       "normalizedPath": "/simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true&include_market_cap=true&vs_currencies=usd",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",

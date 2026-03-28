@@ -10,6 +10,31 @@
       "id": "expected-token-price-runtime-unavailable",
       "findingKey": "simple-token-price-ethereum-usdc:shape:$status",
       "reason": "Offline validation runs can surface 503 token price responses when no live market snapshots are loaded."
+    },
+    {
+      "id": "expected-exchange-rates-envelope-breadth",
+      "findingKey": "exchange-rates-canonical:missing_field:data|rates",
+      "reason": "The canonical exchange-rates payload preserves positive conversion entries but still uses the legacy `data` envelope instead of CoinGecko's broader `rates` map breadth."
+    },
+    {
+      "id": "expected-global-breadth-gap",
+      "findingKey": "global-canonical:missing_field:data.market_cap_percentage.figr_heloc|data.market_cap_percentage.steth|data.market_cap_percentage.trx|data.total_market_cap.aed|data.total_market_cap.ars|data.total_market_cap.aud|data.total_market_cap.bch|data.total_market_cap.bdt|data.total_market_cap.bhd|data.total_market_cap.bits|data.total_market_cap.bmd|data.total_market_cap.bnb|data.total_market_cap.brl|data.total_market_cap.cad|data.total_market_cap.chf|data.total_market_cap.clp|data.total_market_cap.cny|data.total_market_cap.czk|data.total_market_cap.dkk|data.total_market_cap.dot|data.total_market_cap.eos|data.total_market_cap.gbp|data.total_market_cap.gel|data.total_market_cap.hkd|data.total_market_cap.huf|data.total_market_cap.idr|data.total_market_cap.ils|data.total_market_cap.inr|data.total_market_cap.jpy|data.total_market_cap.krw|data.total_market_cap.kwd|data.total_market_cap.link|data.total_market_cap.lkr|data.total_market_cap.ltc|data.total_market_cap.mmk|data.total_market_cap.mxn|data.total_market_cap.myr|data.total_market_cap.ngn|data.total_market_cap.nok|data.total_market_cap.nzd|data.total_market_cap.php|data.total_market_cap.pkr|data.total_market_cap.pln|data.total_market_cap.rub|data.total_market_cap.sar|data.total_market_cap.sats|data.total_market_cap.sek|data.total_market_cap.sgd|data.total_market_cap.sol|data.total_market_cap.thb|data.total_market_cap.try|data.total_market_cap.twd|data.total_market_cap.uah|data.total_market_cap.vef|data.total_market_cap.vnd|data.total_market_cap.xag|data.total_market_cap.xau|data.total_market_cap.xdr|data.total_market_cap.xlm|data.total_market_cap.xrp|data.total_market_cap.yfi|data.total_market_cap.zar|data.total_volume.aed|data.total_volume.ars|data.total_volume.aud|data.total_volume.bch|data.total_volume.bdt|data.total_volume.bhd|data.total_volume.bits|data.total_volume.bmd|data.total_volume.bnb|data.total_volume.brl|data.total_volume.cad|data.total_volume.chf|data.total_volume.clp|data.total_volume.cny|data.total_volume.czk|data.total_volume.dkk|data.total_volume.dot|data.total_volume.eos|data.total_volume.gbp|data.total_volume.gel|data.total_volume.hkd|data.total_volume.huf|data.total_volume.idr|data.total_volume.ils|data.total_volume.inr|data.total_volume.jpy|data.total_volume.krw|data.total_volume.kwd|data.total_volume.link|data.total_volume.lkr|data.total_volume.ltc|data.total_volume.mmk|data.total_volume.mxn|data.total_volume.myr|data.total_volume.ngn|data.total_volume.nok|data.total_volume.nzd|data.total_volume.php|data.total_volume.pkr|data.total_volume.pln|data.total_volume.rub|data.total_volume.sar|data.total_volume.sats|data.total_volume.sek|data.total_volume.sgd|data.total_volume.sol|data.total_volume.thb|data.total_volume.try|data.total_volume.twd|data.total_volume.uah|data.total_volume.vef|data.total_volume.vnd|data.total_volume.xag|data.total_volume.xau|data.total_volume.xdr|data.total_volume.xlm|data.total_volume.xrp|data.total_volume.yfi|data.total_volume.zar|data.active_cryptocurrencies|data.ended_icos|data.market_cap_change_percentage_24h_usd|data.market_cap_percentage.bnb|data.market_cap_percentage.btc|data.market_cap_percentage.eth|data.market_cap_percentage.sol|data.market_cap_percentage.usdc|data.market_cap_percentage.usdt|data.market_cap_percentage.xrp|data.markets|data.ongoing_icos|data.total_market_cap.btc|data.total_market_cap.eth|data.total_market_cap.eur|data.total_market_cap.usd|data.total_volume.btc|data.total_volume.eth|data.total_volume.eur|data.total_volume.usd|data.updated_at|data.volume_change_percentage_24h_usd",
+      "reason": "The canonical global endpoint now preserves seeded aggregate invariants, but the remaining long-tail currency and dominance breadth is a known bounded divergence from the stored CoinGecko baseline."
+    },
+    {
+      "id": "expected-exchange-registry-ranking-gap",
+      "findingKey": "exchanges-canonical:ranking:$array",
+      "reason": "The canonical exchange registry preserves 200-level availability and representative seeded venues, but its five-row bootstrap ordering remains anchored to the seeded venue set rather than CoinGecko's broader live ranking universe."
+    },
+    {
+      "id": "expected-exchange-detail-breadth-gap",
+      "findingKey": "exchange-detail-binance:missing_field:id|trade_volume_24h_btc_normalized|status_updates|tickers|coins|pairs",
+      "reason": "The canonical Binance detail route now preserves venue identity, representative top tickers, and stable seeded counts, but it intentionally omits CoinGecko's full exchange breadth totals and nested ticker payload on this bootstrap validation surface."
+    },
+    {
+      "id": "expected-exchange-tickers-ranking-gap",
+      "findingKey": "exchange-tickers-binance:ranking:tickers",
+      "reason": "The canonical Binance tickers route returns non-empty seeded/live ticker metadata, but ordering still reflects OpenGecko's converted-volume sorting over the persisted bootstrap corpus instead of CoinGecko's proprietary venue-wide ranking."
     }
   ]
 }
