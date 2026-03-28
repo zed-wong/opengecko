@@ -4,12 +4,12 @@
   "manifestId": "coingecko-pro-bounded-v1",
   "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
   "normalizationRulesId": "coingecko-offline-replay-rules-v1",
-  "replayedAt": "2026-03-28T12:26:41.447Z",
+  "replayedAt": "2026-03-28T12:49:42.043Z",
   "validationApiBaseUrl": "http://127.0.0.1:3102",
   "entryCount": 9,
   "findings": [
     {
-      "findingId": "a638d271e7390602",
+      "findingId": "30e9188c3c0474fa",
       "entryId": "coin-detail-bitcoin",
       "normalizedPath": "/coins/bitcoin?community_data=false&developer_data=false&localization=false&market_data=true&sparkline=false&tickers=false",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -21,7 +21,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "6da605c9b08ce095",
+      "findingId": "5a8c471b8020d7a4",
       "entryId": "coins-markets-canonical",
       "normalizedPath": "/coins/markets?ids=bitcoin%2Cethereum%2Csolana&order=market_cap_desc&page=1&per_page=3&price_change_percentage=24h%2C7d&sparkline=false&vs_currency=usd",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -33,7 +33,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "622f50ea34af286b",
+      "findingId": "b6065c807ac429f9",
       "entryId": "exchange-detail-binance",
       "normalizedPath": "/exchanges/binance",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -57,7 +57,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "054a8dc4ecbe3c67",
+      "findingId": "323762f06d778e0d",
       "entryId": "exchange-tickers-binance",
       "normalizedPath": "/exchanges/binance/tickers?page=1",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -81,7 +81,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "2afbfde30f703f0f",
+      "findingId": "9e6249d01712c728",
       "entryId": "global-canonical",
       "normalizedPath": "/global",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",

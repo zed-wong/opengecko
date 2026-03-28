@@ -119,7 +119,7 @@ type MarketRuntimeOverrides = {
 export function createMarketRuntime(
   app: { inject: (opts: { method: string; url: string }) => Promise<unknown> },
   database: AppDatabase,
-  config: Pick<AppConfig, 'ccxtExchanges' | 'currencyRefreshIntervalSeconds' | 'marketRefreshIntervalSeconds' | 'searchRebuildIntervalSeconds' | 'marketFreshnessThresholdSeconds' | 'providerFanoutConcurrency' | 'startupPrewarmBudgetMs'>,
+  config: Pick<AppConfig, 'ccxtExchanges' | 'currencyRefreshIntervalSeconds' | 'marketRefreshIntervalSeconds' | 'searchRebuildIntervalSeconds' | 'marketFreshnessThresholdSeconds' | 'providerFanoutConcurrency' | 'startupPrewarmBudgetMs' | 'disableRemoteCurrencyRefresh'>,
   logger: RuntimeLogger,
   state: MarketDataRuntimeState,
   metrics: MetricsRegistry,
@@ -155,6 +155,10 @@ export function createMarketRuntime(
   }
 
   const runCurrencyJob = createSerializedJob('currency_refresh', logger, state, async () => {
+    if ('disableRemoteCurrencyRefresh' in config && config.disableRemoteCurrencyRefresh) {
+      return;
+    }
+
     await (overrides.runCurrencyRefreshOnce ?? (() => refreshCurrencyApiRatesOnce()))();
   });
   const runMarketJob = createSerializedJob('market_refresh', logger, state, async () => {

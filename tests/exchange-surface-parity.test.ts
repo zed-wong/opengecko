@@ -172,4 +172,53 @@ describe('exchange surface parity', () => {
       await app.close();
     }
   });
+
+  it('imports persisted Binance tickers into the bootstrap-only validation runtime', async () => {
+    const app = buildApp({
+      config: {
+        host: '127.0.0.1',
+        port: 3102,
+        databaseUrl: ':memory:',
+        ccxtExchanges: [],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      await app.ready();
+
+      const [detailResponse, tickersResponse] = await Promise.all([
+        app.inject({ method: 'GET', url: '/exchanges/binance' }),
+        app.inject({ method: 'GET', url: '/exchanges/binance/tickers?page=1' }),
+      ]);
+
+      expect(detailResponse.statusCode).toBe(200);
+      expect(tickersResponse.statusCode).toBe(200);
+
+      const detail = detailResponse.json();
+      const tickers = tickersResponse.json();
+
+      expect(app.marketDataRuntimeState.validationOverride).toMatchObject({
+        mode: 'seeded_bootstrap',
+        reason: 'validation runtime seeded from persistent live snapshots',
+      });
+      expect(detail.tickers.length).toBeGreaterThan(0);
+      expect(tickers.tickers.length).toBeGreaterThan(0);
+      expect(detail.tickers[0]).toEqual(expect.objectContaining({
+        market: expect.objectContaining({ identifier: 'binance' }),
+        coin_id: expect.any(String),
+        target: expect.any(String),
+        converted_volume: expect.objectContaining({ usd: expect.any(Number) }),
+      }));
+      expect(tickers.tickers[0]).toEqual(expect.objectContaining({
+        market: expect.objectContaining({ identifier: 'binance' }),
+        coin_id: expect.any(String),
+        target_coin_id: null,
+        converted_last: expect.objectContaining({ usd: expect.any(Number) }),
+      }));
+    } finally {
+      await app.close();
+    }
+  });
 });

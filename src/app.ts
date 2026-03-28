@@ -226,6 +226,24 @@ function seedRuntimeSnapshotsFromPersistentStore(
       source_count: number;
       updated_snapshot_at: number;
       last_updated: number;
+      exchange_id: string | null;
+      base: string | null;
+      target: string | null;
+      market_name: string | null;
+      ticker_last: number | null;
+      ticker_volume: number | null;
+      converted_last_usd: number | null;
+      converted_last_btc: number | null;
+      converted_volume_usd: number | null;
+      bid_ask_spread_percentage: number | null;
+      trust_score: string | null;
+      last_traded_at: number | null;
+      last_fetch_at: number | null;
+      is_anomaly: number | null;
+      is_stale: number | null;
+      trade_url: string | null;
+      token_info_url: string | null;
+      coin_gecko_url: string | null;
     }>(`
       SELECT
         ms.coin_id,
@@ -363,6 +381,13 @@ function seedRuntimeSnapshotsFromPersistentStore(
     let latestSnapshotTimestamp: string | null = null;
     let latestSourceCount: number | null = null;
 
+    const existingExchangeIds = new Set(
+      runtimeDatabase.client.prepare<{ id: string }>('SELECT id FROM exchanges').all().map((row) => row.id),
+    );
+    const existingCoinIds = new Set(
+      runtimeDatabase.client.prepare<{ id: string }>('SELECT id FROM coins').all().map((row) => row.id),
+    );
+
     runtimeDatabase.client.exec('BEGIN');
     try {
       for (const row of sourceRows) {
@@ -403,6 +428,30 @@ function seedRuntimeSnapshotsFromPersistentStore(
         if (latestSnapshotTimestamp === null || lastUpdatedIso > latestSnapshotTimestamp) {
           latestSnapshotTimestamp = lastUpdatedIso;
           latestSourceCount = row.source_count;
+        }
+
+        if (row.exchange_id && row.base && row.target && existingExchangeIds.has(row.exchange_id) && existingCoinIds.has(row.coin_id)) {
+          insertTicker.run(
+            row.coin_id,
+            row.exchange_id,
+            row.base,
+            row.target,
+            row.market_name ?? `${row.base}/${row.target}`,
+            row.ticker_last,
+            row.ticker_volume,
+            row.converted_last_usd,
+            row.converted_last_btc,
+            row.converted_volume_usd,
+            row.bid_ask_spread_percentage,
+            row.trust_score,
+            row.last_traded_at,
+            row.last_fetch_at,
+            Boolean(row.is_anomaly),
+            Boolean(row.is_stale),
+            row.trade_url,
+            row.token_info_url,
+            row.coin_gecko_url,
+          );
         }
       }
       runtimeDatabase.client.exec('COMMIT');
@@ -559,6 +608,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         marketDataRuntimeState.validationOverride.reason = bootstrapOnlyValidationRuntime
           ? 'validation runtime seeded from persistent live snapshots'
           : 'default runtime seeded from persistent live snapshots';
+        seedStaticReferenceData(database, { includeSeededExchanges: true });
         seedRuntimeSnapshotsFromPersistentStore(
           database,
           persistentSnapshotDatabaseUrl,
@@ -664,7 +714,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
       // Seed static reference data (treasury, derivatives, onchain) after coins exist
       options.startupProgress?.begin('seed_reference_data');
-      seedStaticReferenceData(database, { includeSeededExchanges: true });
+      if (!persistentSnapshotDatabaseUrl) {
+        seedStaticReferenceData(database, { includeSeededExchanges: true });
+      }
       options.startupProgress?.complete('seed_reference_data');
       options.startupProgress?.begin('rebuild_search_index');
       rebuildSearchIndex(database);

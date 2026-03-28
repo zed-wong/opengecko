@@ -25,6 +25,13 @@ async function start() {
       startupProgress,
     });
 
+    if (validationBootstrapOnlyMode) {
+      await import('./services/currency-rates')
+        .then(({ resetCurrencyApiSnapshotForTests }) => {
+          resetCurrencyApiSnapshotForTests();
+        });
+    }
+
     await app.listen({
       host: config.host,
       port: config.port,
