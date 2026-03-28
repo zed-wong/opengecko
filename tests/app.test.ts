@@ -5782,6 +5782,43 @@ describe('OpenGecko app scaffold', () => {
     }
   });
 
+  it('uses bootstrap-only validation startup semantics for the port-3102 server profile', async () => {
+    const validationServerApp = buildApp({
+      config: {
+        databaseUrl: ':memory:',
+        ccxtExchanges: [],
+        logLevel: 'silent',
+        host: '127.0.0.1',
+        port: 3102,
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      await validationServerApp.ready();
+
+      expect(validationServerApp.marketRuntime).toBeNull();
+      expect(validationServerApp.marketDataRuntimeState.validationOverride).toMatchObject({
+        mode: 'degraded_seeded_bootstrap',
+        reason: 'validation runtime seeded from persistent live snapshots',
+      });
+
+      const diagnosticsResponse = await validationServerApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(diagnosticsResponse.statusCode).toBe(200);
+      expect(diagnosticsResponse.json().data.degraded.validation_override).toMatchObject({
+        active: true,
+        mode: 'degraded_seeded_bootstrap',
+        reason: 'validation runtime seeded from persistent live snapshots',
+      });
+    } finally {
+      await validationServerApp.close();
+    }
+  });
+
   it('fails startup with a targeted initial sync timeout message before Fastify hook timeout masking', async () => {
     const bootstrapApp = buildApp({
       config: {

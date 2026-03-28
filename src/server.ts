@@ -14,9 +14,12 @@ async function start() {
       databaseUrl: config.databaseUrl,
     });
     startupProgress.complete('load_config');
+    const validationBootstrapOnlyMode = config.host === '127.0.0.1'
+      && config.port === 3102
+      && config.databaseUrl === ':memory:';
     const app = buildApp({
       config,
-      startBackgroundJobs: true,
+      startBackgroundJobs: !validationBootstrapOnlyMode,
       pluginTimeout: 0,
       startupPluginTimeout: 110_000,
       startupProgress,
@@ -30,6 +33,7 @@ async function start() {
     app.marketDataRuntimeState.listenerBound = true;
     startupProgress.complete('start_http_listener');
     startupProgress.finish(config.port);
+    app.log.info({ timestamp: new Date().toISOString().replace('.000Z', 'Z') }, `Server listening at http://127.0.0.1:${config.port}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     startupProgress.failCurrent(message);
