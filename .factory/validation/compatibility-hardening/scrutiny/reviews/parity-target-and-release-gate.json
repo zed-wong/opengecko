@@ -1,0 +1,21 @@
+{
+  "featureId": "parity-target-and-release-gate",
+  "reviewedAt": "2026-03-27T16:10:24Z",
+  "commitId": "e90d8ceb943267a5ee89bb93ca3780ce9d8e7951",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature commit cleanly matches its stated scope: it records the parity gate outcome in the implementation tracker and bumps the package version for the milestone release. Current HEAD still supports the report\u2019s core claims because the compatibility audit states 76/76 active non-NFT endpoints are implemented, the tracker reflects all active families as complete including R4 onchain, and the handoff records passing test and typecheck validation before commit.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The compatibility-hardening worker skill instructs report features to manually verify at least 3 representative endpoints with curl, but this release-gate worker only validated via the audit document and automated test/typecheck commands before committing. For report-only parity-gate work, the skill should clarify whether document-backed audit verification is sufficient or whether live curl checks are still mandatory.",
+      "evidence": "The transcript skeleton for worker session 9dfc5f97-b676-4ece-8922-fdc545a5de20 shows `bun run test`, `bun run typecheck`, audit reads, and the tracker/package edits, but no curl commands or server startup. The skill at `/home/whoami/dev/openGecko/.factory/skills/compatibility-hardening-worker/SKILL.md` step 9 requires starting the API on port 3102 and manually verifying 3 representative endpoints."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Pass. The release-gate commit is scoped to `docs/status/implementation-tracker.md` and `package.json`, accurately records the active parity result from `docs/status/compatibility-audit.md`, and remains consistent with current HEAD. The only noted gap is a worker-skill/process mismatch around whether report-only release-gate tasks require manual curl verification."
+}

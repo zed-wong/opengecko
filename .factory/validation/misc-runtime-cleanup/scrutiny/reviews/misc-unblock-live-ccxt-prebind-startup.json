@@ -1,0 +1,15 @@
+{
+  "featureId": "misc-unblock-live-ccxt-prebind-startup",
+  "reviewedAt": "2026-03-28T00:11:07.667976Z",
+  "commitId": "461debf482e4902ec9fa14e71844c6e12b18306e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Deferred startup prewarm until after listener bind is implemented coherently in runtime state, lifecycle control, diagnostics, and regression tests. The change is narrowly scoped to the feature files and matches the stated goal of letting live CCXT startup reach listening state without losing machine-readable prewarm evidence.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Pass. Reviewed the feature metadata, both handoffs, transcript skeleton, commit 461debf, and the touched runtime/diagnostics tests. The implementation correctly defers prewarm to post-bind, exposes listener_bind_deferred diagnostics, preserves warm-observation behavior, and stays within the scoped files."
+}

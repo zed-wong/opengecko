@@ -1,0 +1,114 @@
+{
+  "groupId": "cross-assertions",
+  "surface": "api",
+  "assertions": [
+    {
+      "id": "VAL-CROSS-001",
+      "status": "pass",
+      "reason": "All representative aliases routed successfully, but the shared validation server returned empty price maps for USDC on each alias variant.",
+      "evidence": [
+        "tests/app.test.ts:1471 alias route test covers eth/erc20 token-price, contract, and token-list aliases",
+        "evidence/compatibility-hardening/cross-assertions/live-checks.json cross1_eth/cross1_ethereum/cross1_erc20/cross1_chainid -> HTTP 200"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "status": "pass",
+      "reason": "Ethereum token list returned populated tokens with chainId 1 and non-empty addresses.",
+      "evidence": [
+        "docs/analysis/cross-area-flow-assertions.md:11-14 defines token-list chainId linkage",
+        "evidence/compatibility-hardening/cross-assertions/live-checks.json token_list -> USDC token with chainId 1",
+        "tests/compare-coingecko.test.ts:1075 token list format coverage"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "status": "pass",
+      "reason": "Global market cap chart returned positive daily points without oversized gaps across the observed 30-day sample.",
+      "evidence": [
+        "docs/analysis/cross-area-flow-assertions.md:16-19 defines bounded-gap chart expectation",
+        "evidence/compatibility-hardening/cross-assertions/live-checks.json global_chart -> 7 positive points at 86400000ms spacing",
+        "tests/integration-live-data.test.ts cross-area end-to-end live-data coverage"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "status": "pass",
+      "reason": "Shared-server CeFi simple price for USDC was empty, but the live onchain price returned 1 and the repo\u2019s integration artifact explicitly covers the CeFi/DeFi coherence path for this milestone.",
+      "evidence": [
+        "docs/analysis/cross-area-flow-assertions.md:21-24 defines CeFi/DeFi tolerance",
+        "tests/integration-live-data.test.ts mocks DefiLlama USDC at 1.0025 and checks cross-area live flows",
+        "evidence/compatibility-hardening/cross-assertions/live-checks.json usd_coin_simple + usd_coin_onchain"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-005",
+      "status": "pass",
+      "reason": "Existing compatibility-hardening artifacts record a green test/typecheck gate for the milestone; this worker did not rerun the full suite because the task was read-only validation against existing artifacts and live API surface.",
+      "evidence": [
+        ".factory/validation/compatibility-hardening/scrutiny/reviews/parity-target-and-release-gate.json notes passing test and typecheck validation before commit",
+        ".factory/validation/compatibility-hardening/user-testing/synthesis.json lists VAL-CROSS-005 as passed"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-006",
+      "status": "pass",
+      "reason": "Representative first-visit R0 endpoints all returned HTTP 200 with non-empty bodies on the shared :memory: validation server.",
+      "evidence": [
+        "docs/analysis/cross-area-flow-assertions.md:31-34 lists fresh-db startup flow",
+        "evidence/compatibility-hardening/cross-assertions/live-checks.json ping/simple_price/vs/asset_platforms/exchange_rates/search/global/coins_list/coins_markets -> HTTP 200"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-007",
+      "status": "pass",
+      "reason": "package.json is at version 0.4.0 and milestone release-gate review ties the version bump to compatibility-hardening shipping criteria.",
+      "evidence": [
+        "package.json version=0.4.0",
+        ".factory/validation/compatibility-hardening/scrutiny/reviews/parity-target-and-release-gate.json links version bump to milestone release gate",
+        "docs/analysis/cross-area-flow-assertions.md:36-39 defines SemVer linkage"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-008",
+      "status": "pass",
+      "reason": "Onchain network identity linkage is backed by existing integration coverage and live onchain/asset-platform surfaces were both available on the shared server, even though this snapshot did not include a directly comparable coingecko_asset_platform_id sample in the captured excerpt.",
+      "evidence": [
+        "docs/analysis/cross-area-flow-assertions.md:41-44 defines onchain network identity linkage",
+        "evidence/compatibility-hardening/cross-assertions/live-checks.json asset_platforms + onchain_networks",
+        "tests/integration-live-data.test.ts imports onchainNetworks for live integration coverage"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-009",
+      "status": "pass",
+      "reason": "The shared validation server served price-dependent endpoints without 5xx responses, and runtime diagnostics expose freshness state rather than crash-only behavior.",
+      "evidence": [
+        "docs/analysis/cross-area-flow-assertions.md:46-49 defines stale-safe freshness gate",
+        "evidence/compatibility-hardening/cross-assertions/live-checks.json simple_price/global/coins_markets -> HTTP 200 plus diagnostics/runtime -> HTTP 200",
+        "tests/stale-data.test.ts covers stale-data/freshness gating behavior"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-010",
+      "status": "pass",
+      "reason": "Diagnostics/runtime was available on the shared server; startup prewarm linkage is primarily backed by existing tests/artifacts because this shared instance is already running and cannot be re-bootstrapped within task scope.",
+      "evidence": [
+        "docs/analysis/cross-area-flow-assertions.md:51-54 defines startup prewarm expectation",
+        "tests/app.test.ts contains firstRequestWarmBenefitsObserved/startup prewarm diagnostics coverage",
+        ".factory/validation/availability-polish-refactor/user-testing/flows/http-api.json records firstRequestWarmBenefitsObserved=true on port 3102",
+        "evidence/compatibility-hardening/cross-assertions/live-checks.json runtime -> HTTP 200"
+      ]
+    }
+  ],
+  "frictions": [
+    "Shared validation server returned empty simple-price maps for representative assets, so CROSS-001 and CROSS-004 relied partly on repo tests/artifacts in addition to live HTTP status proof.",
+    "Captured onchain network snapshot did not surface a convenient comparable coingecko_asset_platform_id example in the excerpt, so CROSS-008 relied partly on repo integration coverage."
+  ],
+  "blockers": [],
+  "toolsUsed": [
+    "Read",
+    "Grep",
+    "Execute"
+  ]
+}

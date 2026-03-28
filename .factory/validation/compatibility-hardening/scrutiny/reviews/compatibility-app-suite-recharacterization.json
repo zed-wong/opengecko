@@ -1,43 +1,34 @@
 {
   "featureId": "compatibility-app-suite-recharacterization",
-  "milestone": "compatibility-hardening",
-  "status": "PASS",
+  "reviewedAt": "2026-03-27T16:06:04Z",
+  "commitId": "36b18fedfa63ee92ff39ca0e8694d9c5bca92211",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
   "codeReview": {
-    "blockingIssues": [],
-    "nonBlockingObservations": [
+    "summary": "The original recharacterization commit was test-only, but the existing review report is no longer accurate against current HEAD. Current tests and implementation now show `/coins/{id}/history` returns populated `market_data` and `/coins/{id}/market_chart` returns multi-point seeded series, so the prior review incorrectly passes expectations that no longer match the repository state.",
+    "issues": [
       {
-        "severity": "info",
-        "category": "test-only",
-        "description": "Changes are test-only; no production code modified in this feature."
+        "file": ".factory/validation/compatibility-hardening/scrutiny/reviews/compatibility-app-suite-recharacterization.json",
+        "line": 35,
+        "severity": "blocking",
+        "description": "The existing review summary claims coin history now expects `market_data` to be null, but current HEAD asserts and implements non-null `market_data.current_price.usd` for `/coins/bitcoin/history` (`tests/app.test.ts:6083-6089`, `src/modules/coins/detail.ts:64-94`). The report is stale and inaccurate."
+      },
+      {
+        "file": ".factory/validation/compatibility-hardening/scrutiny/reviews/compatibility-app-suite-recharacterization.json",
+        "line": 35,
+        "severity": "blocking",
+        "description": "The existing review summary claims the chart response is an explicit single-point payload with null market cap, but current HEAD verifies a multi-point seeded series containing historical `market_caps` and `total_volumes` (`tests/app.test.ts:6092-6132`). The report no longer reflects the reviewed feature outcome against current HEAD."
       }
     ]
   },
-  "sharedStateObservations": {
-    "conventions": "None missing - worker followed skill procedure correctly",
-    "services": "None missing - all required services used as documented in services.yaml",
-    "commands": "None missing - all verification commands aligned with skill requirements",
-    "knowledgeGaps": []
-  },
-  "validationEvidence": {
-    "testsAppSuite": {
-      "command": "bun test tests/app.test.ts",
-      "result": "pass",
-      "details": "86 tests passed, 633 expect() calls"
-    },
-    "adjacentCompatibility": {
-      "command": "bun test tests/compare-coingecko.test.ts --test-name-pattern \"token list|token_price|contract|chart|range\"",
-      "result": "pass",
-      "details": "7 compatibility tests passed covering token_price, contract, chart, range endpoints"
-    },
-    "typecheck": {
-      "command": "bun run typecheck",
-      "result": "pass",
-      "details": "TypeScript completed with no diagnostics"
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The worker skill says audit/report features should produce structured reports and list every endpoint covered in the handoff, but the existing worker evidence for this feature was not available from mission `features.json`/handoffs under the assigned feature id, which made current-head scrutiny rely on the existing report plus commit evidence instead of a feature-specific handoff trail.",
+      "evidence": "No `compatibility-app-suite-recharacterization` entry was found in `/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/features.json`, and no matching handoff file existed under the mission handoffs directory; the only direct evidence was the existing review file and commit `36b18fed...`."
     }
-  },
-  "summary": "Feature successfully recharacterized history/chart test expectations in tests/app.test.ts to match current seeded payload contract: coin history now expects market_data as null (not an object with current_price), and chart response expects explicit single-point payload with prices, market_caps (null), and total_volumes arrays. All validation passed; no production code changes.",
-  "workerSessionId": "9f8496b6-d513-42ee-88d2-757620484334",
-  "commitId": "36b18fedfa63ee92ff39ca0e8694d9c5bca92211",
-  "reviewer": "scrutiny-subagent",
-  "timestamp": "2026-03-25T10:45:00.000Z"
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Updated the scrutiny report to fail because the prior review JSON was stale: current HEAD no longer matches the old claim that coin history returns null `market_data` and single-point chart payloads. Evidence came from commit `36b18fed...`, current `tests/app.test.ts`, and current coin detail implementation."
 }

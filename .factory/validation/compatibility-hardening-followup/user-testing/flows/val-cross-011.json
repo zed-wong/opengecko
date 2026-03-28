@@ -1,0 +1,70 @@
+{
+  "assertion_id": "VAL-CROSS-011",
+  "assertion_title": "Fresh-boot simple endpoints return explicit service errors when live snapshots are unavailable",
+  "test_date": "2026-03-27T23:50:17Z",
+  "test_tool": "curl",
+  "base_url": "http://127.0.0.1:3102",
+  "status": "PASS",
+  "tests": [
+    {
+      "test_name": "simple_price_fresh_boot_error_envelope",
+      "request": "GET /simple/price?ids=bitcoin&vs_currencies=usd",
+      "expected_status": 503,
+      "actual_status": 503,
+      "expected_error_type": "service_unavailable",
+      "actual_error_type": "service_unavailable",
+      "response_body": {
+        "error": "service_unavailable",
+        "message": "No usable live market snapshots are available for simple/price."
+      },
+      "result": "PASS"
+    },
+    {
+      "test_name": "simple_token_price_fresh_boot_error_envelope",
+      "request": "GET /simple/token_price/eth?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&vs_currencies=usd",
+      "expected_status": 503,
+      "actual_status": 503,
+      "expected_error_type": "service_unavailable",
+      "actual_error_type": "service_unavailable",
+      "response_body": {
+        "error": "service_unavailable",
+        "message": "No usable live market snapshots are available for simple/token_price."
+      },
+      "result": "PASS"
+    },
+    {
+      "test_name": "runtime_diagnostics_corrobates_zero_live_snapshots",
+      "request": "GET /diagnostics/runtime",
+      "expected_status": 200,
+      "actual_status": 200,
+      "diagnostics_excerpt": {
+        "readiness_state": "ready",
+        "initial_sync_completed": true,
+        "shared_market_snapshot_available": false,
+        "provider_count": 0,
+        "providers": [],
+        "last_successful_live_refresh_at": null
+      },
+      "result": "PASS"
+    }
+  ],
+  "validation_summary": {
+    "total_tests": 3,
+    "passed": 3,
+    "failed": 0,
+    "explicit_error_responses_observed": true,
+    "zero_live_snapshots_confirmed": true
+  },
+  "evidence_files": [
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/compatibility-hardening-followup/val-cross-011/simple-price.headers",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/compatibility-hardening-followup/val-cross-011/simple-price.body",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/compatibility-hardening-followup/val-cross-011/token-price.headers",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/compatibility-hardening-followup/val-cross-011/token-price.body",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/compatibility-hardening-followup/val-cross-011/runtime.headers",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/compatibility-hardening-followup/val-cross-011/runtime.body"
+  ],
+  "frictions": [
+    "Repository AGENTS.md was not present at /home/whoami/dev/openGecko/AGENTS.md; proceeded with README.md, validation-contract guidance search, and .factory/library/user-testing.md."
+  ],
+  "blockers": []
+}

@@ -1,0 +1,44 @@
+{
+  "surface": "repo-validations",
+  "assertionsTested": [
+    "VAL-ONC-001",
+    "VAL-ONC-002",
+    "VAL-ONC-014"
+  ],
+  "passedAssertions": [
+    {
+      "id": "VAL-ONC-001",
+      "reason": "src/providers/defillama.ts exists and exports fetchDefillamaPoolData, fetchDefillamaTokenPrices, and fetchDefillamaDexVolumes for pool TVL, volume, and token price live-data access via api.llama.fi without an API key."
+    },
+    {
+      "id": "VAL-ONC-002",
+      "reason": "src/providers/thegraph.ts exists and exports fetchUniswapV3PoolDetails, fetchUniswapV3PoolSwaps, getUniswapV3PoolSwapsQuery, and fetchUniswapV3PoolSnapshots, with API-key resolution wired through THEGRAPH_API_KEY in src/config/env.ts."
+    },
+    {
+      "id": "VAL-ONC-014",
+      "reason": "bun run test exited 0 with 34/34 test files and 374/374 tests passing; suite output includes onchain endpoint coverage checks for networks, dexes, pools, trades, OHLCV, search, categories, and holders without regressions."
+    }
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": [
+    "Read",
+    "LS",
+    "Grep",
+    "Execute"
+  ],
+  "evidenceFiles": [
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/repo-validations/bun-run-test.txt",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/repo-validations/bun-run-test-tail.txt"
+  ],
+  "summary": {
+    "testedAt": "2026-03-27T05:48:15.999245+00:00",
+    "result": "All assigned assertions passed.",
+    "notes": [
+      "Provider-module assertions were validated by direct source inspection and export verification.",
+      "Onchain regression evidence comes from the full non-mutating Vitest suite because it already exercises the covered onchain contract areas and completed green."
+    ]
+  }
+}

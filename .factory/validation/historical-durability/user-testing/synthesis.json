@@ -1,0 +1,27 @@
+{
+  "milestone": "historical-durability",
+  "round": 2,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-HIST-001",
+    "VAL-HIST-002",
+    "VAL-HIST-003",
+    "VAL-HIST-004",
+    "VAL-HIST-005",
+    "VAL-HIST-006",
+    "VAL-HIST-007",
+    "VAL-HIST-008",
+    "VAL-HIST-009",
+    "VAL-HIST-010"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": ".factory/validation/historical-durability/user-testing/synthesis.json#round-1"
+}

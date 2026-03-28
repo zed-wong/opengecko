@@ -1,0 +1,111 @@
+{
+  "groupId": "api-runtime-cleanup",
+  "testedAt": "2026-03-28T00:25:53.777659+00:00",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "port": 3102,
+    "databaseUrl": ":memory:",
+    "ccxtExchanges": "",
+    "missionDir": "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3"
+  },
+  "toolsUsed": [
+    "python urllib (curl-equivalent HTTP checks)"
+  ],
+  "assertions": [
+    {
+      "id": "MISC-RUNTIME-001",
+      "title": "Fresh boot diagnostics report ready state with no usable live snapshots",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /diagnostics/runtime",
+          "expected": "200 response with readiness.state=ready and no available shared market snapshot on fresh :memory: boot with CCXT_EXCHANGES=''",
+          "observed": "status 200; readiness.state=ready; initial_sync_completed=True; shared_market_snapshot.available=False; provider_count=0"
+        }
+      ],
+      "evidence": {
+        "artifacts": [
+          "misc-runtime-cleanup/api-runtime-cleanup/runtime_diagnostics.json"
+        ],
+        "network": "GET /diagnostics/runtime -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "MISC-RUNTIME-002",
+      "title": "Fresh boot simple price surfaces explicit service_unavailable envelopes",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /simple/price?ids=bitcoin&vs_currencies=usd",
+          "expected": "Explicit service_unavailable envelope instead of an empty object when no usable live snapshots exist",
+          "observed": "status 503; body={'error': 'service_unavailable', 'message': 'No usable live market snapshots are available for simple/price.'}"
+        },
+        {
+          "action": "GET /simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&vs_currencies=usd",
+          "expected": "Explicit service_unavailable envelope instead of an empty object when no usable live snapshots exist",
+          "observed": "status 503; body={'error': 'service_unavailable', 'message': 'No usable live market snapshots are available for simple/token_price.'}"
+        }
+      ],
+      "evidence": {
+        "artifacts": [
+          "misc-runtime-cleanup/api-runtime-cleanup/simple_price.json",
+          "misc-runtime-cleanup/api-runtime-cleanup/simple_token_price.json"
+        ],
+        "network": "GET /simple/price -> 503; GET /simple/token_price/ethereum -> 503"
+      },
+      "issues": null
+    },
+    {
+      "id": "MISC-RUNTIME-003",
+      "title": "Seeded bitcoin market chart remains available on fresh boot",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /coins/bitcoin/market_chart?vs_currency=usd&days=7",
+          "expected": "200 response with non-empty seeded chart data using the deterministic expected timestamps",
+          "observed": "status 200; points=7; timestamps=[1773446400000, 1773532800000, 1773619200000, 1773705600000, 1773792000000, 1773878400000, 1773964800000]"
+        }
+      ],
+      "evidence": {
+        "artifacts": [
+          "misc-runtime-cleanup/api-runtime-cleanup/market_chart.json"
+        ],
+        "network": "GET /coins/bitcoin/market_chart?vs_currency=usd&days=7 -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "MISC-RUNTIME-004",
+      "title": "Seeded strategy treasury transaction history remains available on fresh boot",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /public_treasury/strategy/transaction_history?order=date_desc",
+          "expected": "200 response with the seeded transaction list ordered from newest to oldest",
+          "observed": "status 200; transactions=3; dates=[1773964800000, 1773705600000, 1773446400000]"
+        }
+      ],
+      "evidence": {
+        "artifacts": [
+          "misc-runtime-cleanup/api-runtime-cleanup/treasury_history.json"
+        ],
+        "network": "GET /public_treasury/strategy/transaction_history?order=date_desc -> 200"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Startup prewarm targeted /simple/price and completed, but the same surface still returns service_unavailable on a fresh boot because no shared live market snapshot exists with CCXT_EXCHANGES disabled.",
+      "resolved": true,
+      "resolution": "Confirmed this is expected cleanup behavior by correlating /diagnostics/runtime with the explicit 503 error envelopes from /simple/price and /simple/token_price.",
+      "affectedAssertions": [
+        "MISC-RUNTIME-001",
+        "MISC-RUNTIME-002"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 4 misc runtime cleanup API behaviors: 4 passed, 0 failed, 0 blocked."
+}

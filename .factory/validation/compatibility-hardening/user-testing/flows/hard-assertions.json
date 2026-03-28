@@ -1,0 +1,103 @@
+{
+  "groupId": "hard-assertions",
+  "surface": "api+repo-validations",
+  "assertions": [
+    {
+      "id": "VAL-HARD-001",
+      "status": "pass",
+      "reason": "Parity audit exists and documents 83 matrix rows with 76/76 active non-NFT endpoints implemented, satisfying the >=76 endpoint target.",
+      "evidence": [
+        "docs/status/compatibility-audit.md:5-9",
+        "docs/status/compatibility-audit.md",
+        "docs/status/implementation-tracker.md:25",
+        "local count from compatibility-audit.md: endpoint_rows=83, non_nft_implemented=76"
+      ]
+    },
+    {
+      "id": "VAL-HARD-002",
+      "status": "pass",
+      "reason": "Invalid-parameter coverage spans representative core, exchange/derivatives, treasury, and onchain families with shared fixture-backed error expectations.",
+      "evidence": [
+        "tests/invalid-params.test.ts:75-916",
+        "tests/fixtures/error-fixtures.json",
+        ".factory/validation/compatibility-hardening/scrutiny/reviews/parity-audit-and-invalid-param-coverage.json"
+      ]
+    },
+    {
+      "id": "VAL-HARD-003",
+      "status": "pass",
+      "reason": "Pagination boundary validation is explicitly asserted across coins, exchanges, exchange tickers, derivatives, entities, and onchain networks with the same invalid integer envelope.",
+      "evidence": [
+        "tests/invalid-params.test.ts:617-723",
+        "curl http://127.0.0.1:3102/coins/markets?vs_currency=usd&page=0 -> {\"error\":\"invalid_parameter\",\"message\":\"Invalid integer value: 0\"}"
+      ]
+    },
+    {
+      "id": "VAL-HARD-004",
+      "status": "pass",
+      "reason": "Order validation is covered for coins, coin tickers, categories, exchanges, derivatives, treasury, and onchain sort parameters.",
+      "evidence": [
+        "tests/invalid-params.test.ts:131-138",
+        "tests/invalid-params.test.ts:141-148",
+        "tests/invalid-params.test.ts:253-260",
+        "tests/invalid-params.test.ts:476-536",
+        "tests/invalid-params.test.ts:349-367",
+        "tests/fixtures/error-fixtures.json"
+      ]
+    },
+    {
+      "id": "VAL-HARD-005",
+      "status": "pass",
+      "reason": "Error-envelope consistency is asserted for equivalent 404 and 400 cases across representative endpoint families and matches the live API sample.",
+      "evidence": [
+        "tests/invalid-params.test.ts:588-610",
+        "tests/invalid-params.test.ts:617-647",
+        "curl http://127.0.0.1:3102/exchanges/not-an-exchange -> {\"error\":\"not_found\",\"message\":\"Exchange not found: not-an-exchange\"}"
+      ]
+    },
+    {
+      "id": "VAL-HARD-006",
+      "status": "pass",
+      "reason": "Representative responses are recursively checked for camelCase leaks across simple, assets, coins, exchanges, derivatives, treasury, onchain, and global surfaces.",
+      "evidence": [
+        "tests/invalid-params.test.ts:897-916",
+        "tests/app.test.ts:513-528",
+        "tests/app.test.ts:1543-1563",
+        "tests/app.test.ts:4940-5007"
+      ]
+    },
+    {
+      "id": "VAL-HARD-007",
+      "status": "pass",
+      "reason": "Implemented-endpoint fixture and contract coverage is documented by the audit and exercised broadly in app-level contract tests using shared fixtures.",
+      "evidence": [
+        "docs/status/compatibility-audit.md:11-15",
+        "tests/app.test.ts:87-94",
+        "tests/app.test.ts:1605-1912",
+        "tests/app.test.ts:2303-2364",
+        "tests/fixtures/contract-fixtures.json"
+      ]
+    },
+    {
+      "id": "VAL-HARD-008",
+      "status": "pass",
+      "reason": "Live user-surface samples confirm the hardened API shape: paginated onchain networks return JSON:API data/meta, global uses snake_case keys, and onchain pool detail preserves snake_case plus live-source metadata.",
+      "evidence": [
+        "curl http://127.0.0.1:3102/onchain/networks?page=1 -> data[] + meta{page,per_page,total_pages,total_count}",
+        "curl http://127.0.0.1:3102/global -> data.total_market_cap,total_volume,market_cap_percentage,updated_at",
+        "curl http://127.0.0.1:3102/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640 -> snake_case attributes + meta.data_source=live"
+      ]
+    }
+  ],
+  "frictions": [
+    "The parity audit counts 83 rows because 7 NFT endpoints remain documented as removed-roadmap context; the active release target is 76 implemented non-NFT endpoints."
+  ],
+  "blockers": [],
+  "toolsUsed": [
+    "Read",
+    "Glob",
+    "Grep",
+    "Execute",
+    "TodoWrite"
+  ]
+}

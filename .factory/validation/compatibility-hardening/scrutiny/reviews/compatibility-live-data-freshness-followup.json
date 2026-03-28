@@ -1,15 +1,21 @@
 {
   "featureId": "compatibility-live-data-freshness-followup",
-  "reviewedAt": "2026-03-25T02:30:00.000Z",
-  "commitId": "beb797e8db276812d9a5fa29e1db08b3ec40e418",
+  "reviewedAt": "2026-03-28T00:10:00.000Z",
+  "commitId": "36dec3ceff736649b5732a6b7222370ac23db2a7",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The feature correctly recharacterized the integration-live-data test suite to reflect the current explicit boot/freshness contract behavior. The implementation made minimal changes (16 lines added, 3 removed) only to test assertions, not to production code. All five affected endpoints (/simple/price, /coins/markets, /coins/:id, /coins/:id/ohlc, /exchange_rates) are now properly characterized against mocked fresh snapshot behavior.",
+    "summary": "The existing report was stale. Current HEAD and the mission handoff show this feature is actually the cross-area integration validation commit `36dec3c`, not the earlier freshness-only recharacterization commit. The implementation is test-only and directly covers the remaining milestone assertions in `tests/integration-live-data.test.ts`: alias and token-list continuity, fresh-bootstrap behavior, stale freshness gating, first-visit R0 coverage, SemVer/version checks, CeFi/DeFi USD price coherence for an overlapping token, and compatibility-audit linkage. The current test file at HEAD matches the commit intent and no blocking defects were found in the reviewed feature scope.",
     "issues": []
   },
-  "sharedStateObservations": [],
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The prior scrutiny report for this feature referenced a different historical commit and a different feature scope than the mission metadata now assigns. Review artifacts can drift from mission feature mappings when follow-up features are renamed or repointed.",
+      "evidence": "Mission `features.json` does not contain `compatibility-live-data-freshness-followup`, while `compatibility-hardening` maps the completed worker session `50dd81b3-83ca-4970-bc2e-adc84b6f1b2d` to `cross-area-integration-validation`; the handoff at `/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/handoffs/2026-03-27T16-02-27-344Z__cross-area-integration-validation__50dd81b3-83ca-4970-bc2e-adc84b6f1b2d.json` records commit `36dec3c`, but the old review file pointed to `beb797e8...`."
+    }
+  ],
   "addressesFailureFrom": null,
-  "summary": "The worker successfully recharacterized tests/integration-live-data.test.ts to align with current boot/freshness semantics. The changes verify exact /simple/price keyed payload structure, fresh mocked prices for /coins/markets and /coins/:id, explicit OHLC tuple assertions from mocked backfill, and BTC-based exchange rates with finite fiat conversions. Adjacent compare/live-data compatibility (56 tests) remains green. Skill procedure was followed correctly with no deviations. No shared state gaps identified."
+  "summary": "Updated the stale scrutiny report to match current mission evidence. Reviewed transcript skeleton, handoff, commit `36dec3c`, and current HEAD `tests/integration-live-data.test.ts`; the feature passes review as a test-only cross-area compatibility hardening change with no code issues found."
 }

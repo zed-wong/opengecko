@@ -1,0 +1,206 @@
+{
+  "flow": "historical-durability-api",
+  "generatedAt": "2026-03-27",
+  "server": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "healthCheck": {
+      "endpoint": "/ping",
+      "status": "pass",
+      "evidence": {
+        "statusCode": 200,
+        "body": {
+          "gecko_says": "(V3) To the Moon!"
+        }
+      }
+    },
+    "notes": [
+      "GET /health returned 404 on this validation server, so liveness was confirmed via /ping per repo contract coverage."
+    ]
+  },
+  "assertions": [
+    {
+      "id": "VAL-HIST-001",
+      "status": "pass",
+      "method": "targeted_test",
+      "evidence": {
+        "command": "bun test /home/whoami/dev/openGecko/tests/ohlcv-worker-state.test.ts /home/whoami/dev/openGecko/tests/ohlcv-gap-repair.test.ts /home/whoami/dev/openGecko/tests/ohlcv-runtime.test.ts /home/whoami/dev/openGecko/tests/ohlcv-diagnostics.test.ts",
+        "test": "tests/ohlcv-worker-state.test.ts > extends retained history depth when targetHistoryDays increases",
+        "details": "Target history days increased from 90 to 180 and persisted row targetHistoryDays became 180."
+      }
+    },
+    {
+      "id": "VAL-HIST-002",
+      "status": "pass",
+      "method": "targeted_test",
+      "evidence": {
+        "command": "bun test /home/whoami/dev/openGecko/tests/ohlcv-gap-repair.test.ts",
+        "test": "tests/ohlcv-gap-repair.test.ts > identifies interior missing windows with correct boundaries and slot counts",
+        "details": "Gap descriptors included 2026-03-21 and 2026-03-23 with missingSlotCount 1 for each."
+      }
+    },
+    {
+      "id": "VAL-HIST-003",
+      "status": "pass",
+      "method": "targeted_test",
+      "evidence": {
+        "command": "bun test /home/whoami/dev/openGecko/tests/ohlcv-gap-repair.test.ts /home/whoami/dev/openGecko/tests/ohlcv-runtime.test.ts",
+        "test": [
+          "tests/ohlcv-gap-repair.test.ts > repairs gaps by fetching and persisting missing candles so re-detection is clean",
+          "tests/ohlcv-runtime.test.ts > uses the runtime sync path to repair interior gaps once upstream eventually serves the missing window"
+        ],
+        "details": "Gap repair persisted missing candles and follow-up detection returned no gaps."
+      }
+    },
+    {
+      "id": "VAL-HIST-004",
+      "status": "pass",
+      "method": "targeted_test",
+      "evidence": {
+        "command": "bun test /home/whoami/dev/openGecko/tests/ohlcv-runtime.test.ts",
+        "test": [
+          "tests/ohlcv-runtime.test.ts > continues from persisted cursors after restart",
+          "tests/ohlcv-runtime.test.ts > leases the next eligible target after a restart when an earlier target is still in backoff"
+        ],
+        "details": "Restarted runtime resumed from persisted latestSyncedAt and advanced to the next eligible target when prior work remained in backoff."
+      }
+    },
+    {
+      "id": "VAL-HIST-005",
+      "status": "pass",
+      "method": "targeted_test",
+      "evidence": {
+        "command": "bun test /home/whoami/dev/openGecko/tests/ohlcv-worker-state.test.ts",
+        "test": [
+          "tests/ohlcv-worker-state.test.ts > records failure metadata with exponential backoff",
+          "tests/ohlcv-worker-state.test.ts > resets backoff and returns failed targets to idle after a successful sync"
+        ],
+        "details": "Failure count advanced to 2 and nextRetryAt became failedAt + 10 minutes; later success reset failureCount and nextRetryAt."
+      }
+    },
+    {
+      "id": "VAL-HIST-006",
+      "status": "pass",
+      "method": "api",
+      "evidence": {
+        "command": "curl -sS \"http://127.0.0.1:3102/coins/bitcoin/market_chart?vs_currency=usd&days=7\"",
+        "responseSample": {
+          "first": [
+            1773446400000,
+            79000
+          ],
+          "last": [
+            1773964800000,
+            85000
+          ],
+          "count": 7
+        },
+        "details": "Fresh :memory: server on port 3102 returned the canonical persisted seven-day close series for bitcoin with 7 daily buckets from 1773446400000 through 1773964800000, confirming the endpoint is serving persisted history on current HEAD."
+      }
+    },
+    {
+      "id": "VAL-HIST-007",
+      "status": "pass",
+      "method": "api",
+      "evidence": {
+        "command": "curl -sS \"http://127.0.0.1:3102/coins/bitcoin/ohlc?vs_currency=usd&days=7\"",
+        "responseSample": {
+          "first": [
+            1773446400000,
+            77815,
+            80896,
+            76788,
+            79000
+          ],
+          "last": [
+            1773964800000,
+            84490,
+            86530,
+            82960,
+            85000
+          ],
+          "distinct_ohlc_rows": 7
+        },
+        "details": "Fresh :memory: server on port 3102 returned 7 persisted OHLC tuples with distinct open/high/low/close values (for example 77815/80896/76788/79000 on the first row), proving the endpoint uses canonical OHLCV candles rather than synthesizing from close prices."
+      }
+    },
+    {
+      "id": "VAL-HIST-008",
+      "status": "pass",
+      "method": "targeted_test",
+      "evidence": {
+        "command": "bun test /home/whoami/dev/openGecko/tests/ohlcv-gap-repair.test.ts",
+        "test": "tests/ohlcv-gap-repair.test.ts > prunes candles older than the configured retention window",
+        "details": "Retention enforcement on a 500-day series removed older candles and left 365 retained rows starting at 2025-03-28T00:00:00.000Z."
+      }
+    },
+    {
+      "id": "VAL-HIST-009",
+      "status": "pass",
+      "method": "api_and_test",
+      "evidence": {
+        "commands": [
+          "curl -sS http://127.0.0.1:3102/diagnostics/ohlcv_sync",
+          "bun test /home/whoami/dev/openGecko/tests/ohlcv-diagnostics.test.ts /home/whoami/dev/openGecko/tests/ohlcv-runtime.test.ts"
+        ],
+        "response": {
+          "data": {
+            "top100": {
+              "total": 0,
+              "ready": 0
+            },
+            "targets": {
+              "waiting": 0,
+              "running": 0,
+              "failed": 0
+            },
+            "lag": {
+              "oldest_recent_sync_ms": 0,
+              "oldest_historical_gap_ms": 0
+            },
+            "backfill": {
+              "healthy": 0,
+              "behind": 0,
+              "retry_scheduled": 0,
+              "max_target_history_days": 0
+            }
+          }
+        },
+        "details": "HTTP response exposed the required top100, targets, and lag objects with non-negative numeric values, and targeted diagnostics tests passed."
+      }
+    },
+    {
+      "id": "VAL-HIST-010",
+      "status": "pass",
+      "method": "targeted_test",
+      "evidence": {
+        "command": "bun test /home/whoami/dev/openGecko/tests/ohlcv-worker-state.test.ts",
+        "test": "tests/ohlcv-worker-state.test.ts > leases top100 targets before long-tail targets",
+        "details": "leaseNextOhlcvTarget returned the top100 bitcoin target before the long-tail target."
+      }
+    }
+  ],
+  "frictions": [
+    "GET /health still returned 404 on the validation server, so /ping remained the effective liveness probe for API validation."
+  ],
+  "blockers": [],
+  "toolsUsed": [
+    "Read",
+    "Grep",
+    "Execute",
+    "TodoWrite"
+  ],
+  "commandsRun": [
+    "curl -sS -D - http://127.0.0.1:3102/health",
+    "curl -sS -D - http://127.0.0.1:3102/ping",
+    "bun test /home/whoami/dev/openGecko/tests/ohlcv-worker-state.test.ts /home/whoami/dev/openGecko/tests/ohlcv-gap-repair.test.ts /home/whoami/dev/openGecko/tests/ohlcv-runtime.test.ts /home/whoami/dev/openGecko/tests/ohlcv-diagnostics.test.ts",
+    "curl -sS http://127.0.0.1:3102/diagnostics/ohlcv_sync",
+    "curl -sS \"http://127.0.0.1:3102/coins/bitcoin/market_chart?vs_currency=usd&days=7\"",
+    "curl -sS \"http://127.0.0.1:3102/coins/bitcoin/ohlc?vs_currency=usd&days=7\"",
+    "python3 - <<'PY' ... summarize API responses ... PY"
+  ],
+  "summary": {
+    "passed": 10,
+    "failed": 0,
+    "blocked": 0
+  }
+}

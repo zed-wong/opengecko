@@ -1,0 +1,34 @@
+{
+  "featureId": "misc-commit-cleanup",
+  "reviewedAt": "2026-03-28T00:00:00Z",
+  "commitId": "461debf",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The reviewed feature metadata could not be matched to any mission feature, and the cited handoff points to commit 461debf whose diff changes startup-prewarm tests rather than a misc commit-cleanup scope. Current HEAD also leaves the chart/history expectation edits from the handoff uncommitted, so there is no clean, attributable implementation to approve for this requested feature.",
+    "issues": [
+      {
+        "file": "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/features.json",
+        "line": 1979,
+        "severity": "blocking",
+        "description": "Mission metadata contains `misc-refresh-chart-history-seeded-expectations` but no `misc-commit-cleanup` feature, so the requested review target cannot be traced to a real feature definition with matching description/expectedBehavior."
+      },
+      {
+        "file": "/home/whoami/dev/openGecko/tests/app.test.ts",
+        "line": 6222,
+        "severity": "blocking",
+        "description": "The handoff for the nearest misc-runtime-cleanup implementation claims only seeded chart/history expectation updates, but the cited commit `461debf` does not contain those changes; `git show 461debf -- tests/app.test.ts` only changes startup-prewarm assertions around runtime diagnostics. The current chart/history expectation edits remain uncommitted (`git blame` shows `Not Committed Yet` at lines 6222-6230 and 6266-6268), so there is no committed feature implementation to validate."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The mission artifacts have drifted: the requested review target `misc-commit-cleanup` does not exist in `features.json`, and the closest handoff for `misc-refresh-chart-history-seeded-expectations` cites commit `461debf`, which actually belongs to a different startup-prewarm feature. Reviewers cannot reliably map completed work to feature metadata from shared state alone.",
+      "evidence": "features.json:1979-2001 defines `misc-refresh-chart-history-seeded-expectations`; `git show --stat 461debf` changes `src/services/market-runtime*.ts`, `tests/app.test.ts`, and diagnostics tests for startup prewarm; handoff file `...misc-refresh-chart-history-seeded-expectations__94bb0413...json` claims only test expectation edits."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail: the requested feature cannot be reviewed as a coherent completed implementation because mission metadata/handoff/commit attribution are inconsistent and the claimed chart-history test edits are still uncommitted on current HEAD."
+}

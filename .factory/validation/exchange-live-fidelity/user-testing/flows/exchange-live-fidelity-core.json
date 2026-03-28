@@ -1,0 +1,75 @@
+{
+  "surface": "api-and-repo-validations",
+  "assertions": {
+    "VAL-EXLF-001": {
+      "status": "pass",
+      "evidence": [
+        "tests/market-refresh.test.ts::upserts live coin tickers from exchange refresh results"
+      ]
+    },
+    "VAL-EXLF-002": {
+      "status": "pass",
+      "evidence": [
+        "tests/market-refresh.test.ts::upserts live coin tickers from exchange refresh results"
+      ]
+    },
+    "VAL-EXLF-003": {
+      "status": "pass",
+      "evidence": [
+        "tests/market-refresh.test.ts::surfaces live exchange volumes and ticker stale flags through HTTP routes"
+      ]
+    },
+    "VAL-EXLF-004": {
+      "status": "pass",
+      "evidence": [
+        "tests/market-refresh.test.ts::surfaces live exchange volumes and ticker stale flags through HTTP routes"
+      ]
+    },
+    "VAL-EXLF-005": {
+      "status": "pass",
+      "evidence": [
+        "tests/market-refresh.test.ts::activates cooldown after all exchanges fail and short-circuits repeated refreshes until cooldown expires"
+      ]
+    },
+    "VAL-EXLF-006": {
+      "status": "pass",
+      "evidence": [
+        "tests/market-refresh.test.ts::continues ingesting successful exchanges when one exchange fails"
+      ]
+    },
+    "VAL-EXLF-007": {
+      "status": "pass",
+      "evidence": [
+        "tests/exchange-fidelity.test.ts::returns non-null derivative venue and contract freshness fields"
+      ]
+    },
+    "VAL-EXLF-008": {
+      "status": "pass",
+      "evidence": [
+        "tests/app.test.ts::returns seeded exchanges and exchange detail data",
+        "tests/app.test.ts::returns hourly exchange volume buckets for short ranges",
+        "tests/app.test.ts::returns ranged exchange volume tuples in ascending chronological order with finite numerics"
+      ]
+    },
+    "VAL-EXLF-009": {
+      "status": "pass",
+      "evidence": [
+        "tests/market-refresh.test.ts::surfaces live exchange volumes and ticker stale flags through HTTP routes"
+      ]
+    },
+    "VAL-EXLF-010": {
+      "status": "pass",
+      "evidence": [
+        "tests/exchange-fidelity.test.ts::documents exchange divergences in a structured analysis file"
+      ]
+    }
+  },
+  "toolsUsed": [
+    "bun run test tests/market-refresh.test.ts tests/exchange-fidelity.test.ts tests/app.test.ts",
+    "bun run typecheck"
+  ],
+  "frictions": [
+    "Direct fresh-server startup on port 3102 with CCXT exchanges enabled hit a Fastify onReady timeout during initial market snapshot build, so route assertions were validated through existing HTTP integration tests instead of live curl responses."
+  ],
+  "blockers": []
+}

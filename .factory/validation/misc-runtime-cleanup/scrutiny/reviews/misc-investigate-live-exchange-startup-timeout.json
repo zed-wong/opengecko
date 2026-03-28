@@ -1,0 +1,34 @@
+{
+  "featureId": "misc-investigate-live-exchange-startup-timeout",
+  "reviewedAt": "2026-03-28T00:00:00Z",
+  "commitId": "a5f234d",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The change successfully exposes a clearer pre-bind failure message, but it does not meet the feature's expected behavior because live CCXT startup still cannot reach listen state and no project-level workaround/documented runtime path was added. The feature remains an investigation-only surfacing fix rather than a fix or non-blocking workaround for validation.",
+    "issues": [
+      {
+        "file": "src/app.ts",
+        "line": 205,
+        "severity": "blocking",
+        "description": "The new startup timeout wrapper only replaces Fastify's generic hook timeout with `Startup initial sync exceeded ... before listener bind`; it still rejects during pre-bind initial sync, so fresh validation servers still cannot reach listen state under live `CCXT_EXCHANGES` as required by the feature's expected behavior."
+      },
+      {
+        "file": "src/server.ts",
+        "line": 16,
+        "severity": "blocking",
+        "description": "Setting `startupPluginTimeout: 110_000` shortens the failure path but does not provide the documented non-blocking workaround promised by the feature metadata. The server still exits before binding, leaving `/ping` and curl-based validation unavailable under the target live configuration."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The runtime-provider-worker skill requires manual verification of `/ping` and affected hot endpoints, but this feature handoff marked the procedure as followed even though the server never bound and those probes could not be exercised. The skill guidance may need to spell out how to report investigation-only outcomes when startup never reaches listen state.",
+      "evidence": "runtime-provider-worker/SKILL.md steps 7-9 require live probes including `/ping`; handoff for `misc-investigate-live-exchange-startup-timeout` reports only observing startup logs because the process never reached listen state."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail: commit `a5f234d` improves error surfacing for the live startup hang, but current HEAD evidence shows the feature did not actually unblock live validation startup or add a documented non-blocking workaround, so the scoped expected behavior remains unmet."
+}

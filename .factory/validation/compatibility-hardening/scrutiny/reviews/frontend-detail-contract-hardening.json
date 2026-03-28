@@ -1,36 +1,31 @@
 {
   "featureId": "frontend-detail-contract-hardening",
-  "reviewedAt": "2026-03-25T10:30:00.000Z",
+  "reviewedAt": "2026-03-27T16:06:53Z",
   "commitId": "a10cb4eff93ca76e73ca7d4ffeef3cf7e044f366",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The implementation successfully stabilizes the frontend contract by: (1) updating seeded minimal coin fixtures in src/db/client.ts to include non-empty description.en, image URLs, and Bitcoin genesis date; (2) adding a direct characterization test in tests/frontend-contract-script.test.ts that verifies /coins/bitcoin returns all required frontend minimum fields. The changes are minimal and targeted, preserving existing API compatibility while fixing the specific frontend contract gap.",
+    "summary": "Current HEAD still contains the reviewed fix from commit a10cb4e: seeded minimal coin fixtures now provide non-empty `description.en`, image URLs, and a Bitcoin `genesis_date`, and the frontend contract test suite includes direct route-level assertions for `/coins/bitcoin`. The change remains narrowly scoped to the seeded coin-detail contract and matches the feature outcome expected by the existing scrutiny report.",
     "issues": []
   },
   "sharedStateObservations": [
     {
       "area": "conventions",
-      "observation": "The implementation follows existing conventions documented in AGENTS.md. The work addressed a known pre-existing issue already listed in AGENTS.md under 'Known Pre-Existing Issues' - specifically the `tests/frontend-contract-script.test.ts` failure around `description.en`.",
-      "evidence": "AGENTS.md line: 'tests/frontend-contract-script.test.ts currently fails because the frontend-consumed coin-detail payload does not yet satisfy the script's minimum contract (notably description.en).'"
+      "observation": "The feature continues to align with documented architecture and testing conventions by fixing seeded fixture data in `src/db/client.ts` and proving the contract through route-level tests in `tests/frontend-contract-script.test.ts`.",
+      "evidence": "Current HEAD: `src/db/client.ts:665-693` defines seeded minimal coins with populated `descriptionJson`, image URLs, and Bitcoin `genesisDate`; `tests/frontend-contract-script.test.ts:230-258` asserts `/coins/bitcoin` returns the frontend minimum detail fields."
     },
     {
       "area": "skills",
-      "observation": "Worker followed the compatibility-hardening-worker skill procedure correctly. The skillFeedback.deviations array is empty, indicating no deviations from the documented procedure.",
-      "evidence": "Handoff skillFeedback: { 'followedProcedure': true, 'deviations': [] }"
+      "observation": "No actionable skill-gap evidence was available in mission state for this feature review. The feature-specific handoff/transcript metadata was not present in `features.json` or mission handoff files, so there was nothing current to contradict the existing pass assessment.",
+      "evidence": "Mission inspection found no `frontend-detail-contract-hardening` entry in `/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/features.json` and no matching handoff JSON under the mission `handoffs/` directory, while the commit itself remains reachable from `master`."
     },
     {
       "area": "services",
-      "observation": "Worker used standard commands already defined in services.yaml. No new services or commands were required.",
-      "evidence": "Used standard bun test, bun run typecheck commands from services.yaml"
-    },
-    {
-      "area": "knowledge",
-      "observation": "No new knowledge gaps discovered. The worker leveraged existing patterns for fixture seeding and test characterization that were already documented or derivable from codebase.",
-      "evidence": "Used seededMinimalCoins pattern in src/db/client.ts, followed existing test patterns in tests/frontend-contract-script.test.ts"
+      "observation": "No new service or command requirements were introduced by this feature; the evidence remains limited to code and test changes within the normal Bun/Vitest workflow already documented in `services.yaml`.",
+      "evidence": "`.factory/services.yaml` already documents `bun run test` and `bun run typecheck`, and the reviewed change only touched `src/db/client.ts` and `tests/frontend-contract-script.test.ts`."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "PASS - The feature correctly implements the required frontend contract hardening. The changes restore the minimum coin detail fields (description.en, image URLs, genesis_date for Bitcoin) in the seeded fixtures and add direct characterization coverage. All verification steps passed: the frontend contract test passes, adjacent coin-detail tests pass, and typecheck passes. No code review issues identified. The implementation aligns with the expected behavior defined in the feature specification."
+  "summary": "PASS - The existing review remains accurate against current HEAD. Commit `a10cb4e` still provides the frontend detail contract hardening by populating seeded coin detail essentials and by adding direct `/coins/bitcoin` assertions in the frontend contract test file; no code review issues were found. Mission metadata for this historical feature is incomplete, but the reachable commit diff and current code/tests support the same pass conclusion."
 }

@@ -1,0 +1,112 @@
+{
+  "surface": "api",
+  "assertionsTested": [
+    "VAL-ONC-003",
+    "VAL-ONC-004",
+    "VAL-ONC-005",
+    "VAL-ONC-006",
+    "VAL-ONC-007",
+    "VAL-ONC-008",
+    "VAL-ONC-009",
+    "VAL-ONC-010",
+    "VAL-ONC-011",
+    "VAL-ONC-012",
+    "VAL-ONC-013",
+    "VAL-ONC-015"
+  ],
+  "passedAssertions": [
+    "VAL-ONC-010",
+    "VAL-ONC-011",
+    "VAL-ONC-012",
+    "VAL-ONC-013",
+    "VAL-ONC-015"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-ONC-003",
+      "reason": "GET /onchain/networks/eth/pools returned meta.data_source=\"seeded\" and only the three seeded Ethereum pools; reserve_usd/volume_usd.h24 values match fixture-style seeded responses rather than live-expanded catalog data."
+    },
+    {
+      "id": "VAL-ONC-004",
+      "reason": "GET /onchain/networks/eth/pools/0x88e6... returned meta.data_source=\"seeded\" with fixture values and no live provider enrichment."
+    },
+    {
+      "id": "VAL-ONC-005",
+      "reason": "GET /onchain/networks/eth/pools/0x88e6.../ohlcv/hour returned attributes.source=\"fixture\", so candles were not derived from live The Graph swap events on the running server."
+    },
+    {
+      "id": "VAL-ONC-006",
+      "reason": "GET /onchain/networks/eth/pools/0x88e6.../trades returned meta.source=\"fixture\" with synthetic tx hashes, not live swap-event-backed trades."
+    },
+    {
+      "id": "VAL-ONC-007",
+      "reason": "GET /onchain/simple/networks/eth/token_price/... returned values, but they aligned with seeded aggregate fallbacks (e.g. market_cap_usd 680000000, total_reserve_in_usd 1005000000) and no direct live-path proof was observable on the running server."
+    },
+    {
+      "id": "VAL-ONC-008",
+      "reason": "GET /onchain/networks returned total_count 2, not more than 2 networks."
+    },
+    {
+      "id": "VAL-ONC-009",
+      "reason": "GET /onchain/networks/eth/dexes returned total_count 2, not more than 2 dexes."
+    }
+  ],
+  "blockedAssertions": [],
+  "frictions": [
+    {
+      "description": "The running validation server appeared to have no usable live onchain upstream data path: Ethereum pool/detail endpoints reported seeded data_source and trades/OHLCV reported fixture source despite upstream internet access existing for DeFiLlama protocols.",
+      "affectedAssertions": [
+        "VAL-ONC-003",
+        "VAL-ONC-004",
+        "VAL-ONC-005",
+        "VAL-ONC-006",
+        "VAL-ONC-007",
+        "VAL-ONC-008",
+        "VAL-ONC-009"
+      ]
+    },
+    {
+      "description": "Solana pool detail/trade/OHLCV routes require normalized lowercase addresses; the canonical base58 address listed in /onchain/networks/solana/pools 404s when reused directly in detail routes because normalizeAddress lowercases it.",
+      "affectedAssertions": [
+        "VAL-ONC-012"
+      ]
+    },
+    {
+      "description": "One targeted repository test intended to prove live catalog expansion currently fails in this repo because the provider spy is called 3 times instead of the asserted 1 time.",
+      "affectedAssertions": [
+        "VAL-ONC-003",
+        "VAL-ONC-008",
+        "VAL-ONC-009"
+      ]
+    }
+  ],
+  "blockers": [],
+  "toolsUsed": [
+    "Read",
+    "Grep",
+    "Execute",
+    "curl-like urllib requests",
+    "repository test inspection"
+  ],
+  "evidenceFiles": [
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/networks.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/dexes_eth.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pools_eth.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pool_detail_usdc_weth.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pool_trades_usdc_weth.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pool_ohlcv_usdc_weth.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pool_ohlcv_usdc_weth_token.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/simple_eth_usdc.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pools_solana.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/solana_pool_detail_lower.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pool_detail_uppercase.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pool_detail_mixedcase.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pool_detail_usdc_weth.http400.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pool_trades_solana.http404.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/pool_ohlcv_solana.http404.json",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/defillama_protocols.txt",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/defillama_yields.txt",
+    "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/evidence/onchain-live-data/api-core/targeted_onchain_tests.log"
+  ],
+  "summary": "Real API validation on http://127.0.0.1:3102 found 5 passing assertions (VAL-ONC-010/011/012/013/015) and 7 failing assertions. The running server consistently served seeded/fixture-backed Ethereum onchain responses instead of live-expanded DeFiLlama/The Graph data, while targeted repo tests still demonstrate intended degraded fallback behavior and OHLCV invariants; one live-expansion characterization test currently fails in-repo."
+}

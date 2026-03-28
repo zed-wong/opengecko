@@ -1,0 +1,42 @@
+{
+  "milestone": "misc-runtime-cleanup",
+  "round": 2,
+  "status": "pass",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "bun run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "bun run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "echo \"no lint configured\"",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [],
+  "rejectedObservations": [
+    {
+      "observation": "The prior round suggested AGENTS.md guidance about metadata drift between misc-runtime-cleanup review targets and commits.",
+      "reason": "resolved-by-rerun: fix features now provide attributable commits and current-head reviewability for the previously failing startup and chart-history cleanup concerns."
+    },
+    {
+      "observation": "The prior round suggested runtime-provider-worker skill guidance for investigation-only startup failures.",
+      "reason": "not needed for this rerun: the follow-up fix now reaches listener bind and /ping, so the milestone no longer hinges on investigation-only reporting behavior."
+    }
+  ],
+  "previousRound": ".factory/validation/misc-runtime-cleanup/scrutiny/synthesis.json"
+}

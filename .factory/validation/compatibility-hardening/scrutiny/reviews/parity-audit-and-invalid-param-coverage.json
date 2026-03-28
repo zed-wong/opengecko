@@ -1,0 +1,21 @@
+{
+  "featureId": "parity-audit-and-invalid-param-coverage",
+  "reviewedAt": "2026-03-27T16:09:36Z",
+  "commitId": "c86ff692c2d66d43b63ec4a1e589e6c29c176b80",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Current HEAD matches the feature handoff: Zod validation failures now use the shared `{ error, message }` 400 envelope, invalid-parameter coverage spans the stated representative families, and the compatibility audit documents the full active matrix plus removed NFT context.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The compatibility audit intentionally tracks 83 parity-matrix rows because it includes 7 NFT endpoints as removed-roadmap context, while the active implemented surface is 76 non-NFT endpoints. This nuance is easy to misread from the feature text alone.",
+      "evidence": "docs/status/compatibility-audit.md:5-9 states '83 table entries' and '76 / 76 matrix endpoints outside the removed NFT family'; the feature description in features.json refers to 'all 76 matrix endpoints'."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Pass. Reviewed both worker-session handoffs and the feature commit on current HEAD. The implementation satisfies the feature requirements without current-head defects; only a shared-state note remains about the audit's 83-row vs 76-active-endpoint accounting."
+}

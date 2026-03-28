@@ -21,6 +21,7 @@ Runtime-specific facts and guidance for the runtime hardening mission.
   - `initialSyncCompleted`
   - `allowStaleLiveService`
   - `syncFailureReason`
+- Fresh-boot zero-live behavior is now intentionally explicit: when initial sync completes with no usable live snapshots on that boot, runtime state preserves `initialSyncCompletedWithoutUsableLiveSnapshots`, `/diagnostics/runtime` exposes the zero-live state, and only `/simple/price` plus `/simple/token_price/*` convert that condition into a `503 { error, message }` envelope instead of returning `{}`.
 - Hot-endpoint cache coherence now also depends on `hotDataRevision` in `src/services/market-runtime-state.ts`; any runtime-state transition that changes hot-endpoint freshness/visibility must advance this shared revision so `/simple/price` and `/coins/markets` caches invalidate together.
 - Successful recovery transitions must also clear stale/failure flags consistently across both the background-runtime path (`src/services/market-runtime.ts`) and the bootstrap-only startup path (`src/app.ts`), especially `allowStaleLiveService` and `syncFailureReason`, so diagnostics and hot-endpoint source-class state do not drift from the data actually being served.
 - `src/modules/market-freshness.ts` already encodes important degraded/stale behavior; new fallback work should extend that policy rather than re-inventing it elsewhere.

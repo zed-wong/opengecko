@@ -1,0 +1,79 @@
+{
+  "groupId": "live-trades",
+  "testedAt": "2026-03-27T12:20:20.120828+00:00",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "missionDir": "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3",
+    "assignedAssertions": [
+      "VAL-ONC-005",
+      "VAL-ONC-006"
+    ],
+    "port": 3102,
+    "network": "eth",
+    "poolAddress": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
+  },
+  "toolsUsed": [
+    "curl"
+  ],
+  "commandsRun": [
+    "curl -sS http://127.0.0.1:3102/ping",
+    "curl -sS http://127.0.0.1:3102/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/ohlcv/hour?limit=20",
+    "curl -sS http://127.0.0.1:3102/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades?limit=20"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-ONC-005",
+      "title": "Pool OHLCV derived from real swap events",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Health-check fresh validation server",
+          "expected": "Server responds on port 3102 after stale listener was stopped and fresh :memory: runtime started",
+          "observed": "GET /ping returned 200 with {\"gecko_says\":\"(V3) To the Moon!\"}"
+        },
+        {
+          "action": "Fetch pool OHLCV hour candles with canonical Uniswap V3 pool and limit=20",
+          "expected": "Candles are returned from the approved live swap-event provider path with live source metadata",
+          "observed": "GET /onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/ohlcv/hour?limit=20 returned 200 with attributes.source=\"live\" and 2 hourly candles"
+        },
+        {
+          "action": "Check OHLCV invariants on returned live candles",
+          "expected": "high >= open/close, low <= open/close, timestamps increasing, volume_usd >= 0",
+          "observed": "Returned candles at timestamps 1774130400 and 1774134000 satisfied monotonic ordering and OHLCV invariants; first candle had open=1 high=1 low=0 close=1 volume_usd=646878124646"
+        }
+      ],
+      "evidence": {
+        "files": [],
+        "network": "GET /onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/ohlcv/hour?limit=20 -> 200",
+        "observations": "Response attributes.source was \"live\", proving the endpoint used the live SQD-backed swap-event path instead of fixture fallback."
+      },
+      "issues": ""
+    },
+    {
+      "id": "VAL-ONC-006",
+      "title": "Pool trades from real swap events",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Fetch pool trades with canonical Uniswap V3 pool and limit=20",
+          "expected": "Trades come from the approved live swap-event provider path with tx_hash, block_timestamp, and volume_in_usd fields",
+          "observed": "GET /onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades?limit=20 returned 200 with meta.source=\"live\" and 20 trade records"
+        },
+        {
+          "action": "Verify live trade field presence",
+          "expected": "Trades expose tx_hash, integer block_timestamp, and volume_in_usd",
+          "observed": "First returned trade included tx_hash 0xc5fabbea429a7dc9c12d1888375c15ab6d98050d0cd2c5d56665e159a9a3086b, block_timestamp 1774135079, and volume_in_usd \"2031\""
+        }
+      ],
+      "evidence": {
+        "files": [],
+        "network": "GET /onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades?limit=20 -> 200",
+        "observations": "Response meta.source was \"live\", proving the endpoint returned live SQD-backed trade data rather than fixture records."
+      },
+      "issues": ""
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Retested VAL-ONC-005 and VAL-ONC-006 against a fresh DATABASE_URL=:memory: server on port 3102. Both endpoints returned 200 with source/meta.source=\"live\" for the canonical 0x88e6... pool, satisfying the remaining live-data assertions."
+}

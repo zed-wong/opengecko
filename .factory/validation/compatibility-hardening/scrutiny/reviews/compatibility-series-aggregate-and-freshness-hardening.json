@@ -1,50 +1,39 @@
 {
   "featureId": "compatibility-series-aggregate-and-freshness-hardening",
-  "reviewedAt": "2026-03-25T02:30:00.000Z",
+  "reviewedAt": "2026-03-27T16:06:04.656121Z",
   "commitId": "ddf7f6ebdf5fa7218d943a813f714245b99bd354",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "pass",
+  "status": "fail",
   "codeReview": {
-    "summary": "The implementation successfully addresses the two primary issues identified: (1) restores /token_lists/:platform/all.json parity by seeding static reference data after runtime.start() completes, and (2) modernizes test harnesses to remove Bun-incompatible vi.mocked(...) usage. The code changes are syntactically correct and typecheck passes. However, the feature description also mentioned cross-endpoint chart/range semantics, aggregate reconciliation, onchain aggregation lineage, and freshness tolerance hardening - these were not addressed by this commit. The handoff notes these as pre-existing broader-suite issues to be handled in follow-up work.",
+    "summary": "Current HEAD no longer matches the existing pass report. The reviewed commit only reseeded static reference data after runtime startup and replaced Bun-incompatible test mock helpers; it did not implement the broader compatibility-series aggregate/freshness hardening that the report claims. Since current HEAD separately normalized 400 validation envelopes in `src/http/errors.ts`, the old report's statement that Zod errors still emit `{ error: 'invalid_request', details }` is now stale. The existing report must therefore fail as inaccurate against both the commit diff and current repository state.",
     "issues": [
       {
-        "file": "src/app.ts",
-        "line": 103-108,
-        "severity": "non_blocking",
-        "description": "The implementation adds seedStaticReferenceData and rebuildSearchIndex calls after runtime.start(), which fixes the token-list parity issue. This is correct implementation. However, the broader feature requirements for chart/range alignment, aggregate reconciliation, and onchain aggregation were not addressed in this commit - these are noted as pre-existing in the handoff."
+        "file": "/home/whoami/dev/openGecko/.factory/validation/compatibility-hardening/scrutiny/reviews/compatibility-series-aggregate-and-freshness-hardening.json",
+        "line": 1,
+        "severity": "blocking",
+        "description": "The existing review report is materially inaccurate: it references broader chart/range, aggregate, and freshness hardening work that is absent from commit `ddf7f6ebdf5fa7218d943a813f714245b99bd354`, whose diff only touches `src/app.ts`, `tests/compare-coingecko.test.ts`, and `tests/integration-live-data.test.ts`."
       },
       {
-        "file": "tests/compare-coingecko.test.ts",
-        "line": "21-23",
-        "severity": "non_blocking",
-        "description": "The vi.mocked(...) replacement with explicit mock aliases is correct and resolves Bun runtime incompatibility. No new characterization tests were written as per verification step 1, but the existing test suite passes after the fix."
-      },
-      {
-        "file": "tests/integration-live-data.test.ts",
-        "line": "21-23",
-        "severity": "non_blocking",
-        "description": "Same vi.mocked replacement pattern applied correctly. The test suite passes after the fix with 34/34 endpoint checks passing."
+        "file": "/home/whoami/dev/openGecko/.factory/validation/compatibility-hardening/scrutiny/reviews/compatibility-series-aggregate-and-freshness-hardening.json",
+        "line": 1,
+        "severity": "blocking",
+        "description": "The existing report's shared-state observation claiming `src/http/errors.ts` still emits `{ error: 'invalid_request', details }` for Zod validation failures is no longer true on current HEAD. `src/http/errors.ts` now returns `{ error: 'invalid_parameter', message }`, and current tests/assertions in `tests/invalid-params.test.ts` and `tests/app.test.ts` reflect that normalized envelope."
       }
     ]
   },
   "sharedStateObservations": [
     {
       "area": "skills",
-      "observation": "The worker followed the skill procedure (skillFeedback.followedProcedure: true). However, the skill's verification step 1 explicitly asks to 'Write characterization tests first' for cross-area work, but no new characterization tests were added. Step 3 asks for manual curl verification, but this wasn't documented in the handoff's interactiveChecks. The work focused on a narrower scope than the full feature description.",
-      "evidence": "Verification steps in features.json expected: 'Write characterization tests first for range/lookback alignment, aggregate reconciliation, and shared freshness checks' and 'Manual: capture aligned endpoint responses within one window'. Handoff shows only test suite runs, no new tests added."
+      "observation": "The feature was reviewed under `compatibility-hardening-worker`, but the recorded commit/handoff evidence is actually about a narrow parity-fixture restoration plus Bun mock compatibility fix. The skill expects endpoint-parity, invalid-parameter, or compatibility-surface hardening work with representative manual verification; this mismatch suggests the feature-to-commit attribution in mission state/review artifacts is unreliable.",
+      "evidence": "`compatibility-hardening-worker/SKILL.md` describes audit/invalid-param/report work. Commit `ddf7f6ebdf5fa7218d943a813f714245b99bd354` only changes `src/app.ts`, `tests/compare-coingecko.test.ts`, and `tests/integration-live-data.test.ts`, while the current feature handoffs in the mission for compatibility hardening are for `parity-audit-and-invalid-param-coverage` (worker sessions `b54c01b5-01d5-4899-bbd2-2a6276c16d26` and `b04bc47c-c086-4087-8ba0-d00fa467d789`)."
     },
     {
       "area": "conventions",
-      "observation": "The implementation follows existing patterns: seedStaticReferenceData and rebuildSearchIndex were already being called in non-runtime path (lines 122-127 in app.ts), and the runtime path now also calls them. The vi.mocked replacement follows the pattern documented in AGENTS.md 'Implementation Patterns Discovered During Validation'.",
-      "evidence": "AGENTS.md line: 'In Bun's Vitest-compatible runtime, avoid vi.mocked(...); use explicit typed mock aliases or direct casts for mocked functions instead.'"
-    },
-    {
-      "area": "services",
-      "observation": "No new services or commands were used that aren't already in services.yaml. The worker used standard bun commands already defined.",
-      "evidence": "services.yaml defines test, typecheck commands - worker used bun test and bun run typecheck"
+      "observation": "The existing scrutiny review artifact became stale as current HEAD evolved, but there is no documented mission/shared-state rule for refreshing earlier scrutiny reports when later commits invalidate factual statements inside them.",
+      "evidence": "Existing review file still says Zod validation errors use `{ error: 'invalid_request', details }`, but current `src/http/errors.ts` returns `{ error: 'invalid_parameter', message }` and related tests now assert that shape."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "The commit ddf7f6eb successfully fixes the token-list parity issue and modernizes the test harnesses to be Bun-compatible. The implementation is correct for the changes made. However, this represents a subset of the feature's scope - chart/range alignment, aggregate reconciliation, and onchain aggregation work were not addressed. The handoff appropriately notes the remaining app.test.ts failures as pre-existing issues to be handled in follow-up work. The worker followed the skill procedure and achieved validators passed status for the targeted test slices (56 tests, 34/34 endpoint checks)."
+  "summary": "Review fails because the existing scrutiny report is no longer accurate. The cited commit `ddf7f6ebdf5fa7218d943a813f714245b99bd354` only restored post-runtime seeding/search rebuild and adjusted Bun mock usage, while current HEAD has also changed validation-envelope behavior, making the old report's findings stale."
 }

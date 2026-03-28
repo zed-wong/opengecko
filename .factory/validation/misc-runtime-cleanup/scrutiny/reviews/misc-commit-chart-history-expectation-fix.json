@@ -1,0 +1,15 @@
+{
+  "featureId": "misc-commit-chart-history-expectation-fix",
+  "reviewedAt": "2026-03-28T00:19:32.022022+00:00",
+  "commitId": "a6eebee5b79bacd31e7432057f320ebb59b6a6f8",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix feature resolves the prior attribution failure by capturing the chart/history expectation refresh in a dedicated test-only commit. Commit `a6eebee` cleanly contains the `tests/app.test.ts` updates that were previously left uncommitted, and current HEAD remains reviewable because those expectation changes are now attributable to this feature commit rather than mixed into unrelated working-tree state.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": "/home/whoami/dev/openGecko/.factory/validation/misc-runtime-cleanup/scrutiny/reviews/misc-refresh-chart-history-seeded-expectations.json",
+  "summary": "Pass: prior scrutiny failure is resolved. The `tests/app.test.ts` expectation refresh that was previously uncommitted is now committed in clean feature-scoped commit `a6eebee5b79bacd31e7432057f320ebb59b6a6f8`, and the diff shows only the intended chart/history assertion updates. Current HEAD is reviewable despite unrelated `.factory/...` and runtime-diagnostics working-tree changes because this feature's implementation is now fully attributable to the committed test-only diff."
+}

@@ -103,7 +103,7 @@
         { "action": "GET /onchain/networks/eth/pools/multi/0x4e68...,0x88e6...", "expected": "data[] collection with resources for both addresses", "observed": "Response contains data[] with 2 pool resources matching requested addresses: 0x4e68ccd3... and 0x88e6a0c2..." }
       ],
       "evidence": {
-        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b",
+        "request": "GET http://127.0.0.1:3102/onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
         "response": "{data: [{id: '0x4e68ccd3...', ...}, {id: '0x88e6a0c2...', ...}]}",
         "networkCalls": "200 OK with JSON:API collection"
       },

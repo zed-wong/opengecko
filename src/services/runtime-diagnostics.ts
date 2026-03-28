@@ -7,6 +7,7 @@ export type RuntimeDiagnostics = {
   readiness: {
     state: 'starting' | 'ready' | 'degraded';
     listener_bound: boolean;
+    listener_bind_deferred: boolean;
     initial_sync_completed: boolean;
   };
   degraded: {
@@ -153,6 +154,7 @@ export function buildRuntimeDiagnostics(
     readiness: {
       state: readinessState,
       listener_bound: runtimeState.listenerBound,
+      listener_bind_deferred: runtimeState.listenerBindDeferred,
       initial_sync_completed: effectiveInitialSyncCompleted,
     },
     degraded: {

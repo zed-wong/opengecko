@@ -1,0 +1,28 @@
+{
+  "featureId": "misc-refresh-chart-history-seeded-expectations",
+  "reviewedAt": "2026-03-28T00:11:18.786641+00:00",
+  "commitId": "461debf",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature\u2019s intended scope was limited to updating two seeded chart/history expectations in tests, but the referenced handoff commit does not contain those changes. Current HEAD still has the test updates as uncommitted working-tree edits instead of part of the feature commit, so the implementation is not cleanly attributable to the reviewed feature even though the test assertions themselves match current seeded-series semantics.",
+    "issues": [
+      {
+        "file": "tests/app.test.ts",
+        "line": 6222,
+        "severity": "blocking",
+        "description": "The updated bitcoin chart/ohlc expectations for this feature are present only as uncommitted working-tree changes, not in the reviewed handoff commit `461debf`. `git show 461debf -- tests/app.test.ts` contains only startup-prewarm assertions, so the feature commit does not actually include the claimed test-fix implementation."
+      },
+      {
+        "file": "tests/app.test.ts",
+        "line": 6432,
+        "severity": "blocking",
+        "description": "The contract-address market_chart expectation changes are likewise uncommitted rather than part of the feature handoff commit. This leaves the feature unreproducible from its recorded commit and fails the requested scoped review against current HEAD/feature diff evidence."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Fail: the asserted test expectation fixes appear correct in the current working tree, but they were not captured in the reviewed feature commit. The handoff claims implementation in `tests/app.test.ts`, yet `commitId` `461debf` is a different prewarm/runtime change and does not contain the scoped test updates."
+}

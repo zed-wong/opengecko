@@ -1,0 +1,40 @@
+{
+  "milestone": "exchange-live-fidelity",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "bun run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "bun run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "echo \"no lint configured\"",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Document that scrutiny and manual validation may encounter an already-running validator on port 3102, and workers should either reuse that fast-profile server or stop it before starting a new validation server.",
+      "evidence": "Review for feature exchange-derivatives-freshness cited worker session 3619e4c6-872b-4c22-b55c-834c07ecfe7d hitting EADDRINUSE on port 3102 while curls still succeeded against the existing validator; current AGENTS guidance mentions port bounds and :memory: usage but not this recurring reuse/stop pattern.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [],
+  "previousRound": null
+}

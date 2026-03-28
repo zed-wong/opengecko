@@ -1,0 +1,27 @@
+{
+  "milestone": "exchange-live-fidelity",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-EXLF-001",
+    "VAL-EXLF-002",
+    "VAL-EXLF-003",
+    "VAL-EXLF-004",
+    "VAL-EXLF-005",
+    "VAL-EXLF-006",
+    "VAL-EXLF-007",
+    "VAL-EXLF-008",
+    "VAL-EXLF-009",
+    "VAL-EXLF-010"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null
+}

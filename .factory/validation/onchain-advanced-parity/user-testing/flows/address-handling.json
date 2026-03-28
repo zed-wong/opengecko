@@ -68,7 +68,7 @@
           "observed": "Returns 404 error: 'Onchain pool not found: 0x4e68Ccd3E89F51c3074Ca5072bBAc773960dfA36'"
         },
         {
-          "action": "GET /onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b (lowercase)",
+          "action": "GET /onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640 (lowercase)",
           "expected": "Returns pools for valid addresses",
           "observed": "Returns 2 pools"
         },
@@ -92,7 +92,7 @@
         "pool_detail_lowercase": "GET /onchain/networks/eth/pools/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36 -> 200 OK",
         "pool_detail_uppercase": "GET /onchain/networks/eth/pools/0x4E68CCD3E89F51C3074CA5072BBAC773960DFA36 -> 404 not found",
         "pool_detail_mixed": "GET /onchain/networks/eth/pools/0x4e68Ccd3E89F51c3074Ca5072bBAc773960dfA36 -> 404 not found",
-        "pool_multi_lowercase": "GET /onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,0x88e6a0c2ddd26fce6b7c8f1ec5fef66f5f8f2b4b -> 2 pools",
+        "pool_multi_lowercase": "GET /onchain/networks/eth/pools/multi/0x4e68ccd3e89f51c3074ca5072bbac773960dfa36,0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640 -> 2 pools",
         "pool_multi_uppercase": "GET /onchain/networks/eth/pools/multi/0x4E68CCD3E89F51C3074CA5072BBAC773960DFA36 -> [] (empty)",
         "contract_lowercase": "GET /coins/ethereum/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 -> 200 OK, id='usd-coin'",
         "contract_uppercase": "GET /coins/ethereum/contract/0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48 -> 200 OK, id='usd-coin'"

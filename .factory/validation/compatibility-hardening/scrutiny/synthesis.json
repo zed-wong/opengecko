@@ -1,13 +1,13 @@
 {
   "milestone": "compatibility-hardening",
-  "round": 2,
-  "status": "pass",
+  "round": 3,
+  "status": "fail",
   "validatorsRun": {
     "test": {
       "passed": true,
-      "command": "bun run test -- --maxWorkers=3",
+      "command": "bun run test",
       "exitCode": 0,
-      "note": "All 271 tests pass - major improvement from Round 1's 7 failures"
+      "note": "Current HEAD passes full Vitest suite: 39 test files, 414 tests."
     },
     "typecheck": {
       "passed": true,
@@ -16,80 +16,118 @@
     },
     "lint": {
       "passed": "N/A",
-      "command": "none",
-      "exitCode": null,
-      "note": "No lint configuration found in project (no ESLint, Biome, or similar)"
+      "command": "echo \"no lint configured\"",
+      "exitCode": 0,
+      "note": "Project services manifest defines lint as a no-op because no lint tool is configured."
     }
   },
   "reviewsSummary": {
-    "total": 10,
-    "completed": 10,
+    "total": 13,
+    "completed": 13,
     "passed": 10,
-    "failed": 0,
-    "failedFeatures": [],
-    "note": "All 10 completed implementation features in the milestone have been reviewed. Round 1 reviewed 6 features (all passed), Round 2 reviewed the remaining 4 features (all passed)."
+    "failed": 3,
+    "failedFeatures": [
+      "compatibility-identity-consistency-hardening",
+      "compatibility-series-aggregate-and-freshness-hardening",
+      "compatibility-app-suite-recharacterization"
+    ],
+    "note": "Round 3 re-reviewed compatibility-hardening against current mission metadata and current HEAD. Three legacy review artifacts now fail due to stale feature/commit attribution drift; ten current-head reviews pass."
   },
-  "blockingIssues": [],
-  "featureReviews": [
+  "blockingIssues": [
     {
       "featureId": "compatibility-identity-consistency-hardening",
-      "status": "pass",
-      "round": 1,
-      "summary": "Hardened identity continuity for seeded token/contract mappings; 9 of 11 validation assertions covered"
+      "severity": "blocking",
+      "description": "Legacy scrutiny artifact references a feature ID absent from mission features/transcripts and an unreachable commit, so the feature cannot be authoritatively reviewed against current HEAD."
     },
     {
       "featureId": "compatibility-series-aggregate-and-freshness-hardening",
-      "status": "pass",
-      "round": 1,
-      "summary": "Fixed token-list parity and modernized vi.mocked usage; broader chart/range work noted as pre-existing"
+      "severity": "blocking",
+      "description": "Existing review artifact is stale: it claims broader aggregate/freshness hardening than the cited commit implements and contains outdated claims about current 400 validation envelopes."
     },
     {
       "featureId": "compatibility-app-suite-recharacterization",
-      "status": "pass",
-      "round": 1,
-      "summary": "Recharacterized history/chart test expectations; test-only changes"
+      "severity": "blocking",
+      "description": "Existing review artifact is stale: it asserts null history market_data and single-point market_chart behavior that no longer match current HEAD tests or implementation."
+    }
+  ],
+  "featureReviews": [
+    {
+      "featureId": "compatibility-identity-consistency-hardening",
+      "status": "fail",
+      "round": 3,
+      "summary": "Round 3 review found the feature ID no longer exists in mission metadata or transcript records, and its prior review references an unreachable commit."
+    },
+    {
+      "featureId": "compatibility-series-aggregate-and-freshness-hardening",
+      "status": "fail",
+      "round": 3,
+      "summary": "Round 3 review found the existing pass report overstated the cited commit scope and contains stale claims about current validation envelopes."
+    },
+    {
+      "featureId": "compatibility-app-suite-recharacterization",
+      "status": "fail",
+      "round": 3,
+      "summary": "Round 3 review found the existing pass report no longer matches current HEAD behavior for coin history and market chart responses."
     },
     {
       "featureId": "compatibility-live-data-freshness-followup",
       "status": "pass",
-      "round": 1,
-      "summary": "Recharacterized integration-live-data test expectations for boot/freshness semantics"
+      "round": 3,
+      "summary": "Round 3 review remapped the stale report to the current cross-area integration evidence and found no code issues."
     },
     {
       "featureId": "frontend-detail-contract-hardening",
       "status": "pass",
-      "round": 1,
-      "summary": "Added description.en to seeded fixtures; added characterization test"
+      "round": 3,
+      "summary": "Round 3 review confirmed the seeded detail-fixture hardening still holds on current HEAD."
     },
     {
       "featureId": "compatibility-rate-payload-recharacterization",
       "status": "pass",
-      "round": 1,
-      "summary": "Recharacterized exchange-rate expectations to use contract assertions"
+      "round": 3,
+      "summary": "Round 3 review confirmed the exchange-rate contract characterization remains accurate on current HEAD."
     },
     {
       "featureId": "compatibility-pagination-null-and-error-semantics-hardening",
       "status": "pass",
       "round": 2,
-      "summary": "Added 4 characterization tests for pagination determinism, error envelope compatibility, and null-vs-omitted field policy. Implementation correctly uses shared parsePositiveInt and HttpError utilities."
+      "summary": "Existing Round 2 review still matches current HEAD and no blocking issues were found."
     },
     {
       "featureId": "startup-live-data-readiness-hardening",
       "status": "pass",
       "round": 2,
-      "summary": "Added whenReady() API to MarketRuntime that blocks Fastify ready state until initial sync completes. Tests recharacterized to verify deterministic post-ready behavior."
+      "summary": "Existing Round 2 review still matches current HEAD and no blocking issues were found."
     },
     {
       "featureId": "onchain-array-matcher-hardening",
       "status": "pass",
       "round": 2,
-      "summary": "Hardened 3 brittle array matchers in tests/app.test.ts for trending pools and pool trades. Replaced toMatchObject with robust toEqual forms preserving relationship checks."
+      "summary": "Existing Round 2 review still matches current HEAD and no blocking issues were found."
     },
     {
       "featureId": "frontend-description-contract-recharacterization",
       "status": "pass",
       "round": 2,
-      "summary": "Recharacterized frontend contract test to check for non-empty description.en instead of specific fixture string. Aligns with shell script's actual minimum contract."
+      "summary": "Existing Round 2 review still matches current HEAD and no blocking issues were found."
+    },
+    {
+      "featureId": "parity-audit-and-invalid-param-coverage",
+      "status": "pass",
+      "round": 3,
+      "summary": "Round 3 review confirmed the audit document and normalized 400 envelope coverage still match current HEAD."
+    },
+    {
+      "featureId": "parity-target-and-release-gate",
+      "status": "pass",
+      "round": 3,
+      "summary": "Round 3 review confirmed the parity gate documentation and version bump remain accurate on current HEAD."
+    },
+    {
+      "featureId": "cross-area-integration-validation",
+      "status": "pass",
+      "round": 3,
+      "summary": "Round 3 review confirmed the direct cross-area integration assertions remain isolated and correct on current HEAD."
     }
   ],
   "discoveredIssues": [],
@@ -97,12 +135,29 @@
   "suggestedGuidanceUpdates": [
     {
       "target": "AGENTS.md",
-      "suggestion": "Consider adding lint tool (ESLint or Biome) for code quality enforcement",
-      "evidence": "No lint configuration found in project; this was noted in prior synthesis as non-blocking",
+      "suggestion": "Document how scrutiny should handle legacy review files whose feature IDs or commit references drift out of mission metadata/current HEAD, so reruns can distinguish true code regressions from stale artifact mismatches.",
+      "evidence": "Round 3 found three compatibility-hardening review artifacts that no longer map to current mission features or current-head behavior, causing scrutiny failures even though validators are green.",
+      "isSystemic": true
+    },
+    {
+      "target": "compatibility-hardening-worker skill",
+      "suggestion": "Clarify whether report-only parity-gate features must still perform manual curl checks or may rely on audit documents plus automated validators when no runtime code changes are made.",
+      "evidence": "The parity-target-and-release-gate review found the worker followed audit/test/typecheck validation only, while the skill text still requires three representative curl checks.",
       "isSystemic": false
     }
   ],
-  "rejectedObservations": [],
+  "rejectedObservations": [
+    {
+      "observation": "Consider adding a lint tool for the project.",
+      "reason": "Out of scope for this scrutiny rerun and not required to validate the compatibility-hardening milestone."
+    }
+  ],
   "previousRound": ".factory/validation/compatibility-hardening/scrutiny/synthesis.json",
-  "notes": "Round 2 validation PASSES. All 7 test failures from Round 1 are now resolved. The 4 features that were not reviewed in Round 1 have been reviewed in Round 2 and all pass. Validators: test (271/271 pass), typecheck (pass), lint (N/A). No blocking issues found. The milestone is ready for user-testing validation."
+  "notes": "Round 3 revalidated current HEAD. Validators are green, but scrutiny now fails because three legacy compatibility-hardening review artifacts are stale or no longer map to mission metadata/current-head behavior. User-testing should wait until orchestrator resolves the feature/review attribution drift or creates explicit fix-up features."
+  ,
+  "override": {
+    "applied": true,
+    "appliedBy": "orchestrator",
+    "justification": "Round 3 validators are green and the remaining failures are stale legacy scrutiny artifacts that no longer map to current mission features or reachable current-head commits. Current compatibility-hardening features passed review, and mission AGENTS guidance now tells validators to escalate this artifact drift instead of treating it as a code regression."
+  }
 }

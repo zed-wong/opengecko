@@ -1,0 +1,15 @@
+{
+  "featureId": "misc-unblock-live-ccxt-prebind-startup",
+  "reviewedAt": "2026-03-28T00:19:04Z",
+  "commitId": "461debf482e4902ec9fa14e71844c6e12b18306e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The follow-up fix resolves the prior blocking startup issue. The original feature only surfaced a clearer timeout while still failing before listener bind, but current HEAD now binds the server before startup prewarm by deferring prewarm until `markListenerBound()`, preserving machine-readable diagnostics and targeted regression coverage for the deferred state.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": "/home/whoami/dev/openGecko/.factory/validation/misc-runtime-cleanup/scrutiny/reviews/misc-investigate-live-exchange-startup-timeout.json",
+  "summary": "Pass: reviewed the prior failed startup-timeout investigation, the follow-up fix handoffs, transcript skeleton, commits `a5f234d` and `461debf`, and current HEAD runtime code. The prior failure was that live CCXT startup still timed out before listener bind; the fix now defers startup prewarm until after bind, exposes `listener_bind_deferred` diagnostics, and the recorded live verification shows `/ping` becomes reachable under live `CCXT_EXCHANGES`, so the startup-unblock concern is now resolved."
+}

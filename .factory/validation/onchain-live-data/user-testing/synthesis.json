@@ -1,0 +1,32 @@
+{
+  "milestone": "onchain-live-data",
+  "round": 6,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-ONC-001",
+    "VAL-ONC-002",
+    "VAL-ONC-003",
+    "VAL-ONC-004",
+    "VAL-ONC-005",
+    "VAL-ONC-006",
+    "VAL-ONC-007",
+    "VAL-ONC-008",
+    "VAL-ONC-009",
+    "VAL-ONC-010",
+    "VAL-ONC-011",
+    "VAL-ONC-012",
+    "VAL-ONC-013",
+    "VAL-ONC-014",
+    "VAL-ONC-015"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": ".factory/validation/onchain-live-data/user-testing/synthesis.json (round 5)"
+}

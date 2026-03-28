@@ -1,0 +1,21 @@
+{
+  "featureId": "misc-investigate-fresh-boot-simple-price-empties",
+  "reviewedAt": "2026-03-27T23:45:43.328118+00:00",
+  "commitId": "ba984ed",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Current HEAD commit `ba984ed` implements the fresh-boot zero-live contract as described. The runtime state now preserves a dedicated `initialSyncCompletedWithoutUsableLiveSnapshots` flag after initial sync, `/simple/price` and `/simple/token_price/*` convert empty fresh-boot zero-live payloads into explicit 503 `{ error, message }` envelopes, startup prewarm remains non-fatal, and targeted tests plus the handoff's fresh-process verification cover the intended behavior.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The assigned feature was effectively a verification-and-commit-isolation follow-up, but `runtime-provider-worker` still requires writing failing tests first. The transcript and handoff show the worker instead relied on already-present targeted tests and fresh-process verification, which appears justified by the feature scope.",
+      "evidence": "`/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3/handoffs/2026-03-27T23-43-02-080Z__misc-investigate-fresh-boot-simple-price-empties__ad2aec4c-0701-4695-baea-6594130c8822.json` skillFeedback marks `followedProcedure=false` for the 'write failing tests first' step and suggests clarifying verification-only follow-up handling in `.factory/skills/runtime-provider-worker/SKILL.md`."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed feature `misc-investigate-fresh-boot-simple-price-empties` on current HEAD and found the implementation consistent with the requested fresh-boot explicit error contract. Commit `ba984ed` contains the scoped code/test changes, transcript skeleton and handoff evidence align with the feature goal, and I found no blocking or non-blocking code issues in the reviewed scope."
+}

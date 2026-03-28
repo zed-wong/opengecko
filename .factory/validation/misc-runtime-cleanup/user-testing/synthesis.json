@@ -1,0 +1,21 @@
+{
+  "milestone": "misc-runtime-cleanup",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "MISC-RUNTIME-001",
+    "MISC-RUNTIME-002",
+    "MISC-RUNTIME-003",
+    "MISC-RUNTIME-004"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null
+}

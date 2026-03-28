@@ -1,0 +1,21 @@
+{
+  "featureId": "exchange-derivatives-freshness",
+  "reviewedAt": "2026-03-27T15:16:30Z",
+  "commitId": "caa0a7314c94c05d0b35fd2ef84f2c30a55a839b",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Current HEAD contains the claimed feature-scoped commit with only the divergence analysis document plus exchange/derivatives fidelity tests. The added tests align with existing exchange route behavior: volume-chart tuples are emitted in ascending timestamp order, derivative venue/contract freshness fields are present, and the divergence doc records the expected known gaps.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The worker encountered an already-occupied validation port 3102 and validated against the existing fast-profile server instead. This recurring environment caveat is not documented in the mission AGENTS guidance for exchange-live-fidelity manual verification.",
+      "evidence": "Handoff for worker session 3619e4c6-872b-4c22-b55c-834c07ecfe7d notes PID 561960 already bound to port 3102 and the worker-started server logged EADDRINUSE while curls still succeeded against the existing server. AGENTS.md documents port ranges and :memory: guidance but not the need to stop or reuse an existing validator on 3102 for this milestone."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed features.json, the handoff, transcript skeleton, core-api-worker skill, commit caa0a73, and current HEAD exchange route/test/doc files. The feature is present at HEAD, commit scope matches the assignment, and I found no blocking code issues."
+}

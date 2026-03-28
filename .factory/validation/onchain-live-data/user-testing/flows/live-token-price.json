@@ -1,0 +1,101 @@
+{
+  "groupId": "live-token-price",
+  "testedAt": "2026-03-27T08:33:29.143329+00:00",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "port": 3102,
+    "serverMode": "fresh local validation server",
+    "databaseUrl": ":memory:"
+  },
+  "toolsUsed": [
+    "curl-style HTTP via python urllib"
+  ],
+  "commandsRun": [
+    "PORT=3102 CCXT_EXCHANGES='' LOG_LEVEL=error DATABASE_URL=:memory: bun run src/server.ts",
+    "GET /ping",
+    "GET /onchain/simple/networks/eth/token_price/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48?include_market_cap=true&include_24hr_vol=true&include_24hr_price_change=true&include_total_reserve_in_usd=true",
+    "GET /onchain/networks/eth/pools",
+    "GET /onchain/networks/eth/dexes",
+    "GET /onchain/networks"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-ONC-007",
+      "title": "Onchain simple token price reflects live pricing",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Start fresh validation server on port 3102 with repo .env loaded and DATABASE_URL=:memory:",
+          "expected": "Server becomes reachable without printing secrets",
+          "observed": "Server responded 200 on /ping"
+        },
+        {
+          "action": "Request token price with optional aggregate fields enabled",
+          "expected": "Endpoint returns token_prices and optional aggregate fields for the requested address",
+          "observed": "Endpoint returned token_prices, market_cap_usd, h24_volume_usd, h24_price_change_percentage, and total_reserve_in_usd for USDC with HTTP 200"
+        },
+        {
+          "action": "Check adjacent onchain catalog endpoints for live-backed context",
+          "expected": "Fresh server shows expanded live-backed network/pool context if live providers are active",
+          "observed": "Fresh server returned 6 networks and live-looking pool/dex catalogs, so the earlier seeded-only observation was not reproduced on the fresh server"
+        }
+      ],
+      "evidence": {
+        "artifacts": [
+          "onchain-live-data/live-token-price/response-capture.json"
+        ],
+        "network": [
+          "GET /ping -> 200",
+          "GET /onchain/simple/networks/eth/token_price/... -> 200",
+          "GET /onchain/networks/eth/pools -> 200",
+          "GET /onchain/networks/eth/dexes -> 200",
+          "GET /onchain/networks -> 200"
+        ],
+        "observations": {
+          "token_price": {
+            "token_prices": {
+              "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": "1"
+            },
+            "market_cap_usd": {
+              "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": "680000000"
+            },
+            "h24_volume_usd": {
+              "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": "93000000"
+            },
+            "h24_price_change_percentage": {
+              "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": "0"
+            },
+            "total_reserve_in_usd": {
+              "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": "1005000000"
+            }
+          },
+          "network_total_count": 6,
+          "pool_meta": {
+            "page": 1,
+            "data_source": "live"
+          },
+          "dex_meta": {
+            "page": 1,
+            "per_page": 100,
+            "total_pages": 3,
+            "total_count": 201,
+            "network": "eth"
+          }
+        }
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The shared validation server briefly returned 404/connection-refused during initial checks, so I used the allowed fresh port-3102 server path for an isolated verification run.",
+      "resolved": true,
+      "resolution": "Started one fresh validation server on port 3102 with DATABASE_URL=:memory: and repeated the assigned checks.",
+      "affectedAssertions": [
+        "VAL-ONC-007"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 1 assertion: 1 passed. Fresh-server VAL-ONC-007 returned token price plus optional aggregate fields, and adjacent onchain catalogs showed expanded non-seeded context on the fresh server."
+}

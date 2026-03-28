@@ -1,0 +1,152 @@
+{
+  "groupId": "live-catalog",
+  "testedAt": "2026-03-27T08:35:34.534900+00:00",
+  "isolation": {
+    "baseUrl": "http://127.0.0.1:3102",
+    "port": 3102,
+    "missionDir": "/home/whoami/.factory/missions/f3507a1f-9e14-4c7c-a7d4-636d4909f2b3"
+  },
+  "toolsUsed": [
+    "curl"
+  ],
+  "commandsRun": [
+    "python3 listener cleanup for port 3102",
+    "cd /home/whoami/dev/openGecko && set -a && . ./.env && set +a && PORT=3102 HOST=127.0.0.1 LOG_LEVEL=error bun run src/server.ts",
+    "curl -sS -D evidence/.../VAL-ONC-008-networks.headers.txt http://127.0.0.1:3102/onchain/networks -o evidence/.../VAL-ONC-008-networks.json",
+    "curl -sS -D evidence/.../VAL-ONC-009-dexes.headers.txt http://127.0.0.1:3102/onchain/networks/eth/dexes -o evidence/.../VAL-ONC-009-dexes.json",
+    "curl -sS -D evidence/.../VAL-ONC-003-pools.headers.txt http://127.0.0.1:3102/onchain/networks/eth/pools -o evidence/.../VAL-ONC-003-pools.json",
+    "curl -sS -D evidence/.../VAL-ONC-004-pool-detail.headers.txt http://127.0.0.1:3102/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640 -o evidence/.../VAL-ONC-004-pool-detail.json"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-ONC-003",
+      "title": "Pool list returns live-backed data for Ethereum",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/pools",
+          "expected": "200 JSON with Ethereum pool records backed by live data",
+          "observed": "200 JSON with 3 pools and meta.data_source=live"
+        },
+        {
+          "action": "Compare live pool volumes to seeded values from src/db/client.ts",
+          "expected": "Observed values differ from seeded hardcoded values",
+          "observed": "0x88e6 h24 volume observed=401915522 vs seed=64500000; 0x4e68 observed=401915522 vs seed=74200000"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-live-data/live-catalog/VAL-ONC-003-pools.headers.txt",
+          "onchain-live-data/live-catalog/VAL-ONC-003-pools.json",
+          "onchain-live-data/live-catalog/analysis-summary.json"
+        ],
+        "network": "GET /onchain/networks/eth/pools -> 200",
+        "commands": [
+          "curl -sS -D ... http://127.0.0.1:3102/onchain/networks/eth/pools"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONC-004",
+      "title": "Pool detail returns live provider data",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/pools/0x88e6...f2b4b",
+          "expected": "200 JSON pool detail with live provider fields",
+          "observed": "200 JSON with meta.data_source=live"
+        },
+        {
+          "action": "Check price_usd, reserve_usd, and volume_usd.h24 against seeded values",
+          "expected": "Live provider data present and at least one field differs from seed",
+          "observed": "price_usd=1, reserve_usd=325000000, volume_usd.h24=401915522 vs seeded volume=64500000"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-live-data/live-catalog/VAL-ONC-004-pool-detail.headers.txt",
+          "onchain-live-data/live-catalog/VAL-ONC-004-pool-detail.json",
+          "onchain-live-data/live-catalog/analysis-summary.json"
+        ],
+        "network": "GET /onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640 -> 200",
+        "commands": [
+          "curl -sS -D ... http://127.0.0.1:3102/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONC-008",
+      "title": "Network catalog expanded beyond seeds",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks",
+          "expected": "200 JSON with more than 2 networks",
+          "observed": "200 JSON with 6 networks"
+        },
+        {
+          "action": "Compare returned network count to seeded networks in src/db/client.ts",
+          "expected": "Returned count exceeds seeded baseline of 2",
+          "observed": "Observed network ids: ['arbitrum', 'base', 'bsc', 'eth', 'polygon', 'solana']"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-live-data/live-catalog/VAL-ONC-008-networks.headers.txt",
+          "onchain-live-data/live-catalog/VAL-ONC-008-networks.json",
+          "onchain-live-data/live-catalog/analysis-summary.json"
+        ],
+        "network": "GET /onchain/networks -> 200",
+        "commands": [
+          "curl -sS -D ... http://127.0.0.1:3102/onchain/networks"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ONC-009",
+      "title": "DEX catalog expanded beyond seeds",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /onchain/networks/eth/dexes",
+          "expected": "200 JSON with more than 2 DEX entries",
+          "observed": "200 JSON with page size 100 and total_count=201"
+        },
+        {
+          "action": "Compare returned DEX count to seeded Ethereum dex baseline",
+          "expected": "Returned list exceeds seeded baseline of 2",
+          "observed": "First five dex ids: ['1inch', '3jane_lending', '3jane_options', 'aarna_protocol', 'aave_v3']"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "onchain-live-data/live-catalog/VAL-ONC-009-dexes.headers.txt",
+          "onchain-live-data/live-catalog/VAL-ONC-009-dexes.json"
+        ],
+        "network": "GET /onchain/networks/eth/dexes -> 200",
+        "commands": [
+          "curl -sS -D ... http://127.0.0.1:3102/onchain/networks/eth/dexes"
+        ]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Fresh startup logs stop before showing an explicit HTTP-listener-ready message even though the Bun server binds successfully on port 3102.",
+      "resolved": true,
+      "resolution": "Verified readiness by checking ss output for a listener on 0.0.0.0:3102 and then running curl requests successfully.",
+      "affectedAssertions": [
+        "VAL-ONC-003",
+        "VAL-ONC-004",
+        "VAL-ONC-008",
+        "VAL-ONC-009"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 4 assertions on a fresh server at http://127.0.0.1:3102: 4 passed, 0 failed, 0 blocked. Network catalog returned 6 networks, Ethereum dex catalog reported total_count=201, and pool endpoints reported meta.data_source=live with observed 24h volumes differing from seeded hardcoded values."
+}
