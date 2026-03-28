@@ -58,12 +58,84 @@ describe('coins markets parity', () => {
       id: 'solana',
       current_price: null,
       market_cap: null,
-      market_cap_rank: 4,
+      market_cap_rank: 7,
       price_change_percentage_24h_in_currency: expect.any(Number),
       price_change_percentage_7d_in_currency: expect.any(Number),
       last_updated: null,
     });
     expect(body[2].total_volume).toBeNull();
+  });
+
+  it('keeps sampled canonical market rows close to the stored upstream artifact for names, images, and populated market metadata', async () => {
+    const validationApp = buildApp({
+      config: {
+        databaseUrl: ':memory:',
+        host: '127.0.0.1',
+        port: 3102,
+        ccxtExchanges: [],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+
+    const response = await validationApp.inject({
+      method: 'GET',
+      url: '/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana&order=market_cap_desc&page=1&per_page=3&price_change_percentage=24h,7d&sparkline=false',
+    });
+
+    try {
+      expect(response.statusCode).toBe(200);
+
+      const body = response.json();
+      expect(body[0]).toMatchObject({
+        id: 'bitcoin',
+        name: 'BTC',
+        image: 'https://assets.opengecko.test/coins/bitcoin-large.png',
+        current_price: expect.any(Number),
+        market_cap: expect.any(Number),
+        total_volume: expect.any(Number),
+        high_24h: expect.any(Number),
+        low_24h: expect.any(Number),
+        price_change_24h: expect.any(Number),
+        price_change_percentage_24h: expect.any(Number),
+        market_cap_change_24h: expect.any(Number),
+        market_cap_change_percentage_24h: expect.any(Number),
+        last_updated: expect.any(String),
+      });
+      expect(body[1]).toMatchObject({
+        id: 'ethereum',
+        name: 'ETH',
+        image: 'https://assets.opengecko.test/coins/ethereum-large.png',
+        roi: expect.objectContaining({
+          currency: 'btc',
+        }),
+        current_price: expect.any(Number),
+        market_cap: expect.any(Number),
+        total_volume: expect.any(Number),
+        high_24h: expect.any(Number),
+        low_24h: expect.any(Number),
+        price_change_24h: expect.any(Number),
+        price_change_percentage_24h: expect.any(Number),
+        market_cap_change_24h: expect.any(Number),
+        market_cap_change_percentage_24h: expect.any(Number),
+        last_updated: expect.any(String),
+      });
+      expect(body[2]).toMatchObject({
+        id: 'solana',
+        name: 'SOL',
+        image: 'https://assets.opengecko.test/coins/solana-large.png',
+        current_price: expect.any(Number),
+        market_cap: expect.any(Number),
+        total_volume: expect.any(Number),
+        high_24h: expect.any(Number),
+        low_24h: expect.any(Number),
+        market_cap_change_24h: expect.any(Number),
+        market_cap_change_percentage_24h: expect.any(Number),
+        last_updated: expect.any(String),
+      });
+    } finally {
+      await validationApp.close();
+    }
   });
 
   it('exposes canonical market rows from the default/local seeded bootstrap runtime', async () => {

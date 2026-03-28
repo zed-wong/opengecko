@@ -4,7 +4,7 @@
   "manifestId": "coingecko-pro-bounded-v1",
   "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
   "normalizationRulesId": "coingecko-offline-replay-rules-v1",
-  "replayedAt": "2026-03-28T15:27:58.810Z",
+  "replayedAt": "2026-03-28T23:10:38.544Z",
   "validationApiBaseUrl": "http://127.0.0.1:3102",
   "entryCount": 9,
   "findings": [
@@ -21,7 +21,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "77373f80500b3e61",
+      "findingId": "e082178cd5168351",
       "entryId": "coins-markets-canonical",
       "normalizedPath": "/coins/markets?ids=bitcoin%2Cethereum%2Csolana&order=market_cap_desc&page=1&per_page=3&price_change_percentage=24h%2C7d&sparkline=false&vs_currency=usd",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -33,7 +33,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "6ad6d095900c8e39",
+      "findingId": "504f2df957838193",
       "entryId": "exchange-detail-binance",
       "normalizedPath": "/exchanges/binance",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -57,7 +57,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "5c6503e0da23ae62",
+      "findingId": "e37f53ad9e21e7e4",
       "entryId": "exchange-tickers-binance",
       "normalizedPath": "/exchanges/binance/tickers?page=1",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
@@ -81,7 +81,7 @@
       "bodyMatches": false
     },
     {
-      "findingId": "9b227dbf0470a0f6",
+      "findingId": "8a841dbea0b32b59",
       "entryId": "global-canonical",
       "normalizedPath": "/global",
       "replayTargetManifestIdentity": "30a1227ebb29de1f316dbdba88275d192e2622c0622d45129057c5303545c1d5",
