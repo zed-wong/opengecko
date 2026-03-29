@@ -11,7 +11,7 @@ import { marketSnapshots, onchainNetworks } from '../src/db/schema';
 import packageJson from '../package.json';
 
 vi.mock('../src/providers/defillama', async () => {
-  const actual = await vi.importActual<typeof import('../src/providers/defillama')>('../src/providers/defillama');
+  const actual = await import('../src/providers/defillama');
   return {
     ...actual,
     fetchDefillamaTokenPrices: vi.fn().mockResolvedValue({
