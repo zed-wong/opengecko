@@ -9,7 +9,6 @@ import { parseBooleanQuery, parseCsvQuery, parsePositiveInt } from '../http/para
 import { buildCoinId } from '../lib/coin-id';
 import { fetchDefillamaDexVolumes, fetchDefillamaPoolData, fetchDefillamaTokenPrices } from '../providers/defillama';
 import { fetchEthereumPoolSwapLogs } from '../providers/sqd';
-import { fetchUniswapV3PoolSwaps } from '../providers/thegraph';
 
 const paginationQuerySchema = z.object({
   page: z.string().optional(),
@@ -1346,13 +1345,7 @@ async function fetchLivePoolTrades(pool: typeof onchainPools.$inferSelect) {
     });
   }
 
-  if (process.env.VITEST === 'true') {
-    const swaps = await fetchUniswapV3PoolSwaps(pool.address, 100);
-    return deriveLivePoolTrades(pool, swaps);
-  }
-
-  const swaps = await fetchUniswapV3PoolSwaps(pool.address, 100);
-  return deriveLivePoolTrades(pool, swaps);
+  return null;
 }
 
 async function fetchLiveSimpleTokenPrice(

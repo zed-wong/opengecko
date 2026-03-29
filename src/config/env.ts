@@ -33,7 +33,6 @@ const envSchema = z.object({
   OHLCV_RETENTION_DAYS: z.coerce.number().int().positive().default(DEFAULT_OHLCV_RETENTION_DAYS),
   DEFILLAMA_BASE_URL: z.string().url().default('https://api.llama.fi'),
   DEFILLAMA_YIELDS_BASE_URL: z.string().url().default('https://yields.llama.fi'),
-  THEGRAPH_API_KEY: z.string().trim().optional(),
   RESPONSE_COMPRESSION_THRESHOLD_BYTES: z.coerce.number().int().nonnegative().default(1024),
   STARTUP_PREWARM_BUDGET_MS: z.coerce.number().int().nonnegative().default(250),
   DISABLE_REMOTE_CURRENCY_REFRESH: z.boolean().default(false),
@@ -57,7 +56,6 @@ export type AppConfig = {
   ohlcvRetentionDays: number;
   defillamaBaseUrl: string;
   defillamaYieldsBaseUrl: string;
-  thegraphApiKey: string | null;
   responseCompressionThresholdBytes: number;
   startupPrewarmBudgetMs: number;
   disableRemoteCurrencyRefresh: boolean;
@@ -164,7 +162,6 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): AppConfig {
     ohlcvRetentionDays: env.OHLCV_RETENTION_DAYS,
     defillamaBaseUrl: env.DEFILLAMA_BASE_URL,
     defillamaYieldsBaseUrl: env.DEFILLAMA_YIELDS_BASE_URL,
-    thegraphApiKey: env.THEGRAPH_API_KEY && env.THEGRAPH_API_KEY.length > 0 ? env.THEGRAPH_API_KEY : null,
     responseCompressionThresholdBytes: env.RESPONSE_COMPRESSION_THRESHOLD_BYTES,
     startupPrewarmBudgetMs: env.STARTUP_PREWARM_BUDGET_MS,
     disableRemoteCurrencyRefresh: env.DISABLE_REMOTE_CURRENCY_REFRESH,

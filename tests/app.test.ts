@@ -13,9 +13,9 @@ import type { MetricsRegistry } from '../src/services/metrics';
 import type { MarketDataRuntimeState } from '../src/services/market-runtime-state';
 import * as candleStore from '../src/services/candle-store';
 import * as catalogModule from '../src/modules/catalog';
+import * as ccxtProvider from '../src/providers/ccxt';
 import * as defillamaProvider from '../src/providers/defillama';
 import * as sqdProvider from '../src/providers/sqd';
-import * as thegraphProvider from '../src/providers/thegraph';
 import * as startupPrewarmModule from '../src/services/startup-prewarm';
 import * as currencyRatesModule from '../src/services/currency-rates';
 import { resetCurrencyApiSnapshotForTests } from '../src/services/currency-rates';
@@ -23,6 +23,32 @@ import contractFixtures from './fixtures/contract-fixtures.json';
 
 const currentDailyBucket = () => candleStore.toDailyBucket(Date.now()).getTime();
 const defaultDefillamaTokenPriceMock = () => vi.spyOn(defillamaProvider, 'fetchDefillamaTokenPrices').mockResolvedValue(null);
+
+function resetCcxtProviderMocks() {
+  vi.mocked(ccxtProvider.fetchExchangeMarkets).mockResolvedValue([
+    { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin', raw: {} },
+    { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', active: true, spot: true, baseName: 'Ethereum', raw: {} },
+    { exchangeId: 'binance', symbol: 'XRP/USDT', base: 'XRP', quote: 'USDT', active: true, spot: true, baseName: 'Ripple', raw: {} },
+    { exchangeId: 'binance', symbol: 'SOL/USDT', base: 'SOL', quote: 'USDT', active: true, spot: true, baseName: 'Solana', raw: {} },
+    { exchangeId: 'binance', symbol: 'DOGE/USDT', base: 'DOGE', quote: 'USDT', active: true, spot: true, baseName: 'Dogecoin', raw: {} },
+    { exchangeId: 'binance', symbol: 'ADA/USDT', base: 'ADA', quote: 'USDT', active: true, spot: true, baseName: 'Cardano', raw: {} },
+    { exchangeId: 'binance', symbol: 'LINK/USDT', base: 'LINK', quote: 'USDT', active: true, spot: true, baseName: 'Chainlink', raw: {} },
+    { exchangeId: 'binance', symbol: 'USDC/USDT', base: 'USDC', quote: 'USDT', active: true, spot: true, baseName: 'USD Coin', raw: {} },
+  ]);
+  vi.mocked(ccxtProvider.fetchExchangeTickers).mockResolvedValue([
+    { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', last: 85000, bid: 84950, ask: 85050, high: 86000, low: 84000, baseVolume: 5000, quoteVolume: 425000000, percentage: 1.8, timestamp: Date.now(), raw: {} as never },
+    { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', last: 2000, bid: 1999, ask: 2001, high: 2050, low: 1950, baseVolume: 50000, quoteVolume: 100000000, percentage: 2.56, timestamp: Date.now(), raw: {} as never },
+    { exchangeId: 'binance', symbol: 'XRP/USDT', base: 'XRP', quote: 'USDT', last: 2.5, bid: 2.49, ask: 2.51, high: 2.55, low: 2.45, baseVolume: 1000000, quoteVolume: 2500000, percentage: 3.0, timestamp: Date.now(), raw: {} as never },
+    { exchangeId: 'binance', symbol: 'SOL/USDT', base: 'SOL', quote: 'USDT', last: 175, bid: 174.5, ask: 175.5, high: 180, low: 170, baseVolume: 100000, quoteVolume: 17500000, percentage: 4.0, timestamp: Date.now(), raw: {} as never },
+    { exchangeId: 'binance', symbol: 'DOGE/USDT', base: 'DOGE', quote: 'USDT', last: 0.28, bid: 0.279, ask: 0.281, high: 0.29, low: 0.27, baseVolume: 10000000, quoteVolume: 2800000, percentage: 5.0, timestamp: Date.now(), raw: {} as never },
+    { exchangeId: 'binance', symbol: 'ADA/USDT', base: 'ADA', quote: 'USDT', last: 1.05, bid: 1.049, ask: 1.051, high: 1.08, low: 1.02, baseVolume: 5000000, quoteVolume: 5250000, percentage: 2.0, timestamp: Date.now(), raw: {} as never },
+    { exchangeId: 'binance', symbol: 'LINK/USDT', base: 'LINK', quote: 'USDT', last: 24, bid: 23.9, ask: 24.1, high: 25, low: 23, baseVolume: 500000, quoteVolume: 12000000, percentage: 3.5, timestamp: Date.now(), raw: {} as never },
+    { exchangeId: 'binance', symbol: 'USDC/USDT', base: 'USDC', quote: 'USDT', last: 1.0, bid: 0.9999, ask: 1.0001, high: 1.001, low: 0.999, baseVolume: 10000000, quoteVolume: 10000000, percentage: 0.01, timestamp: Date.now(), raw: {} as never },
+  ]);
+  vi.mocked(ccxtProvider.fetchExchangeOHLCV).mockResolvedValue([]);
+  vi.mocked(ccxtProvider.fetchExchangeNetworks).mockResolvedValue([]);
+  vi.mocked(ccxtProvider.closeExchangePool).mockResolvedValue(undefined);
+}
 
 vi.mock('../src/providers/ccxt', () => ({
   fetchExchangeMarkets: vi.fn().mockResolvedValue([
@@ -66,7 +92,9 @@ describe('OpenGecko app scaffold', () => {
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'opengecko-'));
+    vi.restoreAllMocks();
     resetCurrencyApiSnapshotForTests();
+    resetCcxtProviderMocks();
     defaultDefillamaTokenPriceMock();
     app = buildApp({
       config: {
@@ -83,6 +111,7 @@ describe('OpenGecko app scaffold', () => {
       await app.close();
     }
 
+    vi.clearAllMocks();
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -4143,8 +4172,6 @@ describe('OpenGecko app scaffold', () => {
 
       return null;
     });
-    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockResolvedValue(null);
-
     const poolTradesResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades',
@@ -4281,8 +4308,6 @@ describe('OpenGecko app scaffold', () => {
         tick: 0,
       },
     ]);
-    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockResolvedValue(null);
-
     const response = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades?limit=20',
@@ -4415,8 +4440,6 @@ describe('OpenGecko app scaffold', () => {
         },
       ];
     });
-    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockResolvedValue(null);
-
     const baselineResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/ohlcv/hour',
@@ -4494,8 +4517,6 @@ describe('OpenGecko app scaffold', () => {
     process.env.VITEST = 'false';
 
     vi.spyOn(sqdProvider, 'fetchEthereumPoolSwapLogs').mockResolvedValue(null);
-    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockResolvedValue(null);
-
     const tradesResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades',
@@ -4535,125 +4556,7 @@ describe('OpenGecko app scaffold', () => {
     process.env.VITEST = originalVitest;
   });
 
-  it('returns token-level onchain OHLCV aggregated from discoverable token pools', async () => {
-    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockImplementation(async (poolAddress) => {
-      if (poolAddress.toLowerCase() === '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640') {
-        return [
-          {
-            id: 'token-ohlcv-1',
-            amount0: '-1000',
-            amount1: '0.29',
-            amountUSD: '1000',
-            timestamp: 1714740000,
-            sender: '0xsender1',
-            recipient: '0xrecipient1',
-            transaction: { id: '0xtokenohlcv1', blockNumber: '1' },
-            token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
-            token1: { id: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', symbol: 'WETH', decimals: 18 },
-          },
-          {
-            id: 'token-ohlcv-2',
-            amount0: '900',
-            amount1: '-0.25',
-            amountUSD: '900',
-            timestamp: 1714743600,
-            sender: '0xsender2',
-            recipient: '0xrecipient2',
-            transaction: { id: '0xtokenohlcv2', blockNumber: '2' },
-            token0: { id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
-            token1: { id: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', symbol: 'WETH', decimals: 18 },
-          },
-        ];
-      }
-
-      return null;
-    });
-
-    const baselineResponse = await getApp().inject({
-      method: 'GET',
-      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/hour',
-    });
-    const aggregateResponse = await getApp().inject({
-      method: 'GET',
-      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/hour?aggregate=2&limit=2&before_timestamp=1714741200',
-    });
-    const inactiveSourceResponse = await getApp().inject({
-      method: 'GET',
-      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/day?include_inactive_source=true&include_empty_intervals=true',
-    });
-    const tokenPoolsResponse = await getApp().inject({
-      method: 'GET',
-      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/pools?page=1',
-    });
-
-    expect(baselineResponse.statusCode).toBe(200);
-    expect(baselineResponse.json()).toMatchObject({
-      data: {
-        type: 'ohlcv',
-        attributes: {
-          network: 'eth',
-          token_address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-          timeframe: 'hour',
-          aggregate: 1,
-          include_inactive_source: false,
-        },
-      },
-    });
-    const baselineBody = baselineResponse.json().data.attributes;
-    expect(baselineBody.source_pools).toEqual([
-      '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640',
-    ]);
-    expect(baselineBody.ohlcv_list.map((entry: { timestamp: number }) => entry.timestamp)).toEqual(
-      expect.arrayContaining([
-        1714737600,
-        1714741200,
-      ]),
-    );
-    expect(baselineBody.ohlcv_list[0]).toMatchObject({
-      open: 1,
-      high: 1,
-      low: 1,
-      close: 1,
-      volume_usd: 1000,
-    });
-    expect(baselineBody.ohlcv_list[1]).toMatchObject({
-      open: 3600,
-      high: 3600,
-      low: 3600,
-      close: 3600,
-      volume_usd: 900,
-    });
-    expect(baselineBody.ohlcv_list.every((entry: { high: number; low: number; open: number; close: number; volume_usd: number }, index: number, arr: Array<{ timestamp: number }>) =>
-      entry.high >= Math.max(entry.open, entry.close)
-      && entry.low <= Math.min(entry.open, entry.close)
-      && entry.volume_usd >= 0
-      && (index === 0 || arr[index - 1]!.timestamp <= arr[index]!.timestamp))).toBe(true);
-    expect(new Set(baselineBody.source_pools)).toEqual(new Set([
-      tokenPoolsResponse.json().data[1].id,
-    ]));
-
-    expect(aggregateResponse.statusCode).toBe(200);
-    expect(aggregateResponse.json().data.attributes.aggregate).toBe(2);
-    expect(aggregateResponse.json().data.attributes.ohlcv_list).toHaveLength(1);
-    expect(aggregateResponse.json().data.attributes.ohlcv_list.every((entry: { timestamp: number }) =>
-      entry.timestamp <= 1714741200)).toBe(true);
-
-    expect(inactiveSourceResponse.statusCode).toBe(200);
-    const inactiveBody = inactiveSourceResponse.json().data.attributes;
-    expect(inactiveBody.include_inactive_source).toBe(true);
-    expect(inactiveBody.source_pools).toEqual([
-      '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640',
-      '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
-    ]);
-    expect(new Set(inactiveBody.source_pools)).toEqual(new Set(
-      tokenPoolsResponse.json().data.map((pool: { id: string }) => pool.id),
-    ));
-    expect(inactiveBody.ohlcv_list.length).toBeGreaterThan(0);
-  });
-
-  it('proves token ohlcv falls back to the degraded seeded pool set when the graph swaps are unavailable', async () => {
-    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockResolvedValue(null);
-
+  it('proves token ohlcv falls back to the degraded seeded pool set when live swaps are unavailable', async () => {
     const response = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/ohlcv/day?include_inactive_source=true',
@@ -4905,8 +4808,6 @@ describe('OpenGecko app scaffold', () => {
         tick: 0,
       })),
     );
-    vi.spyOn(thegraphProvider, 'fetchUniswapV3PoolSwaps').mockResolvedValue(null);
-
     const compressedResponse = await getApp().inject({
       method: 'GET',
       url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades',

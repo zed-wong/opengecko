@@ -15,15 +15,14 @@ describe('repo dotenv loading', () => {
     resetRepoDotenvLoaderForTests();
   });
 
-  it('loads THEGRAPH_API_KEY from repo .env when shell env is unset', () => {
+  it('loads repo .env values when shell env is unset', () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'opengecko-env-'));
 
     try {
-      writeFileSync(join(tempDir, '.env'), 'THEGRAPH_API_KEY=repo-key\nDEFILLAMA_BASE_URL=https://llama.example\nDEFILLAMA_YIELDS_BASE_URL=https://yields.example\n');
+      writeFileSync(join(tempDir, '.env'), 'DEFILLAMA_BASE_URL=https://llama.example\nDEFILLAMA_YIELDS_BASE_URL=https://yields.example\n');
       const env: NodeJS.ProcessEnv = {};
 
       expect(loadRepoDotenv({ cwd: tempDir, env })).toBe(true);
-      expect(loadConfig(env).thegraphApiKey).toBe('repo-key');
       expect(loadConfig(env).defillamaBaseUrl).toBe('https://llama.example');
       expect(loadConfig(env).defillamaYieldsBaseUrl).toBe('https://yields.example');
     } finally {
@@ -35,11 +34,11 @@ describe('repo dotenv loading', () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'opengecko-env-'));
 
     try {
-      writeFileSync(join(tempDir, '.env'), 'THEGRAPH_API_KEY=repo-key\n');
-      const env: NodeJS.ProcessEnv = { THEGRAPH_API_KEY: 'shell-key' };
+      writeFileSync(join(tempDir, '.env'), 'DEFILLAMA_BASE_URL=https://repo.example\n');
+      const env: NodeJS.ProcessEnv = { DEFILLAMA_BASE_URL: 'https://shell.example' };
 
       expect(loadRepoDotenv({ cwd: tempDir, env })).toBe(true);
-      expect(loadConfig(env).thegraphApiKey).toBe('shell-key');
+      expect(loadConfig(env).defillamaBaseUrl).toBe('https://shell.example');
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
@@ -49,13 +48,13 @@ describe('repo dotenv loading', () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'opengecko-env-'));
 
     try {
-      writeFileSync(join(tempDir, '.env'), 'THEGRAPH_API_KEY=repo-key\n');
+      writeFileSync(join(tempDir, '.env'), 'DEFILLAMA_BASE_URL=https://repo.example\n');
       const env: NodeJS.ProcessEnv = {};
 
       expect(loadRepoDotenv({ cwd: tempDir, env })).toBe(true);
-      env.THEGRAPH_API_KEY = 'mutated-key';
+      env.DEFILLAMA_BASE_URL = 'https://mutated.example';
       expect(loadRepoDotenv({ cwd: tempDir, env })).toBe(false);
-      expect(loadConfig(env).thegraphApiKey).toBe('mutated-key');
+      expect(loadConfig(env).defillamaBaseUrl).toBe('https://mutated.example');
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
@@ -66,16 +65,16 @@ describe('repo dotenv loading', () => {
     const secondDir = mkdtempSync(join(tmpdir(), 'opengecko-env-'));
 
     try {
-      writeFileSync(join(firstDir, '.env'), 'THEGRAPH_API_KEY=first-key\n');
-      writeFileSync(join(secondDir, '.env'), 'THEGRAPH_API_KEY=second-key\n');
+      writeFileSync(join(firstDir, '.env'), 'DEFILLAMA_BASE_URL=https://first.example\n');
+      writeFileSync(join(secondDir, '.env'), 'DEFILLAMA_BASE_URL=https://second.example\n');
       const env: NodeJS.ProcessEnv = {};
 
       expect(loadRepoDotenv({ cwd: firstDir, env })).toBe(true);
-      expect(env.THEGRAPH_API_KEY).toBe('first-key');
+      expect(env.DEFILLAMA_BASE_URL).toBe('https://first.example');
 
-      delete env.THEGRAPH_API_KEY;
+      delete env.DEFILLAMA_BASE_URL;
       expect(loadRepoDotenv({ cwd: secondDir, env })).toBe(true);
-      expect(loadConfig(env).thegraphApiKey).toBe('second-key');
+      expect(loadConfig(env).defillamaBaseUrl).toBe('https://second.example');
     } finally {
       rmSync(firstDir, { recursive: true, force: true });
       rmSync(secondDir, { recursive: true, force: true });
