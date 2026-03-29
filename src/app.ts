@@ -17,6 +17,7 @@ import { registerOnchainRoutes } from './modules/onchain';
 import { registerSearchRoutes } from './modules/search';
 import { registerSimpleRoutes } from './modules/simple';
 import { registerTreasuryRoutes } from './modules/treasury';
+import { buildCoinName } from './lib/coin-id';
 import { closeExchangePool } from './providers/ccxt';
 import { createMarketRuntime, type MarketRuntime } from './services/market-runtime';
 import { createMarketDataRuntimeState } from './services/market-runtime-state';
@@ -458,7 +459,7 @@ function seedRuntimeSnapshotsFromPersistentStore(
         insertCoin.run(
           row.coin_id,
           row.symbol,
-          row.name,
+          buildCoinName(row.symbol, row.name),
           row.api_symbol,
           row.description_json,
           row.image_thumb_url,
@@ -695,6 +696,36 @@ function seedPersistentBootstrapSnapshots(
   );
 }
 
+function canonicalizePersistedCoinNames(database: Database) {
+  const rows = database.client.prepare<{ id: string; symbol: string; name: string | null }>(`
+    SELECT id, symbol, name
+    FROM coins
+  `).all();
+
+  const updateCoinName = database.client.prepare(`
+    UPDATE coins
+    SET name = ?, updated_at = ?
+    WHERE id = ?
+  `);
+  const now = Date.now();
+
+  database.client.exec('BEGIN');
+  try {
+    for (const row of rows) {
+      const canonicalName = buildCoinName(row.symbol, row.name);
+
+      if (canonicalName !== (row.name ?? '')) {
+        updateCoinName.run(canonicalName, now, row.id);
+      }
+    }
+
+    database.client.exec('COMMIT');
+  } catch (error) {
+    database.client.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 function resolveSeededBootstrapContext(
   database: Database,
   config: AppConfig,
@@ -916,6 +947,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     : null;
 
   migrateDatabase(database);
+  canonicalizePersistedCoinNames(database);
   options.startupProgress?.complete('connect_database');
 
   registerAppRoutes(app, database, config, marketDataRuntimeState, metrics);

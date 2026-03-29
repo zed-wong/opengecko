@@ -204,9 +204,10 @@ export function buildMarketRow(
   const importedLiveBootstrapSnapshot = validationOverrideMode === 'seeded_bootstrap'
     && snapshot !== null
     && getSnapshotOwnership(snapshot) === 'live';
-  const degradedMarketSnapshot = validationOverrideMode === 'degraded_seeded_bootstrap'
-    ? snapshot !== null
-    : seededBootstrapSnapshot && !importedLiveBootstrapSnapshot;
+  const seededBootstrapDegradedModes = new Set(['seeded_bootstrap', 'degraded_seeded_bootstrap']);
+  const degradedMarketSnapshot = seededBootstrapDegradedModes.has(validationOverrideMode)
+    ? seededBootstrapSnapshot
+    : false;
   const seededSnapshot = snapshot !== null && getSnapshotOwnership(snapshot) === 'seeded';
   const shouldUseChartDerivedSeries = seededSnapshot
     || seededBootstrapSnapshot
@@ -238,6 +239,7 @@ export function buildMarketRow(
   const useCanonicalBootstrapSnapshotValues = importedLiveBootstrapSnapshot;
   const useDegradedNullShape = degradedMarketSnapshot || validationStaleDisallowed;
   const useChartDerivedSeriesForChangeWindows = shouldUseChartDerivedSeries && !useCanonicalBootstrapSnapshotValues;
+  const resolvedMarketCapRank = snapshot?.marketCapRank ?? row.coin.marketCapRank ?? Number.MAX_SAFE_INTEGER;
 
   return {
     id: row.coin.id,
@@ -246,7 +248,7 @@ export function buildMarketRow(
     image: coin.imageLargeUrl,
     current_price: toNumberOrNull(snapshot ? snapshot.price * rate : null, options.precision),
     market_cap: toNumberOrNull(snapshot?.marketCap ? snapshot.marketCap * rate : null, options.precision),
-    market_cap_rank: snapshot?.marketCapRank ?? row.coin.marketCapRank,
+    market_cap_rank: resolvedMarketCapRank,
     fully_diluted_valuation: toNumberOrNull(snapshot?.fullyDilutedValuation ? snapshot.fullyDilutedValuation * rate : null, options.precision),
     total_volume: useDegradedNullShape ? null : toNumberOrNull(snapshot?.totalVolume ? snapshot.totalVolume * rate : null, options.precision),
     high_24h: useDegradedNullShape
@@ -278,7 +280,8 @@ export function buildMarketRow(
           : Object.fromEntries(
             options.priceChangePercentages.map((window) => {
               if (window === '24h') {
-                return ['price_change_percentage_24h_in_currency', toNumberOrNull(snapshot?.priceChangePercentage24h, options.precision)];
+                const value = snapshot?.priceChangePercentage24h ?? getSeriesChangePercentageForWindowDays(chartSeries, rate, 1);
+                return ['price_change_percentage_24h_in_currency', toNumberOrNull(value, options.precision)];
               }
 
               return [`price_change_percentage_${window}_in_currency`, null];

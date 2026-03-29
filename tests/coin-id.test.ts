@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCoinId, buildCoinName, COIN_ID_OVERRIDES } from '../src/lib/coin-id';
+import { buildCoinId, buildCoinName, COIN_ID_OVERRIDES, COIN_NAME_OVERRIDES } from '../src/lib/coin-id';
 
 describe('buildCoinId', () => {
   it('returns override for known symbols', () => {
@@ -30,17 +30,31 @@ describe('buildCoinId', () => {
 });
 
 describe('buildCoinName', () => {
+  it('returns canonical override names for known symbols even when exchange metadata is abbreviated', () => {
+    expect(buildCoinName('BTC', 'BTC')).toBe('Bitcoin');
+    expect(buildCoinName('ETH', 'ETH')).toBe('Ethereum');
+    expect(buildCoinName('SOL', 'SOL')).toBe('Solana');
+    expect(buildCoinName('USDC', 'USDC')).toBe('USDC');
+  });
+
   it('returns trimmed name when available', () => {
     expect(buildCoinName('BTC', 'Bitcoin')).toBe('Bitcoin');
     expect(buildCoinName('btc', '  Bitcoin  ')).toBe('Bitcoin');
   });
 
-  it('returns uppercased symbol when name is null', () => {
-    expect(buildCoinName('btc', null)).toBe('BTC');
+  it('prefers canonical override names for known ids when name is null', () => {
+    expect(buildCoinName('btc', null)).toBe('Bitcoin');
+    expect(buildCoinName('eth', null)).toBe('Ethereum');
   });
 
-  it('returns uppercased symbol when name is empty', () => {
-    expect(buildCoinName('btc', '')).toBe('BTC');
+  it('prefers canonical override names for known ids when name is empty', () => {
+    expect(buildCoinName('btc', '')).toBe('Bitcoin');
+    expect(buildCoinName('sol', '')).toBe('Solana');
+  });
+
+  it('returns uppercased symbol for unknown ids when name is unavailable', () => {
+    expect(buildCoinName('foo', null)).toBe('FOO');
+    expect(buildCoinName('foo', '')).toBe('FOO');
   });
 });
 
@@ -52,5 +66,15 @@ describe('COIN_ID_OVERRIDES', () => {
     expect(COIN_ID_OVERRIDES.XRP).toBe('ripple');
     expect(COIN_ID_OVERRIDES.DOGE).toBe('dogecoin');
     expect(COIN_ID_OVERRIDES.USDC).toBe('usd-coin');
+  });
+});
+
+describe('COIN_NAME_OVERRIDES', () => {
+  it('contains expected canonical names for major routed assets', () => {
+    expect(COIN_NAME_OVERRIDES.bitcoin).toBe('Bitcoin');
+    expect(COIN_NAME_OVERRIDES.ethereum).toBe('Ethereum');
+    expect(COIN_NAME_OVERRIDES.solana).toBe('Solana');
+    expect(COIN_NAME_OVERRIDES['usd-coin']).toBe('USDC');
+    expect(COIN_NAME_OVERRIDES.ripple).toBe('XRP');
   });
 });
