@@ -8,12 +8,16 @@
 - Status labels: `implemented`, `partial`, `stub`, `not_started`.
 - Active non-NFT parity: 76 / 76 matrix endpoints outside the removed NFT family are route-registered.
 
+> [!IMPORTANT]
+> This audit measures endpoint-surface and response-shape coverage, not current runtime stability. As of `2026-03-29`, the repository still has open Vitest regressions in several core parity-sensitive flows, so `implemented` here should be read as "route exists with audited contract intent", not "release-ready and fully green".
+
 ## Coverage & Evidence
 
 - Route inventory taken from `src/modules/*.ts` registration points.
 - Response-shape evidence comes from `tests/app.test.ts`, `tests/compare-coingecko.test.ts`, and `tests/fixtures/contract-fixtures.json`.
 - Invalid-parameter and envelope evidence comes from `tests/invalid-params.test.ts` plus shared `HttpError` handling in `src/http/errors.ts`.
 - NFT rows remain `not_started` because the parity matrix explicitly marks that family as removed from the active roadmap.
+- Current release confidence should be read together with `docs/status/implementation-tracker.md`, which tracks the fact that the main Vitest suite is not currently green.
 
 ## Per-family field compatibility notes
 

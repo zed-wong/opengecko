@@ -28,6 +28,9 @@ The result: a decentralized, open market data layer that anyone can deploy, audi
 > [!IMPORTANT]
 > OpenGecko ships **HTTP contract compatibility** and **live-data fidelity** on separate tracks. Routes, params, and field names follow CoinGecko conventions from day one. Live-data breadth and long-tail fidelity improve per release. See `docs/status/implementation-tracker.md` for current coverage.
 
+> [!WARNING]
+> Broad route coverage does **not** currently mean full release parity. The active non-NFT CoinGecko-compatible surface is largely implemented, but data fidelity remains uneven and the main Vitest suite still has open regressions in several core flows. Treat the project as a fast-moving compatibility API, not a finished 1:1 CoinGecko replacement.
+
 ## What You Get
 
 - **CoinGecko-compatible surface** — Same routes, params, response shapes. Switch the base URL and go.
@@ -175,8 +178,16 @@ DEX pools, tokens, trades, and OHLCV on supported networks. **Expanding.**
 |---|---|
 | `GET /onchain/networks` | List of supported networks |
 | `GET /onchain/networks/{network}/dexes` | List of DEXs on a specific network |
+| `GET /onchain/networks/{network}/pools` | Pool listings for a specific network |
+| `GET /onchain/networks/{network}/pools/{address}` | Pool detail with optional related resources |
+| `GET /onchain/networks/{network}/tokens/{address}` | Token market/detail view on a network |
+| `GET /onchain/networks/{network}/pools/{pool_address}/trades` | Pool trade feed |
+| `GET /onchain/networks/{network}/pools/{pool_address}/ohlcv/{timeframe}` | Pool OHLCV series |
+| `GET /onchain/networks/trending_pools` | Global trending pool feed |
+| `GET /onchain/search/pools` | Pool search |
+| `GET /onchain/categories` | Onchain category listings |
 
-For detailed compatibility status and known gaps, see `docs/status/implementation-tracker.md` and `docs/plans/2026-03-20-opengecko-endpoint-parity-matrix.md`.
+This README intentionally lists representative onchain routes rather than the full family. For detailed compatibility status and known gaps, see `docs/status/implementation-tracker.md`, `docs/status/compatibility-audit.md`, and `docs/plans/2026-03-20-opengecko-endpoint-parity-matrix.md`.
 
 ## Configuration
 
@@ -220,8 +231,9 @@ bun run charts:backfill   # backfill historical OHLCV data
 1. Switch your API base URL to your OpenGecko host.
 2. Re-run your existing contract tests against OpenGecko.
 3. Check `GET /diagnostics/runtime` for initial sync state and any stale fallback conditions.
-4. Validate the endpoints in your critical path first — `/simple`, `/coins`, `/exchanges`.
-5. Track any intentional incompatibilities in your integration docs.
+4. Validate the endpoints in your critical path first — `/simple`, `/coins`, `/exchanges` — before assuming broader parity.
+5. Read `docs/status/implementation-tracker.md` and `docs/status/compatibility-audit.md` together so you separate route availability from data/runtime confidence.
+6. Track any intentional incompatibilities in your integration docs.
 
 OpenGecko documents every intentional divergence from CoinGecko in `docs/plans/2026-03-22-opengecko-compatibility-gap-closure-plan.md`.
 
