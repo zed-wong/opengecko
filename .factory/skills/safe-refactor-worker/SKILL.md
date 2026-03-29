@@ -24,15 +24,16 @@ None.
 1. Read `mission.md`, `AGENTS.md`, the assigned feature, and the relevant validation assertions that the refactor must preserve indirectly.
 2. Before changing production code, write or tighten characterization tests that pin the exact behavior the refactor touches. The tests must fail if behavior drifts.
    - If you extract or centralize parser/normalization helpers, include malformed-input characterization explicitly (for example invalid CSV/query token handling), not just happy-path coverage.
-3. Identify natural extraction seams. Favor small, reversible moves over sweeping rewrites.
-4. Do not redesign public behavior during a refactor feature. If you discover a real behavior bug, record it and return to the orchestrator unless the feature explicitly includes that bug fix.
-5. Keep the diff mechanically understandable:
+3. If the refactor centralizes or changes arithmetic, standardize the touched calculation path on `bignumber.js` and keep precision-sensitive work in `BigNumber` form until the storage or API boundary requires primitive serialization.
+4. Identify natural extraction seams. Favor small, reversible moves over sweeping rewrites.
+5. Do not redesign public behavior during a refactor feature. If you discover a real behavior bug, record it and return to the orchestrator unless the feature explicitly includes that bug fix.
+6. Keep the diff mechanically understandable:
    - extract helpers
    - move logic behind stable call sites
    - keep names descriptive and consistent with existing code
-6. After each structural move, rerun the narrowest characterization tests that cover the touched seam.
-7. Before finishing, run the broader route/runtime regression tests affected by the refactor and `bun run typecheck`.
-8. Manually spot-check at least one representative route or runtime flow from the touched module after the refactor.
+7. After each structural move, rerun the narrowest characterization tests that cover the touched seam.
+8. Before finishing, run the broader route/runtime regression tests affected by the refactor and `bun run typecheck`.
+9. Manually spot-check at least one representative route or runtime flow from the touched module after the refactor.
 
 ## Example Handoff
 

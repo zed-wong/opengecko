@@ -105,3 +105,4 @@ When changing this mission area, reason in this order:
 3. Which other route families reuse the same canonical ids or stored history?
 4. Is the result live, hybrid-from-live, or fixture-backed?
 5. Do runtime behavior and canonical docs still tell the same story?
+6. If the change performs arithmetic, use `bignumber.js` for the calculation path and only convert back to primitive values at the storage or HTTP boundary where the contract requires it.

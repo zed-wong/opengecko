@@ -35,3 +35,4 @@ All defined in `src/config/env.ts` with defaults unless noted otherwise.
 - This mission validates real provider-backed fidelity on port `3100`; expect slower boot and occasional upstream flakiness.
 - Do not add new providers or credentials unless the orchestrator explicitly expands mission scope.
 - Fixture-backed families must remain honest in canonical docs even when runtime routes stay reachable.
+- Calculation policy for this mission: use `bignumber.js` for arithmetic and aggregation logic; only convert to primitive numbers/strings when a storage column or API contract explicitly requires it.

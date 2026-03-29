@@ -16,15 +16,16 @@ Use this skill for `/onchain/*` endpoints, DeFiLlama-backed discovery/enrichment
 1. Read `mission.md`, `AGENTS.md`, the assigned feature, and all assigned onchain assertions in `validation-contract.md`.
 2. Read `.factory/research/onchain-data-sources.md` for DeFiLlama, Subsquid, and any other already-approved onchain source details.
 3. Inspect `src/modules/onchain.ts`, related schema/data helpers, and any existing onchain tests before making changes.
-4. Write failing tests first for the exact route family you are touching. Cover both happy-path and negative-path behavior. Mock external API responses (DeFiLlama, Subsquid, or other already-approved sources) in tests — never call live APIs.
-5. Implement the route and response-shaping changes while preserving JSON:API-style `data`, `included`, `relationships`, and `meta` semantics.
-6. For provider modules: implement with graceful error handling. All provider functions must catch errors, log them, and return null/empty results rather than throwing. Route handlers must fall back only to the contract-approved seeded/cached behavior when providers fail.
-7. Verify network, dex, pool, and token relationship integrity explicitly.
-8. Run targeted onchain tests until they pass.
-9. If the manifest-wide baseline test command fails only on issues already listed in `AGENTS.md` as pre-existing, continue with scoped work; record that baseline failure in the handoff.
-10. Start the local API if needed and manually verify at least one valid request plus one invalid request with curl. Prefer port 3102.
-11. Run `bun run typecheck` before finishing. If your changes affect shared onchain routing or schemas, run the most relevant broader test slice too.
-12. In the handoff, record exact ids/addresses/networks used in verification so follow-up workers and validators can reproduce the checks.
+4. For any arithmetic you introduce or change in onchain pricing, volume, reserve, OHLCV, or percentage paths, use `bignumber.js` rather than raw JavaScript number math. Keep precision-sensitive calculations in `BigNumber` form until storage or API serialization requires primitives.
+5. Write failing tests first for the exact route family you are touching. Cover both happy-path and negative-path behavior. Mock external API responses (DeFiLlama, Subsquid, or other already-approved sources) in tests — never call live APIs.
+6. Implement the route and response-shaping changes while preserving JSON:API-style `data`, `included`, `relationships`, and `meta` semantics.
+7. For provider modules: implement with graceful error handling. All provider functions must catch errors, log them, and return null/empty results rather than throwing. Route handlers must fall back only to the contract-approved seeded/cached behavior when providers fail.
+8. Verify network, dex, pool, and token relationship integrity explicitly.
+9. Run targeted onchain tests until they pass.
+10. If the manifest-wide baseline test command fails only on issues already listed in `AGENTS.md` as pre-existing, continue with scoped work; record that baseline failure in the handoff.
+11. Start the local API if needed and manually verify at least one valid request plus one invalid request with curl. Prefer port 3102.
+12. Run `bun run typecheck` before finishing. If your changes affect shared onchain routing or schemas, run the most relevant broader test slice too.
+13. In the handoff, record exact ids/addresses/networks used in verification so follow-up workers and validators can reproduce the checks.
 
 ## Example Handoff
 
