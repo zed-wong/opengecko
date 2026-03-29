@@ -239,7 +239,7 @@ function getRuntimeCanonicalSnapshotCoinIds(persistentDatabase: Database) {
       WHERE coin_id = ?
         AND vs_currency = 'usd'
         AND source_count > 0
-    `).get(canonicalCoinId)?.matched > 0;
+    `).get(canonicalCoinId)?.matched ?? 0 > 0;
 
     if (hasLiveSnapshot) {
       rankedLiveSnapshotCoinIds.add(canonicalCoinId);

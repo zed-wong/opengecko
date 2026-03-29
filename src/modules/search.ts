@@ -32,6 +32,17 @@ function getRankDrivenScore(marketCapRank: number | null | undefined) {
   return marketCapRank ?? 0;
 }
 
+function convertToBtc(
+  amount: number | null | undefined,
+  btcPrice: number | undefined,
+): number | null {
+  if (amount === null || amount === undefined || btcPrice === undefined || btcPrice === 0) {
+    return null;
+  }
+
+  return amount / btcPrice;
+}
+
 function compareAscendingRankWithNullsLast(
   left: { marketCapRank: number | null; coinId: string },
   right: { marketCapRank: number | null; coinId: string },
@@ -141,15 +152,15 @@ export function registerSearchRoutes(app: FastifyInstance, database: AppDatabase
             small: row.coin.imageSmallUrl,
             large: row.coin.imageLargeUrl,
             slug: row.coin.id,
-            price_btc: snapshot.price / btcPrice,
+            price_btc: convertToBtc(snapshot.price, btcPrice),
             score: getRankDrivenScore(marketCapRank),
             data: {
               price: snapshot.price,
-              price_btc: snapshot.price / btcPrice,
+              price_btc: convertToBtc(snapshot.price, btcPrice),
               market_cap: snapshot.marketCap,
-              market_cap_btc: snapshot.marketCap ? snapshot.marketCap / btcPrice : null,
+              market_cap_btc: convertToBtc(snapshot.marketCap, btcPrice),
               total_volume: snapshot.totalVolume,
-              total_volume_btc: snapshot.totalVolume ? snapshot.totalVolume / btcPrice : null,
+              total_volume_btc: convertToBtc(snapshot.totalVolume, btcPrice),
               sparkline: '',
               content: null,
             },
@@ -178,9 +189,9 @@ export function registerSearchRoutes(app: FastifyInstance, database: AppDatabase
         coins_count: parseJsonArray<string>(category.top3CoinsJson).length,
         data: {
           market_cap: category.marketCap,
-          market_cap_btc: category.marketCap ? category.marketCap / btcPrice : null,
+          market_cap_btc: convertToBtc(category.marketCap, btcPrice),
           total_volume: category.volume24h,
-          total_volume_btc: category.volume24h ? category.volume24h / btcPrice : null,
+          total_volume_btc: convertToBtc(category.volume24h, btcPrice),
           sparkline: '',
           content: category.content,
         },
