@@ -236,3 +236,15 @@ These families are accepted as fixture or have no affordable live source.
 - After Phase 3 documentation, the tracker should accurately reflect fixture families with explicit labels.
 - Any task that requires a new external provider dependency must be approved as a new Active Decision before implementation.
 - Update `docs/plans/2026-03-22-opengecko-compatibility-gap-closure-plan.md` Milestone M5 (Exchange/Derivative Live-Fidelity Upgrade) to reference this plan's Phase 1 tasks.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | issues_open | 24 issues, 1 critical gap |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+
+- **UNRESOLVED:** 0
+- **VERDICT:** ENG REVIEW OPEN — eng review required before implementation.
