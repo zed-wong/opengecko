@@ -5733,6 +5733,26 @@ describe('OpenGecko app scaffold', () => {
           snapshotSourceCountOverride: expect.any(Number),
         });
 
+        const canonicalMarketsResponse = await validationApp.inject({
+          method: 'GET',
+          url: '/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana&order=market_cap_desc&page=1&per_page=3&price_change_percentage=24h,7d&sparkline=false',
+        });
+
+        expect(canonicalMarketsResponse.statusCode).toBe(200);
+        const canonicalMarketsBody = canonicalMarketsResponse.json();
+        expect(canonicalMarketsBody).toMatchObject([
+          expect.objectContaining({ id: 'bitcoin', market_cap_rank: 1 }),
+          expect.objectContaining({ id: 'ethereum', market_cap_rank: 2 }),
+          expect.objectContaining({ id: 'solana', market_cap_rank: 7 }),
+        ]);
+        expect(canonicalMarketsBody[2]).toMatchObject({
+          id: 'solana',
+          current_price: 82.41,
+          market_cap: 47168389011,
+          total_volume: expect.any(Number),
+        });
+        expect(canonicalMarketsBody[2].total_volume).toBeGreaterThan(0);
+
         const [simplePriceResponse, tokenPriceResponse, diagnosticsResponse] = await Promise.all([
           validationApp.inject({
             method: 'GET',
@@ -5813,6 +5833,7 @@ describe('OpenGecko app scaffold', () => {
         mode: 'seeded_bootstrap',
         reason: 'validation runtime seeded from persistent live snapshots',
       });
+      expect(validationServerApp.marketDataRuntimeState.listenerBindDeferred).toBe(false);
 
       const diagnosticsResponse = await validationServerApp.inject({
         method: 'GET',
@@ -5850,6 +5871,7 @@ describe('OpenGecko app scaffold', () => {
         mode: 'seeded_bootstrap',
         reason: 'default runtime seeded from persistent live snapshots',
       });
+      expect(localBootstrapApp.marketDataRuntimeState.listenerBindDeferred).toBe(false);
 
       const [simplePriceResponse, marketsResponse, detailResponse, diagnosticsResponse] = await Promise.all([
         localBootstrapApp.inject({

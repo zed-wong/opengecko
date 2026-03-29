@@ -592,7 +592,7 @@ describe('market runtime', () => {
   });
 
 
-  it('does not schedule a listener-bound refresh before seeded bootstrap validation ownership is handed off', async () => {
+  it('still refreshes after listener bind when a background runtime owns seeded bootstrap state', async () => {
     const state = createState({
       validationOverride: {
         mode: 'seeded_bootstrap',

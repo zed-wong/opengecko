@@ -747,13 +747,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
           || marketDataRuntimeState.validationOverride.reason === 'default runtime seeded from persistent live snapshots'
         )
       ) {
+        const seededBootstrapReason = bootstrapOnlyValidationRuntime
+          ? 'validation runtime seeded from persistent live snapshots'
+          : 'default runtime seeded from persistent live snapshots';
         marketDataRuntimeState.validationOverride = {
           mode: marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
             ? 'degraded_seeded_bootstrap'
             : 'seeded_bootstrap',
-          reason: bootstrapOnlyValidationRuntime
-            ? 'validation runtime seeded from persistent live snapshots'
-            : 'default runtime seeded from persistent live snapshots',
+          reason: seededBootstrapReason,
           snapshotTimestampOverride: marketDataRuntimeState.validationOverride.snapshotTimestampOverride,
           snapshotSourceCountOverride: marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
             ? 0
@@ -765,6 +766,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots = false;
         marketDataRuntimeState.allowStaleLiveService = true;
         marketDataRuntimeState.syncFailureReason = null;
+        marketDataRuntimeState.listenerBindDeferred = false;
         if (marketDataRuntimeState.hotDataRevision === 0) {
           marketDataRuntimeState.hotDataRevision = 1;
         }
