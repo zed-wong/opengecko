@@ -1,0 +1,21 @@
+{
+  "featureId": "lint-script-manifest-alignment",
+  "reviewedAt": "2026-03-29T12:49:44.483658+00:00",
+  "commitId": "e5a8b869da162167e6041c08f44dbb350e7dc534",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature is correctly scoped and implemented: commit e5a8b86 adds only a package-level no-op `lint` script to `package.json`, which matches the existing `.factory/services.yaml` validator command and satisfies the feature's deterministic `bun run lint` requirement without affecting runtime behavior.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The compatibility-hardening worker skill still prescribes running the full `bun run test` baseline even for tiny validator-surface alignment tasks, but this feature appropriately proceeded after documenting an unrelated pre-existing timeout because the assigned behavior was limited to manifest/script alignment.",
+      "evidence": "compatibility-hardening-worker SKILL.md step 8 requires `bun run test`; handoff skillFeedback marks `followedProcedure: false` and explains the feature only needed `bun run lint` plus `bun run typecheck` after a pre-existing timeout in `tests/invalid-params.test.ts`."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed the feature metadata, worker transcript skeleton, handoff, skill guidance, and commit e5a8b86. The change cleanly aligns `package.json` with the declared no-op lint validator, introduces no unrelated behavior changes, and has no blocking issues."
+}

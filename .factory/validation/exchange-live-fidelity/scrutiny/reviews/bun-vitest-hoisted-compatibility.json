@@ -1,0 +1,15 @@
+{
+  "featureId": "bun-vitest-hoisted-compatibility",
+  "reviewedAt": "2026-03-29T12:37:30Z",
+  "commitId": "70cbc94",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature stays within the intended scope by converting the brittle exchange-volume exact-array assertion in tests/app.test.ts into invariant-based checks that still enforce seeded point presence, response ordering, and window bounds under Bun/live-refresh conditions. The added seeded exchange row setup is required because the volume routes now correctly reject unknown exchanges before reading chart points, so the revised test continues to validate the shared live-ownership contract without masking product behavior.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed the feature metadata, handoff, transcript skeleton, skill instructions, and commit 70cbc94. I found no high-confidence blocking or non-blocking issues: the test change is scoped, matches the feature contract, and preserves the exchange-volume ownership expectations while tolerating additional live refresh points under Bun/Vitest."
+}

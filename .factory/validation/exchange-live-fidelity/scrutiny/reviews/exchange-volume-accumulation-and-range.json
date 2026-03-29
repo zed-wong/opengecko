@@ -1,21 +1,26 @@
 {
   "featureId": "exchange-volume-accumulation-and-range",
-  "reviewedAt": "2026-03-29T00:00:00Z",
-  "commitId": "695feb7",
+  "reviewedAt": "2026-03-29T12:50:01.527273+00:00",
+  "commitId": "695feb7de7259cf3cc583b9f5f57ba6ffd81b035",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The feature correctly aligns exchange volume chart responses with persisted live refresh points, preserves granular recent windows, validates explicit ranges, and keeps unknown-exchange failures consistent across both volume routes.",
+    "summary": "The commit correctly removes chart downsampling so exchange volume routes now expose persisted live refresh points directly, and the added app regressions cover unknown-exchange failures plus short-window and explicit-range ownership behavior aligned with the feature contract.",
     "issues": []
   },
   "sharedStateObservations": [
     {
       "area": "skills",
-      "observation": "The `runtime-provider-worker` skill tells workers to write failing tests first, but this worker reasonably landed the regression coverage and implementation in one change after tracing the runtime path. The skill may be too rigid for small route/service fixes where characterization already exists nearby.",
-      "evidence": "Handoff `skillFeedback.deviations[0]` says the worker added regression tests and implementation in the same change set; `.factory/skills/runtime-provider-worker/SKILL.md` step 2 currently requires a failing-test-first cycle."
+      "observation": "The runtime-provider-worker skill requires a failing characterization/regression test first, but this worker explicitly skipped an isolated red-first cycle and implemented tests plus code together. The procedure may need to acknowledge when tightly scoped route changes are reviewed from existing characterization instead of a separate failing-first command.",
+      "evidence": "Handoff skillFeedback marks followedProcedure=false for step 2, and worker-transcripts.jsonl for session 2cb5cc39-e01b-4e4c-85ee-e3ea4243bcce shows ApplyPatch edits landed before any successful targeted test run."
+    },
+    {
+      "area": "skills",
+      "observation": "The runtime-provider-worker skill says to run the targeted validation set, but assigned validator commands can still fail for unrelated repo-wide drift. The skill should explicitly bless narrower feature-focused confirmation after the required command surfaces unrelated blockers.",
+      "evidence": "Handoff skillFeedback includes a suggested skill change after the required test command timed out and exposed unrelated tests/app.test.ts token/bootstrap failures outside exchange-volume scope."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Pass. I reviewed the feature handoff, transcript skeleton, and commit `695feb7`. The code now serves `/exchanges/{id}/volume_chart*` directly from chronological persisted live refresh points, and the added app regressions cover unknown-exchange 404s plus one-day/seven-day/range ownership behavior. I found no blocking correctness issues in scope."
+  "summary": "Reviewed the feature handoff, transcript skeleton, runtime-provider-worker instructions, and commit 695feb7de7259cf3cc583b9f5f57ba6ffd81b035. I found no high-confidence blocking defects in the exchange-volume implementation; the feature appears to satisfy the volume-chart contract and live-ownership expectations, with only skill/procedure documentation gaps noted."
 }
