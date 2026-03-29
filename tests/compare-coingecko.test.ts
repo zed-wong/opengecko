@@ -25,6 +25,12 @@ const mockedFetchExchangeMarkets = fetchExchangeMarkets as ReturnType<typeof vi.
 const mockedFetchExchangeTickers = fetchExchangeTickers as ReturnType<typeof vi.fn>;
 const mockedFetchExchangeOHLCV = fetchExchangeOHLCV as ReturnType<typeof vi.fn>;
 
+function expectObjectFields(value: Record<string, unknown>, fields: string[]) {
+  for (const field of fields) {
+    expect(value).toHaveProperty(field);
+  }
+}
+
 describe('CoinGecko API compatibility', () => {
   let app: FastifyInstance;
   let tempDir: string;
@@ -496,40 +502,36 @@ describe('CoinGecko API compatibility', () => {
   // ========================================
   // /coins/categories/list
   // ========================================
-  describe('GET /coins/categories/list', () => {
-    it('matches CoinGecko categories list format', async () => {
-      const response = await app.inject({ method: 'GET', url: '/coins/categories/list' });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(Array.isArray(body)).toBe(true);
+  describe('GET /coins/categories*', () => {
+    it('matches CoinGecko category collection formats', async () => {
+      const [listResponse, categoriesResponse] = await Promise.all([
+        app.inject({ method: 'GET', url: '/coins/categories/list' }),
+        app.inject({ method: 'GET', url: '/coins/categories' }),
+      ]);
 
-      if (body.length > 0) {
-        expect(body[0]).toHaveProperty('category_id');
-        expect(body[0]).toHaveProperty('name');
+      expect(listResponse.statusCode).toBe(200);
+      expect(categoriesResponse.statusCode).toBe(200);
+
+      const listBody = listResponse.json();
+      const categoriesBody = categoriesResponse.json();
+      expect(Array.isArray(listBody)).toBe(true);
+      expect(Array.isArray(categoriesBody)).toBe(true);
+
+      if (listBody.length > 0) {
+        expectObjectFields(listBody[0], ['category_id', 'name']);
       }
-    });
-  });
 
-  // ========================================
-  // /coins/categories
-  // ========================================
-  describe('GET /coins/categories', () => {
-    it('matches CoinGecko categories format', async () => {
-      const response = await app.inject({ method: 'GET', url: '/coins/categories' });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(Array.isArray(body)).toBe(true);
-
-      if (body.length > 0) {
-        const cat = body[0];
-        expect(cat).toHaveProperty('id');
-        expect(cat).toHaveProperty('name');
-        expect(cat).toHaveProperty('market_cap');
-        expect(cat).toHaveProperty('market_cap_change_24h');
-        expect(cat).toHaveProperty('content');
-        expect(cat).toHaveProperty('top_3_coins');
-        expect(cat).toHaveProperty('volume_24h');
-        expect(cat).toHaveProperty('updated_at');
+      if (categoriesBody.length > 0) {
+        expectObjectFields(categoriesBody[0], [
+          'id',
+          'name',
+          'market_cap',
+          'market_cap_change_24h',
+          'content',
+          'top_3_coins',
+          'volume_24h',
+          'updated_at',
+        ]);
       }
     });
   });
@@ -584,55 +586,47 @@ describe('CoinGecko API compatibility', () => {
   // ========================================
   // /exchanges/list
   // ========================================
-  describe('GET /exchanges/list', () => {
-    it('matches CoinGecko exchanges/list format', async () => {
-      const response = await app.inject({ method: 'GET', url: '/exchanges/list' });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(Array.isArray(body)).toBe(true);
+  describe('GET /exchanges*', () => {
+    it('matches CoinGecko exchange family contracts', async () => {
+      const [listResponse, exchangesResponse, detailResponse, tickersResponse, volumeChartResponse] = await Promise.all([
+        app.inject({ method: 'GET', url: '/exchanges/list' }),
+        app.inject({ method: 'GET', url: '/exchanges' }),
+        app.inject({ method: 'GET', url: '/exchanges/binance' }),
+        app.inject({ method: 'GET', url: '/exchanges/binance/tickers' }),
+        app.inject({ method: 'GET', url: '/exchanges/binance/volume_chart?days=7' }),
+      ]);
 
-      if (body.length > 0) {
-        expect(body[0]).toHaveProperty('id');
-        expect(body[0]).toHaveProperty('name');
+      expect(listResponse.statusCode).toBe(200);
+      expect(exchangesResponse.statusCode).toBe(200);
+      expect(detailResponse.statusCode).toBe(200);
+      expect(tickersResponse.statusCode).toBe(200);
+      expect(volumeChartResponse.statusCode).toBe(200);
+
+      const listBody = listResponse.json();
+      const exchangesBody = exchangesResponse.json();
+      const detailBody = detailResponse.json();
+      const tickersBody = tickersResponse.json();
+      const volumeChartBody = volumeChartResponse.json();
+
+      expect(Array.isArray(listBody)).toBe(true);
+      expect(Array.isArray(exchangesBody)).toBe(true);
+      expect(Array.isArray(volumeChartBody)).toBe(true);
+      expect(Array.isArray(tickersBody.tickers)).toBe(true);
+
+      if (listBody.length > 0) {
+        expectObjectFields(listBody[0], ['id', 'name']);
       }
-    });
-  });
 
-  // ========================================
-  // /exchanges
-  // ========================================
-  describe('GET /exchanges', () => {
-    it('matches CoinGecko exchanges format', async () => {
-      const response = await app.inject({ method: 'GET', url: '/exchanges' });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(Array.isArray(body)).toBe(true);
-
-      if (body.length > 0) {
-        const exchange = body[0];
-        const requiredFields = [
+      if (exchangesBody.length > 0) {
+        expectObjectFields(exchangesBody[0], [
           'id', 'name', 'year_established', 'country',
           'description', 'url', 'image', 'has_trading_incentive',
           'trust_score', 'trust_score_rank',
           'trade_volume_24h_btc', 'trade_volume_24h_btc_normalized',
-        ];
-        for (const field of requiredFields) {
-          expect(exchange).toHaveProperty(field);
-        }
+        ]);
       }
-    });
-  });
 
-  // ========================================
-  // /exchanges/:id
-  // ========================================
-  describe('GET /exchanges/:id', () => {
-    it('matches CoinGecko exchange detail format', async () => {
-      const response = await app.inject({ method: 'GET', url: '/exchanges/binance' });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-
-      const requiredFields = [
+      expectObjectFields(detailBody, [
         'id', 'name', 'year_established', 'country',
         'description', 'url', 'image', 'has_trading_incentive',
         'trust_score', 'trust_score_rank',
@@ -641,45 +635,10 @@ describe('CoinGecko API compatibility', () => {
         'slack_url', 'other_url_1', 'other_url_2',
         'twitter_handle', 'centralized', 'public_notice',
         'alert_notice', 'tickers',
-      ];
-      for (const field of requiredFields) {
-        expect(body).toHaveProperty(field);
-      }
-    });
-  });
+      ]);
+      expectObjectFields(tickersBody, ['name', 'tickers']);
 
-  // ========================================
-  // /exchanges/:id/tickers
-  // ========================================
-  describe('GET /exchanges/:id/tickers', () => {
-    it('matches CoinGecko exchange tickers format', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/exchanges/binance/tickers',
-      });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(body).toHaveProperty('name');
-      expect(body).toHaveProperty('tickers');
-      expect(Array.isArray(body.tickers)).toBe(true);
-    });
-  });
-
-  // ========================================
-  // /exchanges/:id/volume_chart
-  // ========================================
-  describe('GET /exchanges/:id/volume_chart', () => {
-    it('matches CoinGecko volume chart format', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/exchanges/binance/volume_chart?days=7',
-      });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(Array.isArray(body)).toBe(true);
-
-      // Each entry is [timestamp, volumeBtc]
-      for (const entry of body) {
+      for (const entry of volumeChartBody) {
         expect(entry).toHaveLength(2);
         expect(typeof entry[0]).toBe('number');
         expect(typeof entry[1]).toBe('number');
@@ -901,170 +860,74 @@ describe('CoinGecko API compatibility', () => {
   // ========================================
   // /onchain/networks
   // ========================================
-  describe('GET /onchain/networks', () => {
-    it('returns onchain networks with correct structure', async () => {
-      const response = await app.inject({ method: 'GET', url: '/onchain/networks' });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(body).toHaveProperty('data');
-      expect(body).toHaveProperty('meta');
-      expect(Array.isArray(body.data)).toBe(true);
+  describe('GET /onchain/networks*', () => {
+    it('returns the onchain family with consistent resource contracts', async () => {
+      const [networksResponse, dexesResponse, poolsResponse, poolDetailResponse, dexPoolsResponse, newPoolsResponse, multiPoolsResponse] = await Promise.all([
+        app.inject({ method: 'GET', url: '/onchain/networks' }),
+        app.inject({ method: 'GET', url: '/onchain/networks/eth/dexes' }),
+        app.inject({ method: 'GET', url: '/onchain/networks/eth/pools' }),
+        app.inject({ method: 'GET', url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640' }),
+        app.inject({ method: 'GET', url: '/onchain/networks/eth/dexes/uniswap_v3/pools' }),
+        app.inject({ method: 'GET', url: '/onchain/networks/eth/new_pools' }),
+        app.inject({ method: 'GET', url: '/onchain/networks/eth/pools/multi/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640,0x4e68ccd3e89f51c3074ca5072bbac773960dfa36' }),
+      ]);
 
-      if (body.data.length > 0) {
-        const network = body.data[0];
-        expect(network).toHaveProperty('id');
-        expect(network).toHaveProperty('type');
-        expect(network).toHaveProperty('attributes');
-        expect(network.attributes).toHaveProperty('name');
+      for (const response of [networksResponse, dexesResponse, poolsResponse, poolDetailResponse, dexPoolsResponse, newPoolsResponse, multiPoolsResponse]) {
+        expect(response.statusCode).toBe(200);
       }
-    });
-  });
 
-  // ========================================
-  // /onchain/networks/:network/dexes
-  // ========================================
-  describe('GET /onchain/networks/:network/dexes', () => {
-    it('returns onchain dexes with correct structure', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/onchain/networks/eth/dexes',
-      });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(body).toHaveProperty('data');
-      expect(body).toHaveProperty('meta');
-      expect(Array.isArray(body.data)).toBe(true);
+      const networksBody = networksResponse.json();
+      const dexesBody = dexesResponse.json();
+      const poolsBody = poolsResponse.json();
+      const poolDetailBody = poolDetailResponse.json();
+      const dexPoolsBody = dexPoolsResponse.json();
+      const newPoolsBody = newPoolsResponse.json();
+      const multiPoolsBody = multiPoolsResponse.json();
 
-      if (body.data.length > 0) {
-        const dex = body.data[0];
-        expect(dex).toHaveProperty('id');
-        expect(dex).toHaveProperty('type');
-        expect(dex).toHaveProperty('attributes');
-        expect(dex).toHaveProperty('relationships');
-        expect(dex.relationships).toHaveProperty('network');
+      expect(Array.isArray(networksBody.data)).toBe(true);
+      expect(Array.isArray(dexesBody.data)).toBe(true);
+      expect(Array.isArray(poolsBody.data)).toBe(true);
+      expect(Array.isArray(dexPoolsBody.data)).toBe(true);
+      expect(Array.isArray(newPoolsBody.data)).toBe(true);
+      expect(Array.isArray(multiPoolsBody.data)).toBe(true);
+
+      if (networksBody.data.length > 0) {
+        expectObjectFields(networksBody.data[0], ['id', 'type', 'attributes']);
+        expectObjectFields(networksBody.data[0].attributes, ['name']);
       }
-    });
-  });
 
-  // ========================================
-  // /onchain/networks/:network/pools
-  // ========================================
-  describe('GET /onchain/networks/:network/pools', () => {
-    it('returns onchain pools with correct structure', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/onchain/networks/eth/pools',
-      });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(body).toHaveProperty('data');
-      expect(body).toHaveProperty('meta');
-      expect(Array.isArray(body.data)).toBe(true);
-
-      if (body.data.length > 0) {
-        const pool = body.data[0];
-        expect(pool).toHaveProperty('id');
-        expect(pool).toHaveProperty('type', 'pool');
-        expect(pool).toHaveProperty('attributes');
-        expect(pool.attributes).toHaveProperty('name');
-        expect(pool.attributes).toHaveProperty('base_token_symbol');
-        expect(pool.attributes).toHaveProperty('quote_token_symbol');
-        expect(pool.attributes).toHaveProperty('volume_usd');
-        expect(pool.attributes).toHaveProperty('transactions');
-        expect(pool).toHaveProperty('relationships');
-        expect(pool.relationships).toHaveProperty('network');
-        expect(pool.relationships).toHaveProperty('dex');
+      if (dexesBody.data.length > 0) {
+        expectObjectFields(dexesBody.data[0], ['id', 'type', 'attributes', 'relationships']);
+        expect(dexesBody.data[0].relationships).toHaveProperty('network');
       }
-    });
-  });
 
-  // ========================================
-  // /onchain/networks/:network/pools/:address
-  // ========================================
-  describe('GET /onchain/networks/:network/pools/:address', () => {
-    it('returns onchain pool detail with correct structure', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640',
-      });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(body).toHaveProperty('data');
-      expect(body.data).toHaveProperty('id');
-      expect(body.data).toHaveProperty('type', 'pool');
-      expect(body.data).toHaveProperty('attributes');
-      expect(body.data.attributes).toHaveProperty('name');
-      expect(body.data).toHaveProperty('relationships');
-      expect(body.data.relationships).toHaveProperty('network');
-      expect(body.data.relationships).toHaveProperty('dex');
-    });
-  });
-
-  // ========================================
-  // /onchain/networks/:network/dexes/:dex/pools
-  // ========================================
-  describe('GET /onchain/networks/:network/dexes/:dex/pools', () => {
-    it('returns dex-scoped pools with correct structure', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/onchain/networks/eth/dexes/uniswap_v3/pools',
-      });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(body).toHaveProperty('data');
-      expect(body).toHaveProperty('meta');
-      expect(Array.isArray(body.data)).toBe(true);
-
-      if (body.data.length > 0) {
-        const pool = body.data[0];
-        expect(pool).toHaveProperty('type', 'pool');
-        expect(pool).toHaveProperty('relationships.dex.data.id');
+      if (poolsBody.data.length > 0) {
+        expectObjectFields(poolsBody.data[0], ['id', 'type', 'attributes', 'relationships']);
+        expect(poolsBody.data[0].type).toBe('pool');
+        expectObjectFields(poolsBody.data[0].attributes, ['name', 'base_token_symbol', 'quote_token_symbol', 'volume_usd', 'transactions']);
+        expectObjectFields(poolsBody.data[0].relationships, ['network', 'dex']);
       }
-    });
-  });
 
-  // ========================================
-  // /onchain/networks/:network/new_pools
-  // ========================================
-  describe('GET /onchain/networks/:network/new_pools', () => {
-    it('returns newest pools with correct structure', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/onchain/networks/eth/new_pools',
-      });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(body).toHaveProperty('data');
-      expect(body).toHaveProperty('meta');
-      expect(Array.isArray(body.data)).toBe(true);
+      expectObjectFields(poolDetailBody, ['data']);
+      expectObjectFields(poolDetailBody.data, ['id', 'type', 'attributes', 'relationships']);
+      expect(poolDetailBody.data.type).toBe('pool');
+      expectObjectFields(poolDetailBody.data.attributes, ['name']);
+      expectObjectFields(poolDetailBody.data.relationships, ['network', 'dex']);
 
-      if (body.data.length > 0) {
-        const pool = body.data[0];
-        expect(pool).toHaveProperty('type', 'pool');
-        expect(pool).toHaveProperty('attributes.pool_created_at');
+      if (dexPoolsBody.data.length > 0) {
+        expect(dexPoolsBody.data[0]).toHaveProperty('type', 'pool');
+        expect(dexPoolsBody.data[0]).toHaveProperty('relationships.dex.data.id');
       }
-    });
-  });
 
-  // ========================================
-  // /onchain/networks/:network/pools/multi/:addresses
-  // ========================================
-  describe('GET /onchain/networks/:network/pools/multi/:addresses', () => {
-    it('returns multi pool lookup with correct structure', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/onchain/networks/eth/pools/multi/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640,0x4e68ccd3e89f51c3074ca5072bbac773960dfa36',
-      });
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(body).toHaveProperty('data');
-      expect(Array.isArray(body.data)).toBe(true);
-      expect(body.data.length).toBeGreaterThan(0);
+      if (newPoolsBody.data.length > 0) {
+        expect(newPoolsBody.data[0]).toHaveProperty('type', 'pool');
+        expect(newPoolsBody.data[0]).toHaveProperty('attributes.pool_created_at');
+      }
 
-      if (body.data.length > 0) {
-        const pool = body.data[0];
-        expect(pool).toHaveProperty('id');
-        expect(pool).toHaveProperty('type', 'pool');
+      expect(multiPoolsBody.data.length).toBeGreaterThan(0);
+      if (multiPoolsBody.data.length > 0) {
+        expectObjectFields(multiPoolsBody.data[0], ['id', 'type']);
+        expect(multiPoolsBody.data[0].type).toBe('pool');
       }
     });
   });

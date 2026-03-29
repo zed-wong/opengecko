@@ -100,55 +100,57 @@ describe('live data integration', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('serves live data from /simple/price after boot', async () => {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/simple/price?ids=bitcoin&vs_currencies=usd',
-    });
+  it('bootstraps live market and exchange surfaces before serving traffic', async () => {
+    expect(mockedFetchExchangeTickers).toHaveBeenCalled();
+    expect(app.marketDataRuntimeState.initialSyncCompleted).toBe(true);
+    expect(app.marketDataRuntimeState.listenerBound).toBe(false);
 
-    expect(response.statusCode).toBe(200);
-    const body = response.json();
-    expect(body).toEqual({
+    const [simplePriceResponse, marketsResponse, detailResponse, exchangeResponse] = await Promise.all([
+      app.inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin&vs_currencies=usd',
+      }),
+      app.inject({
+        method: 'GET',
+        url: '/coins/markets?vs_currency=usd&ids=bitcoin',
+      }),
+      app.inject({
+        method: 'GET',
+        url: '/coins/bitcoin',
+      }),
+      app.inject({
+        method: 'GET',
+        url: '/exchanges/binance',
+      }),
+    ]);
+
+    expect(simplePriceResponse.statusCode).toBe(200);
+    expect(simplePriceResponse.json()).toEqual({
       bitcoin: {
         usd: 90_000,
       },
     });
-  });
 
-  it('serves live data from /coins/markets', async () => {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/coins/markets?vs_currency=usd&ids=bitcoin',
+    expect(marketsResponse.statusCode).toBe(200);
+    expect(marketsResponse.json()[0]).toMatchObject({
+      id: 'bitcoin',
+      current_price: 90_000,
     });
 
-    expect(response.statusCode).toBe(200);
-    const body = response.json();
-    expect(body[0].id).toBe('bitcoin');
-    expect(body[0].current_price).toBe(90_000);
-  });
-
-  it('serves live data from /coins/:id', async () => {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/coins/bitcoin',
+    expect(detailResponse.statusCode).toBe(200);
+    expect(detailResponse.json()).toMatchObject({
+      id: 'bitcoin',
+      market_data: {
+        current_price: {
+          usd: 90_000,
+        },
+      },
     });
 
-    expect(response.statusCode).toBe(200);
-    const body = response.json();
-    expect(body.id).toBe('bitcoin');
-    expect(body.market_data).not.toBeNull();
-    expect(body.market_data.current_price.usd).toBe(90_000);
-  });
-
-  it('serves exchange records created from CCXT metadata', async () => {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/exchanges/binance',
+    expect(exchangeResponse.statusCode).toBe(200);
+    expect(exchangeResponse.json()).toMatchObject({
+      name: 'Binance',
     });
-
-    expect(response.statusCode).toBe(200);
-    const body = response.json();
-    expect(body.name).toBe('Binance');
   });
 
   it('serves OHLCV tuples from the mocked backfill candles', async () => {
@@ -183,27 +185,6 @@ describe('live data integration', () => {
     expect(body.data.usd.value).toBeGreaterThan(0);
     expect(Number.isFinite(body.data.usd.value)).toBe(true);
     expect(typeof body.data.eur.value).toBe('number');
-  });
-
-  it('await app.ready waits for the initial live snapshot bootstrap when background jobs are enabled', async () => {
-    expect(mockedFetchExchangeTickers).toHaveBeenCalled();
-
-    const response = await app.inject({
-      method: 'GET',
-      url: '/simple/price?ids=bitcoin&vs_currencies=usd',
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({
-      bitcoin: {
-        usd: 90_000,
-      },
-    });
-  });
-
-  it('keeps listener-bound state false for app.ready bootstrap-only initialization', async () => {
-    expect(app.marketDataRuntimeState.initialSyncCompleted).toBe(true);
-    expect(app.marketDataRuntimeState.listenerBound).toBe(false);
   });
 
   it('verifies cross-area milestone flows work together end-to-end', async () => {
@@ -317,9 +298,9 @@ describe('live data integration', () => {
       expect(response.statusCode).toBe(200);
     }
 
-    expect(packageJson.version).toBe('0.4.0');
+    expect(packageJson.version).toBe('0.5.0');
     expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(packageJson.version.startsWith('0.4.')).toBe(true);
+    expect(packageJson.version.startsWith('0.5.')).toBe(true);
   });
 
   it('keeps CeFi and DeFi USD prices within the contract coherence threshold for overlapping tokens', async () => {
