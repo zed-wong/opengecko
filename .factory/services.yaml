@@ -7,7 +7,7 @@ commands:
 
 services:
   api:
-    start: PORT=3100 CCXT_EXCHANGES='' LOG_LEVEL=error bun run src/server.ts
+    start: PORT=3100 HOST=127.0.0.1 CCXT_EXCHANGES=binance,coinbase,okx LOG_LEVEL=error bun run src/server.ts
     stop: lsof -ti :3100 | xargs kill 2>/dev/null || true
     healthcheck: curl -sf http://localhost:3100/ping
     port: 3100

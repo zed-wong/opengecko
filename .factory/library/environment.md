@@ -13,26 +13,25 @@ All defined in `src/config/env.ts` with defaults unless noted otherwise.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `3000` | Server port |
+| `PORT` | `3000` | Server port (mission validation uses `3100`) |
 | `HOST` | `0.0.0.0` | Bind host |
 | `DATABASE_URL` | `./data/opengecko.db` | SQLite path |
-| `CCXT_EXCHANGES` | `binance,bigone,mexc,gate,okx` | Exchange set |
+| `CCXT_EXCHANGES` | `binance,bigone,mexc,gate,okx` | Exchange set; mission live validation uses `binance,coinbase,okx` for a more stable core subset |
 | `MARKET_FRESHNESS_THRESHOLD_SECONDS` | `300` | Stale data threshold |
 | `DEFILLAMA_BASE_URL` | `https://api.llama.fi` | Base URL for DeFiLlama protocol, overview, and price requests |
-| `THEGRAPH_API_KEY` | (none) | Legacy The Graph API key path still exists in code, but the active recovery plan is moving live Ethereum trades/OHLCV to SQD public queries |
-| `COINGECKO_API_KEY` | (none) | Required for the snapshot-parity mission's bounded CoinGecko Pro capture workflow; consume from runtime environment or centralized env-loading path only, never by directly parsing `.env` |
-
-## Snapshot Parity Notes
-
-- The snapshot-parity mission uses CoinGecko **Pro** root/header conventions only.
-- `COINGECKO_API_KEY` is for the dedicated bounded capture workflow only; replay, reporting, and validation must use stored local artifacts instead of repeated upstream calls.
-- Never log, print, serialize, or persist the API key in artifacts, reports, or test output.
-- Snapshot artifacts live under `data/coingecko-snapshots/`.
+| `THEGRAPH_API_KEY` | (none) | Legacy path only; do not introduce new The Graph dependencies for the data-fidelity mission |
+| `COINGECKO_API_KEY` | (none) | Not required for the data-fidelity uplift mission |
 
 ## External Dependencies
 
-- **CCXT**: Live exchange APIs (binance, coinbase, kraken, okx). No auth needed.
-- **DeFiLlama**: host split matters for live onchain work. Use `https://api.llama.fi/` for protocol/overview/price surfaces, and `https://yields.llama.fi/` for free yield-pool discovery. `https://api.llama.fi/yields/pools` currently 404s in practice.
-- **SQD/Subsquid**: `https://v2.archive.subsquid.io/network/ethereum-mainnet` — public raw EVM log API for historical swap-event queries; rate-limited, historical-focused
-- **The Graph**: `https://gateway.thegraph.com/api/` — legacy fallback path that currently requires a working API key and is not the preferred recovery plan
+- **CCXT**: Live exchange APIs for exchange metadata, tickers, and market snapshots. No auth needed.
+- **DeFiLlama**: Use `https://api.llama.fi/` for protocol/overview/price surfaces and `https://yields.llama.fi/` for free yield-pool discovery.
+- **SQD/Subsquid**: `https://v2.archive.subsquid.io/network/ethereum-mainnet` for approved Ethereum trade/OHLCV recovery paths.
+- **The Graph**: Legacy path only; not an approved new dependency for this mission.
 - **SQLite**: File-based at `DATABASE_URL`. No external database service.
+
+## Mission-Specific Notes
+
+- This mission validates real provider-backed fidelity on port `3100`; expect slower boot and occasional upstream flakiness.
+- Do not add new providers or credentials unless the orchestrator explicitly expands mission scope.
+- Fixture-backed families must remain honest in canonical docs even when runtime routes stay reachable.

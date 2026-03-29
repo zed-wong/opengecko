@@ -9,16 +9,16 @@ NOTE: Startup and cleanup are handled by `worker-base`. This skill defines the w
 
 ## When to Use This Skill
 
-Use this skill for `/onchain/*` endpoints, DeFiLlama provider integration, The Graph subgraph integration, onchain data wiring, and any feature touching `src/modules/onchain.ts` or `src/providers/defillama.ts` / `src/providers/thegraph.ts`.
+Use this skill for `/onchain/*` endpoints, DeFiLlama-backed discovery/enrichment, Subsquid-backed trade or OHLCV paths, fixture-honesty hardening for onchain analytics, and any feature touching `src/modules/onchain.ts` or related provider modules.
 
 ## Work Procedure
 
 1. Read `mission.md`, `AGENTS.md`, the assigned feature, and all assigned onchain assertions in `validation-contract.md`.
-2. Read `.factory/research/onchain-data-sources.md` for DeFiLlama and The Graph API details.
+2. Read `.factory/research/onchain-data-sources.md` for DeFiLlama, Subsquid, and any other already-approved onchain source details.
 3. Inspect `src/modules/onchain.ts`, related schema/data helpers, and any existing onchain tests before making changes.
-4. Write failing tests first for the exact route family you are touching. Cover both happy-path and negative-path behavior. Mock external API responses (DeFiLlama, The Graph) in tests — never call live APIs.
+4. Write failing tests first for the exact route family you are touching. Cover both happy-path and negative-path behavior. Mock external API responses (DeFiLlama, Subsquid, or other already-approved sources) in tests — never call live APIs.
 5. Implement the route and response-shaping changes while preserving JSON:API-style `data`, `included`, `relationships`, and `meta` semantics.
-6. For provider modules: implement with graceful error handling. All provider functions must catch errors, log them, and return null/empty results rather than throwing. Route handlers must fall back to seeded/cached data when providers fail.
+6. For provider modules: implement with graceful error handling. All provider functions must catch errors, log them, and return null/empty results rather than throwing. Route handlers must fall back only to the contract-approved seeded/cached behavior when providers fail.
 7. Verify network, dex, pool, and token relationship integrity explicitly.
 8. Run targeted onchain tests until they pass.
 9. If the manifest-wide baseline test command fails only on issues already listed in `AGENTS.md` as pre-existing, continue with scoped work; record that baseline failure in the handoff.
@@ -79,4 +79,4 @@ Use this skill for `/onchain/*` endpoints, DeFiLlama provider integration, The G
 - The endpoint requires an onchain dataset/provider not yet selected in mission state.
 - JSON:API response-shape expectations are ambiguous and cannot be resolved from existing planning docs or fixtures.
 - The route cannot be completed without widening infrastructure boundaries or introducing unapproved external dependencies.
-- DeFiLlama or The Graph API has changed in ways not reflected in `.factory/research/onchain-data-sources.md`.
+- DeFiLlama, Subsquid, or another already-approved onchain source has changed in ways not reflected in `.factory/research/onchain-data-sources.md`.

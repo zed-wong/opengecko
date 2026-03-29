@@ -9,7 +9,7 @@ NOTE: Startup and cleanup are handled by `worker-base`. This skill defines the w
 
 ## When to Use This Skill
 
-Use for compatibility audit features, snapshot capture/replay infrastructure, normalization rules, divergence registries, serializer fixture creation, parity report generation, and any feature focused on cross-endpoint consistency rather than new functionality.
+Use for compatibility audit features, fidelity-accounting and tracker updates, snapshot capture/replay infrastructure, normalization rules, divergence registries, serializer fixture creation, parity report generation, and any feature focused on cross-endpoint consistency rather than new functionality.
 
 ## Required Skills
 
@@ -23,7 +23,7 @@ None.
 4. If the feature touches snapshot parity infrastructure, read `.factory/library/data-quality-parity.md` plus any checked-in capture manifest, normalization ruleset, or divergence registry before editing.
 5. Write failing tests first for the exact behavior you are adding: capture manifest accounting, offline replay, classification, report schema, divergence labeling, or regression gate behavior.
 6. For snapshot/replay features: prove the workflow can run from stored local artifacts without repeated upstream calls; preserve raw payloads and request-identifying metadata/evidence links.
-7. For report features: emit machine-readable artifacts with stable ordering and enough ownership/evidence context to route fixes. Do not generate docs in `docs/status/` unless the assigned feature explicitly asks for it.
+7. For report features: emit machine-readable artifacts with stable ordering and enough ownership/evidence context to route fixes. Do not generate docs in `docs/status/` unless the assigned feature explicitly asks for it; when it does, keep route-compatibility and live-fidelity classifications explicit and non-contradictory.
 8. Run `bun run test` and `bun run typecheck`. If the baseline test suite fails only on issues already listed in mission `AGENTS.md` as pre-existing, continue with scoped work and record the baseline failure exactly in the handoff.
 9. If the feature changes replay/report behavior, start the validation API on port 3102 and manually verify at least one canonical replay/report flow against stored artifacts. If the feature is purely internal test/rules wiring, explain why curl verification was not needed.
 10. In the handoff, list every manifest entry, endpoint family, or report artifact covered and the specific validation checks added.

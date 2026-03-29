@@ -1,67 +1,101 @@
 # User Testing
 
-Testing surface, required testing skills/tools, and resource cost classification.
+Testing surface, validation tooling, and concurrency guidance for the data-fidelity uplift mission.
 
 ---
 
 ## Validation Surface
 
-- **Surface type**: REST API endpoints (no browser UI)
-- **Testing tool**: curl against local server
-- **Server startup**: `PORT=3102 HOST=127.0.0.1 DATABASE_URL=:memory: CCXT_EXCHANGES='' LOG_LEVEL=error bun run src/server.ts`
-- **Startup time**: ~4-6 seconds (with CCXT_EXCHANGES='' for fast boot)
-- **Database**: SQLite at `./data/opengecko.db` (or `:memory:` for tests)
+- **Primary surface**: REST API endpoints
+- **Primary tool**: `curl`
+- **Primary mission server**: `PORT=3100 HOST=127.0.0.1 CCXT_EXCHANGES=binance,coinbase,okx LOG_LEVEL=error bun run src/server.ts`
+- **Secondary isolated server**: `PORT=3102 HOST=127.0.0.1 DATABASE_URL=:memory: CCXT_EXCHANGES='' LOG_LEVEL=error bun run src/server.ts`
+- **Database**: SQLite only
 
-### Snapshot-Parity Mission Surface
+Use the live mission API on `3100` for fidelity assertions that depend on provider-backed refresh/discovery behavior. Use `3102` only for isolated structural checks that do not require the live-provider path.
 
-- **Primary acceptance flow**:
-  1. bounded CoinGecko Pro capture writes artifacts under `data/coingecko-snapshots/`
-  2. local validation API runs on `3102`
-  3. offline replay compares local responses to stored upstream artifacts
-  4. machine-readable diff reports provide pass/fail evidence
-- **Primary tools**: local API + curl + targeted tests + offline replay/diff commands
-- **Important constraint**: do not re-hit live CoinGecko during replay, reporting, or repeated validation runs
-- **Evidence chain**: stored upstream artifact -> replay-captured OpenGecko artifact -> structured diff/report entry
+## Milestone Validation Focus
 
-### Endpoints to Test Per Milestone
+### exchange-live-fidelity
 
-**foundation-fixes**: `/global/market_cap_chart`, `/coins/bitcoin/market_chart`, `/coins/ethereum/contract/...`, `/token_lists/eth/all.json`, `/simple/token_price/eth`, `/ping`
-**chain-id-resolution**: `/diagnostics/chain_coverage`, `/asset_platforms`, `/coins/ethereum/contract/...` with alias variants
-**onchain-live-data**: `/onchain/networks`, `/onchain/networks/eth/pools`, `/onchain/networks/eth/pools/:address/ohlcv/hour`, `/onchain/networks/eth/pools/:address/trades`, `/onchain/simple/networks/eth/token_price/:addresses`
-**historical-durability**: `/coins/bitcoin/market_chart`, `/coins/bitcoin/ohlc`, `/diagnostics/ohlcv_sync`
-**exchange-live-fidelity**: `/exchanges`, `/exchanges/binance/tickers`, `/derivatives/exchanges`, `/exchanges/binance/volume_chart`
-**compatibility-hardening**: All endpoints with invalid parameters, response shape validation
-**snapshot-parity**: stored snapshot capture corpus, canonical `/simple/price`, `/simple/token_price/{id}`, `/coins/markets`, `/coins/{id}`, `/global`, `/exchange_rates`, `/exchanges`, `/exchanges/{id}`, `/exchanges/{id}/tickers`, plus offline replay/diff reports
+- `/exchanges/binance`
+- `/exchanges/binance/tickers`
+- `/exchanges/binance/volume_chart`
+- `/exchanges/binance/volume_chart/range`
+- `/search/trending`
+
+### platform-and-catalog-discovery
+
+- `/asset_platforms`
+- `/token_lists/ethereum/all.json`
+- `/coins/list/new`
+- `/coins/list`
+- `/search`
+- `/coins/{id}`
+- `/coins/{platform}/contract/{address}`
+
+### onchain-discovery-uplift
+
+- `/onchain/networks`
+- `/onchain/networks/eth/dexes`
+- `/onchain/networks/eth/pools`
+- `/onchain/networks/eth/tokens/{address}`
+- `/onchain/networks/eth/tokens/{address}/top_holders`
+- `/onchain/networks/eth/tokens/{address}/top_traders`
+- `/onchain/networks/eth/tokens/{address}/holders_chart`
+
+### coin-enrichment-and-chart-fidelity
+
+- `/coins/bitcoin`
+- `/coins/bitcoin/history`
+- `/coins/bitcoin/market_chart`
+- `/coins/bitcoin/market_chart/range`
+- `/coins/bitcoin/ohlc`
+- `/coins/bitcoin/ohlc/range`
+- `/coins/ethereum/contract/{address}/market_chart/range`
+
+### fixture-doc-honesty
+
+- `/derivatives`
+- `/derivatives/exchanges`
+- `/derivatives/exchanges/binance_futures`
+- `/public_treasury/strategy`
+- `/public_treasury/strategy/bitcoin/holding_chart`
+- `/public_treasury/strategy/transaction_history`
+- `/coins/categories`
+- `/coins/categories/list`
+- `/diagnostics/runtime`
+- Canonical docs named in `validation-contract.md`
 
 ## Validation Concurrency
 
-- **Machine**: 8 cores, 30GB RAM, ~19GB available
-- **API server footprint**: ~80-120MB RAM per instance
-- **Max concurrent validators**: 5 (each uses ~120MB for server + ~50MB curl overhead = ~170MB; 5 * 170MB = 850MB, well within 19GB * 0.7 = 13.3GB budget)
-- **Test suite**: Vitest runs parallel by default, uses ~500MB peak
+- **Machine**: 8 CPU cores, ~31 GB RAM
+- **Observed live API boot cost**: slow startup with enabled providers; dry run consumed ~2.7 GB of available memory headroom during boot and validation
+- **Max concurrent validators for the live API surface**: `1`
+- **Repo-level automated checks**: targeted Bun/Vitest commands are allowed alongside curl checks, but do not run multiple full-suite jobs concurrently
 
-## Known Limitations
+Reasoning: live-provider startup is the dominant resource and flakiness risk, so validators should serialize real API flows.
 
-- Solana onchain endpoints remain seeded (no live Raydium subgraph)
-- Holder/trader analytics remain fixture-backed
-- Ethereum trades/OHLCV recovery is shifting to SQD/Subsquid raw log queries; validation should prefer `DATABASE_URL=:memory:` and verify non-fixture responses from the SQD-backed path
-- Server startup with CCXT exchanges enabled takes 30+ seconds (use CCXT_EXCHANGES='' for validation)
-- The legacy `scripts/modules/simple/simple.sh` flow is not a hard gate for the snapshot-parity mission because it assumes live market snapshots instead of the stored-artifact replay workflow.
+## Known Mission Constraints
 
+- Live-provider startup can take roughly a minute; wait for `/ping` before declaring failure.
+- The mission manifest intentionally uses a narrower stable CCXT subset (`binance,coinbase,okx`) for live validation to avoid slow/failing bootstrap on less reliable exchanges.
+- Upstream CCXT providers can still be flaky or region-blocked. Report provider outages as blockers instead of silently switching to mocks.
+- DeFiLlama-backed onchain discovery is stronger on Ethereum than on non-Ethereum networks.
+- Holder/trader analytics remain intentionally fixture-backed.
+- Categories and supply-chart surfaces may remain seeded or stubbed depending on the assigned feature; validate them against the canonical docs, not assumptions.
 
 ## Flow Validator Guidance: api
 
-- Shared validation server on `http://127.0.0.1:3102` is allowed for concurrent curl-based checks.
-- If the server is not running, start exactly one instance on port `3102`; prefer `DATABASE_URL=:memory:` to avoid lock conflicts with any dev server using `data/opengecko.db`.
-- If port `3102` is occupied by a stale or incompatible mission-owned validation server (for example diagnostics show `shared_market_snapshot.available=false` for a flow that needs live snapshots), stop it with the manifest stop command and start a fresh validation instance on `3102` before continuing.
-- For the bootstrap runtime-mode change, the validation API on `3102` should expose the same seeded-bootstrap semantics as the default/local bootstrap path when persisted rows are present. User-testing flows should verify `/diagnostics/runtime`, `/simple/price`, `/simple/token_price/*`, `/coins/markets`, and `/coins/{id}` against that seeded-bootstrap contract rather than the older stale/degraded-only behavior.
+- Start exactly one mission-owned live API on `3100` when validating fidelity assertions.
+- If a separate validation instance is needed for isolated checks, use `3102`.
 - Do not use ports outside `3100-3199`.
-- Save response artifacts only under the assigned mission evidence directory.
-- Do not modify repository source files while validating.
-- For snapshot-parity validation, prefer stored artifacts under `data/coingecko-snapshots/` and verify replay/diff results offline rather than by making repeated upstream requests.
+- Save evidence only under the assigned mission validation directory.
+- Do not edit repository files while validating.
+- Prefer exact `curl` requests from `validation-contract.md` so evidence stays auditable.
 
 ## Flow Validator Guidance: repo-validations
 
-- Repository validators (`bun run test`, `bun run typecheck`, targeted `bun test`) may run concurrently with API curl checks, but avoid launching multiple full `bun run test` processes at once.
-- Keep all artifacts in assigned evidence paths and `.factory/validation/<milestone>/user-testing/flows/`.
-- Validation workers may inspect tests/source to map assertions to existing coverage, but must not edit source code.
+- Run targeted tests first, then `bun run typecheck`.
+- Reserve `bun run test` for milestone scrutiny or when the assigned feature explicitly requires a broader suite.
+- Validation workers may inspect source/tests to map assertions to coverage, but must not modify source code.

@@ -9,3 +9,4 @@ bun install --frozen-lockfile
 # Ensure data directories exist
 mkdir -p data
 mkdir -p data/coingecko-snapshots
+mkdir -p .factory/validation
