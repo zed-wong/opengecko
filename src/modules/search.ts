@@ -111,6 +111,7 @@ export function registerSearchRoutes(app: FastifyInstance, database: AppDatabase
     const query = trendingQuerySchema.parse(request.query);
     const showMax = parseShowMax(query.show_max);
     const marketRows = getMarketRows(database, 'usd', { status: 'all' });
+    const btcPrice = marketRows.find((row) => row.coin.id === 'bitcoin')?.snapshot?.price;
     const coins = marketRows
       .filter((row) => row.snapshot !== null)
       .map((row) => ({
@@ -140,15 +141,15 @@ export function registerSearchRoutes(app: FastifyInstance, database: AppDatabase
             small: row.coin.imageSmallUrl,
             large: row.coin.imageLargeUrl,
             slug: row.coin.id,
-            price_btc: snapshot.price / 85_000,
+            price_btc: snapshot.price / btcPrice,
             score: getRankDrivenScore(marketCapRank),
             data: {
               price: snapshot.price,
-              price_btc: snapshot.price / 85_000,
+              price_btc: snapshot.price / btcPrice,
               market_cap: snapshot.marketCap,
-              market_cap_btc: snapshot.marketCap ? snapshot.marketCap / 85_000 : null,
+              market_cap_btc: snapshot.marketCap ? snapshot.marketCap / btcPrice : null,
               total_volume: snapshot.totalVolume,
-              total_volume_btc: snapshot.totalVolume ? snapshot.totalVolume / 85_000 : null,
+              total_volume_btc: snapshot.totalVolume ? snapshot.totalVolume / btcPrice : null,
               sparkline: '',
               content: null,
             },
@@ -177,9 +178,9 @@ export function registerSearchRoutes(app: FastifyInstance, database: AppDatabase
         coins_count: parseJsonArray<string>(category.top3CoinsJson).length,
         data: {
           market_cap: category.marketCap,
-          market_cap_btc: category.marketCap ? category.marketCap / 85_000 : null,
+          market_cap_btc: category.marketCap ? category.marketCap / btcPrice : null,
           total_volume: category.volume24h,
-          total_volume_btc: category.volume24h ? category.volume24h / 85_000 : null,
+          total_volume_btc: category.volume24h ? category.volume24h / btcPrice : null,
           sparkline: '',
           content: category.content,
         },

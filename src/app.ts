@@ -203,17 +203,50 @@ function canonicalCoinImportClause(coinColumn: string, canonicalCoinCount: numbe
   }
 
   return `(
-          ${coinColumn} NOT IN ('bitcoin', 'ethereum', 'solana')
+          ${coinColumn} NOT IN (${CANONICAL_COIN_IDS.map(() => '?').join(', ')})
           OR ${coinColumn} IN (${new Array(canonicalCoinCount).fill('?').join(', ')})
         )`;
 }
 
 function canonicalCoinImportParameters(runtimeCanonicalSnapshotCoinIds: Set<string>) {
+  const canonicalCoinIds = [...CANONICAL_COIN_IDS];
+
   if (runtimeCanonicalSnapshotCoinIds.size === 0) {
-    return [] as string[];
+    return canonicalCoinIds;
   }
 
-  return [...runtimeCanonicalSnapshotCoinIds];
+  return [...canonicalCoinIds, ...runtimeCanonicalSnapshotCoinIds];
+}
+
+function getRuntimeCanonicalSnapshotCoinIds(persistentDatabase: Database) {
+  const rankedLiveSnapshotCoinIds = new Set(
+    persistentDatabase.client.prepare<{ coin_id: string }>(`
+      SELECT ms.coin_id
+      FROM market_snapshots ms
+      INNER JOIN coins c ON c.id = ms.coin_id
+      WHERE ms.vs_currency = 'usd'
+        AND ms.source_count > 0
+        AND c.market_cap_rank IS NOT NULL
+      ORDER BY c.market_cap_rank ASC, c.id ASC
+      LIMIT 250
+    `).all().map((row) => row.coin_id),
+  );
+
+  for (const canonicalCoinId of CANONICAL_COIN_IDS) {
+    const hasLiveSnapshot = persistentDatabase.client.prepare<{ matched: number }>(`
+      SELECT COUNT(*) AS matched
+      FROM market_snapshots
+      WHERE coin_id = ?
+        AND vs_currency = 'usd'
+        AND source_count > 0
+    `).get(canonicalCoinId)?.matched > 0;
+
+    if (hasLiveSnapshot) {
+      rankedLiveSnapshotCoinIds.add(canonicalCoinId);
+    }
+  }
+
+  return rankedLiveSnapshotCoinIds;
 }
 
 function seedRuntimeSnapshotsFromPersistentStore(
@@ -228,7 +261,9 @@ function seedRuntimeSnapshotsFromPersistentStore(
   const persistentDatabase = createDatabase(persistentDatabaseUrl);
 
   try {
-    const canonicalCoinPreservationClause = canonicalCoinImportClause('ms.coin_id', CANONICAL_COIN_IDS.length);
+    const runtimeCanonicalSnapshotCoinIds = getRuntimeCanonicalSnapshotCoinIds(persistentDatabase);
+    const canonicalCoinPreservationClause = canonicalCoinImportClause('ms.coin_id', runtimeCanonicalSnapshotCoinIds.size);
+    const canonicalCoinImportValues = canonicalCoinImportParameters(runtimeCanonicalSnapshotCoinIds);
     const sourceRows = persistentDatabase.client.prepare<{
       coin_id: string;
       symbol: string;
@@ -337,7 +372,7 @@ function seedRuntimeSnapshotsFromPersistentStore(
         AND ${canonicalCoinPreservationClause}
         AND (ct.exchange_id IS NULL OR e.id IS NOT NULL)
       ORDER BY ms.coin_id, ct.exchange_id, ct.base, ct.target
-    `).all(...CANONICAL_COIN_IDS);
+    `).all(...canonicalCoinImportValues);
 
     if (sourceRows.length === 0) {
       return {
@@ -434,9 +469,9 @@ function seedRuntimeSnapshotsFromPersistentStore(
         total_volume
       FROM chart_points
       WHERE vs_currency = 'usd'
-        AND ${canonicalCoinImportClause('chart_points.coin_id', CANONICAL_COIN_IDS.length)}
+        AND ${canonicalCoinImportClause('chart_points.coin_id', runtimeCanonicalSnapshotCoinIds.size)}
       ORDER BY coin_id, timestamp
-    `).all(...CANONICAL_COIN_IDS);
+    `).all(...canonicalCoinImportValues);
     const insertChartPoint = runtimeDatabase.client.prepare(`
       INSERT INTO chart_points (
         coin_id, vs_currency, timestamp, price, market_cap, total_volume
