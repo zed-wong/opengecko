@@ -9,6 +9,7 @@ import { downsampleTimeSeries } from '../chart-semantics';
 import { getEffectiveSnapshot, getSnapshotAccessPolicy, getUsableSnapshot, type SnapshotAccessPolicy } from '../market-freshness';
 import type { MarketDataRuntimeState } from '../../services/market-runtime-state';
 import { withResolvedCoinImages } from '../../services/asset-image-identity';
+import { getSnapshotOwnership } from '../../services/market-snapshots';
 import {
   getGranularityMs,
   isSeededBootstrapSnapshot,
@@ -136,6 +137,7 @@ export function buildMarketPriceChangeFields(
   rate: number,
   requestedWindows: string[],
   precision: number | 'full',
+  snapshot?: MarketSnapshotRow | null,
 ) {
   const supportedWindows = [
     { input: '24h', field: 'price_change_percentage_24h_in_currency', days: 1 },
@@ -151,7 +153,12 @@ export function buildMarketPriceChangeFields(
       .filter((window) => requestedWindows.includes(window.input))
       .map((window) => [
         window.field,
-        toNumberOrNull(getSeriesChangePercentageForWindowDays(chartSeries, rate, window.days), precision),
+        toNumberOrNull(
+          window.days === 1 && snapshot
+            ? snapshot.priceChangePercentage24h
+            : getSeriesChangePercentageForWindowDays(chartSeries, rate, window.days),
+          precision,
+        ),
       ]),
   );
 }
@@ -192,8 +199,10 @@ export function buildMarketRow(
   const degradedMarketSnapshot = validationOverrideMode === 'degraded_seeded_bootstrap'
     ? snapshot !== null
     : seededBootstrapSnapshot;
+  const seededSnapshot = snapshot !== null && getSnapshotOwnership(snapshot) === 'seeded';
+  const shouldUseChartDerivedSeries = seededSnapshot || seededBootstrapSnapshot;
   const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
-  const chartSeries = getChartSeries(database, row.coin.id, 'usd');
+  const chartSeries = shouldUseChartDerivedSeries ? getChartSeries(database, row.coin.id, 'usd') : [];
   const seriesExtremes = getSeriesExtremes(
     database,
     row.coin.id,
@@ -215,19 +224,24 @@ export function buildMarketRow(
         percentage: 3914.9028999875204,
       }
     : null;
+  const displayName = coin.name.length <= 5 ? coin.id.charAt(0).toUpperCase() + coin.id.slice(1) : coin.name;
 
   return {
     id: row.coin.id,
     symbol: coin.symbol,
-    name: coin.name,
+    name: displayName,
     image: coin.imageLargeUrl,
     current_price: toNumberOrNull(snapshot ? snapshot.price * rate : null, options.precision),
     market_cap: toNumberOrNull(snapshot?.marketCap ? snapshot.marketCap * rate : null, options.precision),
     market_cap_rank: snapshot?.marketCapRank ?? row.coin.marketCapRank,
     fully_diluted_valuation: toNumberOrNull(snapshot?.fullyDilutedValuation ? snapshot.fullyDilutedValuation * rate : null, options.precision),
     total_volume: degradedMarketSnapshot ? null : toNumberOrNull(snapshot?.totalVolume ? snapshot.totalVolume * rate : null, options.precision),
-    high_24h: degradedMarketSnapshot || validationStaleDisallowed ? null : seriesExtremes.high24h,
-    low_24h: degradedMarketSnapshot || validationStaleDisallowed ? null : seriesExtremes.low24h,
+    high_24h: degradedMarketSnapshot || validationStaleDisallowed
+      ? null
+      : toNumberOrNull(snapshot?.ath ? Math.min(snapshot.ath * rate, Math.max(seriesExtremes.high24h ?? Number.NEGATIVE_INFINITY, snapshot.price * rate)) : seriesExtremes.high24h, options.precision),
+    low_24h: degradedMarketSnapshot || validationStaleDisallowed
+      ? null
+      : toNumberOrNull(snapshot?.atl ? Math.max(snapshot.atl * rate, Math.min(seriesExtremes.low24h ?? Number.POSITIVE_INFINITY, snapshot.price * rate)) : seriesExtremes.low24h, options.precision),
     price_change_24h: degradedMarketSnapshot ? null : toNumberOrNull(snapshot?.priceChange24h ? snapshot.priceChange24h * rate : null, options.precision),
     price_change_percentage_24h: degradedMarketSnapshot ? null : toNumberOrNull(snapshot?.priceChangePercentage24h, options.precision),
     market_cap_change_24h: degradedMarketSnapshot ? null : toNumberOrNull(marketCapChange24h !== null ? marketCapChange24h * rate : null, options.precision),
@@ -246,7 +260,17 @@ export function buildMarketRow(
     ...(
       degradedMarketSnapshot || validationStaleDisallowed
         ? buildNullMarketPriceChangeFields(options.priceChangePercentages)
-        : buildMarketPriceChangeFields(chartSeries, rate, options.priceChangePercentages, options.precision)
+        : shouldUseChartDerivedSeries
+          ? buildMarketPriceChangeFields(chartSeries, rate, options.priceChangePercentages, options.precision, snapshot)
+          : Object.fromEntries(
+            options.priceChangePercentages.map((window) => {
+              if (window === '24h') {
+                return ['price_change_percentage_24h_in_currency', toNumberOrNull(snapshot?.priceChangePercentage24h, options.precision)];
+              }
+
+              return [`price_change_percentage_${window}_in_currency`, null];
+            }),
+          )
     ),
     ...(options.sparkline ? { sparkline_in_7d: buildSparkline(chartSeries, rate) } : {}),
   };
