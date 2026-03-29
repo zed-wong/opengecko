@@ -119,9 +119,14 @@ export function getSeriesChangePercentageForWindowDays(
     return null;
   }
 
+  if (chartSeries.length < 2) {
+    return null;
+  }
+
   const latestTimestamp = chartSeries.at(-1)!.timestamp.getTime();
   const cutoff = latestTimestamp - windowDays * 24 * 60 * 60 * 1000;
-  const firstRow = chartSeries.find((row) => row.timestamp.getTime() >= cutoff) ?? chartSeries[0]!;
+  const eligibleRows = chartSeries.filter((row) => row.timestamp.getTime() <= cutoff);
+  const firstRow = eligibleRows.at(-1) ?? chartSeries[0]!;
   const first = firstRow.price * rate;
   const last = chartSeries.at(-1)!.price * rate;
 
@@ -196,11 +201,16 @@ export function buildMarketRow(
   const seededBootstrapSnapshot = isSeededBootstrapSnapshot(snapshot);
   const validationOverrideMode = runtimeState.validationOverride?.mode ?? 'off';
   const validationStaleDisallowed = validationOverrideMode === 'stale_disallowed';
+  const importedLiveBootstrapSnapshot = validationOverrideMode === 'seeded_bootstrap'
+    && snapshot !== null
+    && getSnapshotOwnership(snapshot) === 'live';
   const degradedMarketSnapshot = validationOverrideMode === 'degraded_seeded_bootstrap'
     ? snapshot !== null
-    : seededBootstrapSnapshot;
+    : seededBootstrapSnapshot && !importedLiveBootstrapSnapshot;
   const seededSnapshot = snapshot !== null && getSnapshotOwnership(snapshot) === 'seeded';
-  const shouldUseChartDerivedSeries = seededSnapshot || seededBootstrapSnapshot;
+  const shouldUseChartDerivedSeries = seededSnapshot
+    || seededBootstrapSnapshot
+    || validationOverrideMode === 'degraded_seeded_bootstrap';
   const rate = getConversionRate(database, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const chartSeries = shouldUseChartDerivedSeries ? getChartSeries(database, row.coin.id, 'usd') : [];
   const seriesExtremes = getSeriesExtremes(
@@ -211,12 +221,6 @@ export function buildMarketRow(
     snapshotAccessPolicy,
     options.precision,
   );
-  const marketCapChange24h = snapshot?.marketCap && snapshot.priceChangePercentage24h !== null && snapshot.priceChangePercentage24h !== undefined
-    ? snapshot.marketCap - (snapshot.marketCap / (1 + (snapshot.priceChangePercentage24h / 100)))
-    : null;
-  const marketCapChangePercentage24h = marketCapChange24h === null
-    ? null
-    : snapshot?.priceChangePercentage24h ?? null;
   const roi = row.coin.id === 'ethereum'
     ? {
         times: 39.149028999875206,
@@ -224,7 +228,13 @@ export function buildMarketRow(
         percentage: 3914.9028999875204,
       }
     : null;
-  const displayName = coin.name.length <= 5 ? coin.id.charAt(0).toUpperCase() + coin.id.slice(1) : coin.name;
+  const displayName = coin.name;
+  const marketCapChange24h = snapshot?.marketCap && snapshot.priceChange24h !== null && snapshot.price !== null && snapshot.price !== 0
+    ? snapshot.marketCap * (snapshot.priceChange24h / snapshot.price)
+    : null;
+  const marketCapChangePercentage24h = marketCapChange24h === null
+    ? null
+    : snapshot?.priceChangePercentage24h ?? null;
 
   return {
     id: row.coin.id,
@@ -238,10 +248,10 @@ export function buildMarketRow(
     total_volume: degradedMarketSnapshot ? null : toNumberOrNull(snapshot?.totalVolume ? snapshot.totalVolume * rate : null, options.precision),
     high_24h: degradedMarketSnapshot || validationStaleDisallowed
       ? null
-      : toNumberOrNull(snapshot?.ath ? Math.min(snapshot.ath * rate, Math.max(seriesExtremes.high24h ?? Number.NEGATIVE_INFINITY, snapshot.price * rate)) : seriesExtremes.high24h, options.precision),
+      : toNumberOrNull(seriesExtremes.high24h, options.precision),
     low_24h: degradedMarketSnapshot || validationStaleDisallowed
       ? null
-      : toNumberOrNull(snapshot?.atl ? Math.max(snapshot.atl * rate, Math.min(seriesExtremes.low24h ?? Number.POSITIVE_INFINITY, snapshot.price * rate)) : seriesExtremes.low24h, options.precision),
+      : toNumberOrNull(seriesExtremes.low24h, options.precision),
     price_change_24h: degradedMarketSnapshot ? null : toNumberOrNull(snapshot?.priceChange24h ? snapshot.priceChange24h * rate : null, options.precision),
     price_change_percentage_24h: degradedMarketSnapshot ? null : toNumberOrNull(snapshot?.priceChangePercentage24h, options.precision),
     market_cap_change_24h: degradedMarketSnapshot ? null : toNumberOrNull(marketCapChange24h !== null ? marketCapChange24h * rate : null, options.precision),

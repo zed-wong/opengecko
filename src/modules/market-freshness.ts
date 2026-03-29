@@ -39,6 +39,13 @@ function applyValidationSnapshotOverride<T extends Pick<MarketSnapshotRow, 'last
     sourceCount: nextSourceCount,
   };
 
+  if (
+    validationOverride.mode === 'seeded_bootstrap'
+    && snapshot.sourceCount > 0
+  ) {
+    return overriddenSnapshot;
+  }
+
   if (validationOverride.mode !== 'degraded_seeded_bootstrap') {
     return overriddenSnapshot;
   }
