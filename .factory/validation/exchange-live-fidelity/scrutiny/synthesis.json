@@ -1,12 +1,12 @@
 {
   "milestone": "exchange-live-fidelity",
-  "round": 1,
-  "status": "pass",
+  "round": 2,
+  "status": "fail",
   "validatorsRun": {
     "test": {
-      "passed": true,
-      "command": "bun run test",
-      "exitCode": 0
+      "passed": false,
+      "command": "bun test",
+      "exitCode": 1
     },
     "typecheck": {
       "passed": true,
@@ -14,18 +14,36 @@
       "exitCode": 0
     },
     "lint": {
-      "passed": true,
-      "command": "echo \"no lint configured\"",
-      "exitCode": 0
+      "passed": false,
+      "command": "bun run lint",
+      "exitCode": 1
     }
   },
   "reviewsSummary": {
-    "total": 2,
+    "total": 3,
     "passed": 2,
-    "failed": 0,
-    "failedFeatures": []
+    "failed": 1,
+    "failedFeatures": [
+      "exchange-live-ticker-ingestion"
+    ]
   },
-  "blockingIssues": [],
+  "blockingIssues": [
+    {
+      "featureId": "exchange-live-ticker-ingestion",
+      "severity": "blocking",
+      "description": "Scrutiny review found the completed feature commit `4e19c70` is test-only and does not contain the required production/runtime implementation for live CCXT ticker ingestion into the persisted exchange ticker path."
+    },
+    {
+      "featureId": "scrutiny-validator-exchange-live-fidelity",
+      "severity": "blocking",
+      "description": "Full `bun test` currently fails on this branch with `TypeError: vi.hoisted is not a function` in `tests/exchange-surface-parity.test.ts`, plus cascading app and smoke-script failures, so milestone validators are not passing."
+    },
+    {
+      "featureId": "scrutiny-validator-exchange-live-fidelity",
+      "severity": "blocking",
+      "description": "The repository does not define a `lint` script in `package.json`, so `bun run lint` fails even though `.factory/services.yaml` lists lint as `echo \"no lint configured\"`; the configured validator surfaces are inconsistent."
+    }
+  ],
   "appliedUpdates": [],
   "suggestedGuidanceUpdates": [
     {
@@ -33,8 +51,26 @@
       "suggestion": "Document that scrutiny and manual validation may encounter an already-running validator on port 3102, and workers should either reuse that fast-profile server or stop it before starting a new validation server.",
       "evidence": "Review for feature exchange-derivatives-freshness cited worker session 3619e4c6-872b-4c22-b55c-834c07ecfe7d hitting EADDRINUSE on port 3102 while curls still succeeded against the existing validator; current AGENTS guidance mentions port bounds and :memory: usage but not this recurring reuse/stop pattern.",
       "isSystemic": false
+    },
+    {
+      "target": "skills",
+      "suggestion": "Tighten `runtime-provider-worker` so implementation-focused features cannot be completed with test-only commits; require reviewers or handoff checks to confirm production/runtime diffs when the feature scope calls for implementation.",
+      "evidence": "Review `exchange-live-ticker-ingestion` found commit `4e19c70` changed only `tests/exchange-fidelity.test.ts` while the feature description required runtime/service changes under `src/`.",
+      "isSystemic": false
+    },
+    {
+      "target": "skills",
+      "suggestion": "Consider softening the strict failing-test-first wording in `runtime-provider-worker` for small route/service fixes when nearby characterization already exists and the worker lands focused regression coverage in the same change.",
+      "evidence": "Review `exchange-volume-accumulation-and-range` found the worker reasonably combined implementation and targeted regression coverage; current skill wording may be overly rigid for this class of change.",
+      "isSystemic": false
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Document in shared mission guidance when a previously-blocking Bun/Vitest incompatibility has already been resolved on the branch so later workers do not attribute unrelated fixes to their feature.",
+      "evidence": "Review `search-trending-honesty-hardening` confirmed the `vi.mocked` issue had already been cleared in repo state before the feature work, but no shared mission guidance captures that fact.",
+      "isSystemic": false
     }
   ],
   "rejectedObservations": [],
-  "previousRound": null
+  "previousRound": "/home/whoami/dev/openGecko/.factory/validation/exchange-live-fidelity/scrutiny/synthesis.json"
 }

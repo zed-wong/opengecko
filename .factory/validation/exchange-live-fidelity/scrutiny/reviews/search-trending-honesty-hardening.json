@@ -1,0 +1,21 @@
+{
+  "featureId": "search-trending-honesty-hardening",
+  "reviewedAt": "2026-03-29T12:01:01.036575+00:00",
+  "commitId": "23e617b",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation cleanly hardens `/search/trending` toward deterministic rank-driven semantics without breaking route shape. The route now derives `coin_id` and `score` from the same rank proxy, preserves explicit `show_max=0` empty arrays, and adds focused app coverage for ordering and score/rank coherence. I did not find a blocking correctness issue in the scoped feature diff.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The worker verified that the Bun/Vitest `vi.mocked` incompatibility was already resolved by repository state rather than by this feature, but that reality is not reflected in shared mission guidance or library notes.",
+      "evidence": "Feature handoff interactiveChecks states no remaining `vi.mocked(...)` calls exist in `tests/`; transcript shows repo-wide searches for `vi\\.mocked|mocked\\(` with no matches before implementation."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Pass. Reviewed the feature handoff, transcript skeleton, skill guidance, and commit `23e617b`. The diff correctly makes `/search/trending` rank-driven and deterministic while preserving contract shape, and the added tests cover score/rank coherence plus `show_max=0` behavior. No blocking or non-blocking code defects were identified in scope; one shared-state observation notes that the already-fixed `vi.mocked` situation is not documented in mission knowledge."
+}

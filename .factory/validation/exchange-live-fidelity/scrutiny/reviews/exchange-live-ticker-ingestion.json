@@ -1,15 +1,28 @@
 {
   "featureId": "exchange-live-ticker-ingestion",
-  "reviewedAt": "2026-03-27T23:20:00Z",
-  "commitId": "d2dcb5c",
+  "reviewedAt": "2026-03-29T12:01:03.408557+00:00",
+  "commitId": "4e19c7045cbe6484b243f03ba83c11f27f9c7981",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "pass",
+  "status": "fail",
   "codeReview": {
-    "summary": "Current HEAD contains the claimed feature-scoped test coverage in tests/market-refresh.test.ts, and the reviewed commit cleanly isolates that file. The added coverage matches the feature requirements for non-null converted ticker fields, exchange volume point recording, graceful partial failures, cooldown behavior, and HTTP exchange route stale/live exposure.",
-    "issues": []
+    "summary": "The reviewed commit only adds regression tests and does not implement the live CCXT ticker ingestion or route/service changes required by the feature. The underlying runtime already contains the exchange ticker ingestion path, and this commit merely characterizes it.",
+    "issues": [
+      {
+        "file": "tests/exchange-fidelity.test.ts",
+        "line": 159,
+        "severity": "blocking",
+        "description": "The feature description requires implementing live CCXT ticker ingestion into the persisted exchange ticker path and ensuring `/exchanges/{id}` plus `/exchanges/{id}/tickers` expose live-backed behavior. Commit `4e19c70` modifies only tests and contains no production changes in `src/`, so the feature itself was not implemented in this commit."
+      }
+    ]
   },
-  "sharedStateObservations": [],
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The `runtime-provider-worker` skill instructs workers to trace and prefer service-layer/runtime changes for provider coordination features, but this worker completed the feature with a test-only commit and no production/runtime edits even though the feature description is implementation-focused.",
+      "evidence": "Skill file `.factory/skills/runtime-provider-worker/SKILL.md` steps 2-4 require tracing `src/app.ts`, `src/services/market-runtime.ts`, `src/providers/ccxt.ts` and preferring service-layer fixes; commit `4e19c70` changes only `tests/exchange-fidelity.test.ts`, and the handoff claims the feature as implemented."
+    }
+  ],
   "addressesFailureFrom": null,
-  "summary": "Reviewed the feature handoff, commit d2dcb5c, transcript skeleton, skill instructions, and current HEAD test code. The implementation is present at current HEAD, the commit is properly scoped to tests/market-refresh.test.ts, and I found no blocking issues."
+  "summary": "Fail: the reviewed commit is test-only and does not implement the exchange live ticker ingestion feature. No blocking correctness bug was found in the already-present runtime path, but this feature assignment was not fulfilled by commit `4e19c70`."
 }

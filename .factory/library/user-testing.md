@@ -81,6 +81,7 @@ Reasoning: live-provider startup is the dominant resource and flakiness risk, so
 - Live-provider startup can take roughly a minute; wait for `/ping` before declaring failure.
 - The mission manifest intentionally uses a narrower stable CCXT subset (`binance,coinbase,okx`) for live validation to avoid slow/failing bootstrap on less reliable exchanges.
 - Upstream CCXT providers can still be flaky or region-blocked. Report provider outages as blockers instead of silently switching to mocks.
+- The shared SQLite file can report `database is locked` if another writer is active. Ensure only one mission-owned live API/process is using the shared DB during 3100 validation, or fall back to the isolated 3102 profile when the assertion does not require shared persistent state.
 - DeFiLlama-backed onchain discovery is stronger on Ethereum than on non-Ethereum networks.
 - Holder/trader analytics remain intentionally fixture-backed.
 - Categories and supply-chart surfaces may remain seeded or stubbed depending on the assigned feature; validate them against the canonical docs, not assumptions.
