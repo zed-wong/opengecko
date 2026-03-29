@@ -420,17 +420,9 @@ function getExchangeVolumeChart(database: AppDatabase, exchangeId: string, days:
     return [];
   }
 
-  // Downsample: <= 2 days -> hourly, > 2 days -> daily
-  const bucketMs = parsedDays <= 2 ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-  const buckets = new Map<number, [number, number]>();
-
-  for (const row of rows) {
-    const ts = row.timestamp.getTime();
-    const bucketKey = Math.floor(ts / bucketMs) * bucketMs;
-    buckets.set(bucketKey, [bucketKey, row.volumeBtc]);
-  }
-
-  return [...buckets.values()].sort((a, b) => a[0] - b[0]);
+  return rows
+    .filter((row) => Number.isFinite(row.volumeBtc))
+    .map((row) => [row.timestamp.getTime(), row.volumeBtc] satisfies [number, number]);
 }
 
 function parseRangeBound(value: string, name: 'from' | 'to') {

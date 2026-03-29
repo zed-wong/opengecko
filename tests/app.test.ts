@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 import { buildApp, getDatabaseStartupLogContext } from '../src/app';
-import { coins, marketSnapshots } from '../src/db/schema';
+import { coins, exchangeVolumePoints, marketSnapshots } from '../src/db/schema';
 import type { MetricsRegistry } from '../src/services/metrics';
 import type { MarketDataRuntimeState } from '../src/services/market-runtime-state';
 import * as candleStore from '../src/services/candle-store';
@@ -29,7 +29,13 @@ const defaultDefillamaOnchainCatalogMocks = () => {
 };
 
 function resetCcxtProviderMocks() {
-  vi.mocked(ccxtProvider.fetchExchangeMarkets).mockResolvedValue([
+  const mockedFetchExchangeMarkets = ccxtProvider.fetchExchangeMarkets as ReturnType<typeof vi.fn>;
+  const mockedFetchExchangeTickers = ccxtProvider.fetchExchangeTickers as ReturnType<typeof vi.fn>;
+  const mockedFetchExchangeOHLCV = ccxtProvider.fetchExchangeOHLCV as ReturnType<typeof vi.fn>;
+  const mockedFetchExchangeNetworks = ccxtProvider.fetchExchangeNetworks as ReturnType<typeof vi.fn>;
+  const mockedCloseExchangePool = ccxtProvider.closeExchangePool as ReturnType<typeof vi.fn>;
+
+  mockedFetchExchangeMarkets.mockResolvedValue([
     { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin', raw: {} },
     { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', active: true, spot: true, baseName: 'Ethereum', raw: {} },
     { exchangeId: 'binance', symbol: 'XRP/USDT', base: 'XRP', quote: 'USDT', active: true, spot: true, baseName: 'Ripple', raw: {} },
@@ -39,7 +45,7 @@ function resetCcxtProviderMocks() {
     { exchangeId: 'binance', symbol: 'LINK/USDT', base: 'LINK', quote: 'USDT', active: true, spot: true, baseName: 'Chainlink', raw: {} },
     { exchangeId: 'binance', symbol: 'USDC/USDT', base: 'USDC', quote: 'USDT', active: true, spot: true, baseName: 'USD Coin', raw: {} },
   ]);
-  vi.mocked(ccxtProvider.fetchExchangeTickers).mockResolvedValue([
+  mockedFetchExchangeTickers.mockResolvedValue([
     { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', last: 85000, bid: 84950, ask: 85050, high: 86000, low: 84000, baseVolume: 5000, quoteVolume: 425000000, percentage: 1.8, timestamp: Date.now(), raw: {} as never },
     { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', last: 2000, bid: 1999, ask: 2001, high: 2050, low: 1950, baseVolume: 50000, quoteVolume: 100000000, percentage: 2.56, timestamp: Date.now(), raw: {} as never },
     { exchangeId: 'binance', symbol: 'XRP/USDT', base: 'XRP', quote: 'USDT', last: 2.5, bid: 2.49, ask: 2.51, high: 2.55, low: 2.45, baseVolume: 1000000, quoteVolume: 2500000, percentage: 3.0, timestamp: Date.now(), raw: {} as never },
@@ -49,9 +55,9 @@ function resetCcxtProviderMocks() {
     { exchangeId: 'binance', symbol: 'LINK/USDT', base: 'LINK', quote: 'USDT', last: 24, bid: 23.9, ask: 24.1, high: 25, low: 23, baseVolume: 500000, quoteVolume: 12000000, percentage: 3.5, timestamp: Date.now(), raw: {} as never },
     { exchangeId: 'binance', symbol: 'USDC/USDT', base: 'USDC', quote: 'USDT', last: 1.0, bid: 0.9999, ask: 1.0001, high: 1.001, low: 0.999, baseVolume: 10000000, quoteVolume: 10000000, percentage: 0.01, timestamp: Date.now(), raw: {} as never },
   ]);
-  vi.mocked(ccxtProvider.fetchExchangeOHLCV).mockResolvedValue([]);
-  vi.mocked(ccxtProvider.fetchExchangeNetworks).mockResolvedValue([]);
-  vi.mocked(ccxtProvider.closeExchangePool).mockResolvedValue(undefined);
+  mockedFetchExchangeOHLCV.mockResolvedValue([]);
+  mockedFetchExchangeNetworks.mockResolvedValue([]);
+  mockedCloseExchangePool.mockResolvedValue(undefined);
 }
 
 vi.mock('../src/providers/ccxt', () => ({
@@ -1916,6 +1922,96 @@ describe('OpenGecko app scaffold', () => {
       expect(typeof tuple[1]).toBe('number');
       expect(Number.isFinite(tuple[1])).toBe(true);
     }
+  });
+
+  it('returns not_found for unknown exchange volume routes', async () => {
+    const [chartResponse, rangeResponse] = await Promise.all([
+      getApp().inject({
+        method: 'GET',
+        url: '/exchanges/not-an-exchange/volume_chart?days=7',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/exchanges/not-an-exchange/volume_chart/range?from=0&to=4102444800',
+      }),
+    ]);
+
+    expect(chartResponse.statusCode).toBe(404);
+    expect(chartResponse.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Exchange not found: not-an-exchange',
+    });
+
+    expect(rangeResponse.statusCode).toBe(404);
+    expect(rangeResponse.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Exchange not found: not-an-exchange',
+    });
+  });
+
+  it('preserves live refresh ownership for exchange volume windows and explicit ranges', async () => {
+    const now = new Date();
+    const appDb = getApp().db;
+
+    appDb.db.delete(exchangeVolumePoints).where(eq(exchangeVolumePoints.exchangeId, 'binance')).run();
+    appDb.db.insert(exchangeVolumePoints).values([
+      {
+        exchangeId: 'binance',
+        timestamp: new Date(now.getTime() - (36 * 60 * 60 * 1000)),
+        volumeBtc: 10,
+      },
+      {
+        exchangeId: 'binance',
+        timestamp: new Date(now.getTime() - (23 * 60 * 60 * 1000)),
+        volumeBtc: 20,
+      },
+      {
+        exchangeId: 'binance',
+        timestamp: new Date(now.getTime() - (2 * 60 * 60 * 1000)),
+        volumeBtc: 30,
+      },
+      {
+        exchangeId: 'binance',
+        timestamp: new Date(now.getTime() - (30 * 60 * 1000)),
+        volumeBtc: 40,
+      },
+    ]).run();
+
+    const [oneDayResponse, sevenDayResponse, rangeResponse] = await Promise.all([
+      getApp().inject({
+        method: 'GET',
+        url: '/exchanges/binance/volume_chart?days=1',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/exchanges/binance/volume_chart?days=7',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: `/exchanges/binance/volume_chart/range?from=${Math.floor((now.getTime() - (3 * 60 * 60 * 1000)) / 1000)}&to=${Math.floor(now.getTime() / 1000)}`,
+      }),
+    ]);
+
+    expect(oneDayResponse.statusCode).toBe(200);
+    expect(oneDayResponse.json()).toEqual([
+      [new Date(now.getTime() - (23 * 60 * 60 * 1000)).getTime(), 20],
+      [new Date(now.getTime() - (2 * 60 * 60 * 1000)).getTime(), 30],
+      [new Date(now.getTime() - (30 * 60 * 1000)).getTime(), 40],
+    ]);
+
+    expect(sevenDayResponse.statusCode).toBe(200);
+    expect(sevenDayResponse.json()).toEqual([
+      [new Date(now.getTime() - (36 * 60 * 60 * 1000)).getTime(), 10],
+      [new Date(now.getTime() - (23 * 60 * 60 * 1000)).getTime(), 20],
+      [new Date(now.getTime() - (2 * 60 * 60 * 1000)).getTime(), 30],
+      [new Date(now.getTime() - (30 * 60 * 1000)).getTime(), 40],
+    ]);
+
+    expect(rangeResponse.statusCode).toBe(200);
+    expect(rangeResponse.json()).toEqual([
+      [new Date(now.getTime() - (2 * 60 * 60 * 1000)).getTime(), 30],
+      [new Date(now.getTime() - (30 * 60 * 1000)).getTime(), 40],
+    ]);
   });
 
   it('returns exchange tickers and supports coin filters', async () => {
