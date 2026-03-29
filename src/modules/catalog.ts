@@ -172,11 +172,12 @@ export function getMarketRows(
       and(eq(marketSnapshots.coinId, coins.id), eq(marketSnapshots.vsCurrency, vsCurrency)),
     );
 
+  const shouldPreferRequestedCoinOrder = Array.isArray(filters.ids) && filters.ids.length > 0;
   const joinedRows = (whereClause ? query.where(whereClause) : query)
     .orderBy(...orderBy)
     .all();
 
-  return applyCategoryFilter(
+  const rows = applyCategoryFilter(
     joinedRows
       .filter(({ coins: coin }) => Boolean(coin))
     .map((row) => ({
@@ -186,6 +187,17 @@ export function getMarketRows(
     .filter((row): row is { coin: NonNullable<typeof row.coin>; snapshot: typeof row.snapshot } => Boolean(row.coin)),
     filters.categoryId,
   );
+
+  if (!shouldPreferRequestedCoinOrder) {
+    return rows;
+  }
+
+  const requestedIdOrder = new Map(filters.ids!.map((id, index) => [id, index] as const));
+  return [...rows].sort((left, right) => {
+    const leftIndex = requestedIdOrder.get(left.coin.id) ?? Number.MAX_SAFE_INTEGER;
+    const rightIndex = requestedIdOrder.get(right.coin.id) ?? Number.MAX_SAFE_INTEGER;
+    return leftIndex - rightIndex;
+  });
 }
 
 export function getCategories(database: AppDatabase) {

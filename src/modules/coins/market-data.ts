@@ -204,8 +204,7 @@ export function buildMarketRow(
   const importedLiveBootstrapSnapshot = validationOverrideMode === 'seeded_bootstrap'
     && snapshot !== null
     && getSnapshotOwnership(snapshot) === 'live';
-  const seededBootstrapDegradedModes = new Set(['seeded_bootstrap', 'degraded_seeded_bootstrap']);
-  const degradedMarketSnapshot = seededBootstrapDegradedModes.has(validationOverrideMode)
+  const degradedMarketSnapshot = validationOverrideMode === 'degraded_seeded_bootstrap'
     ? seededBootstrapSnapshot
     : false;
   const seededSnapshot = snapshot !== null && getSnapshotOwnership(snapshot) === 'seeded';

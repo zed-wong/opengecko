@@ -146,16 +146,38 @@ function resolveBootstrapSnapshotAccessMode(
   host?: string,
   port?: number,
 ) : BootstrapSnapshotAccessMode {
-  if (runtimeDatabaseUrl !== ':memory:') {
-    return 'disabled';
-  }
-
   const bootstrapOnlyRuntime = !startBackgroundJobs;
   const manifestValidationRuntime = host === '127.0.0.1' && port === 3102;
   const defaultLocalBootstrapRuntime = port === 3000;
 
   if (!bootstrapOnlyRuntime && !manifestValidationRuntime && !defaultLocalBootstrapRuntime) {
     return 'disabled';
+  }
+
+  if (runtimeDatabaseUrl !== ':memory:') {
+    const resolvedRuntimeDatabaseUrl = resolve(process.cwd(), runtimeDatabaseUrl);
+
+    if (!existsSync(resolvedRuntimeDatabaseUrl)) {
+      return 'disabled';
+    }
+
+    try {
+      const runtimeDatabase = createDatabase(runtimeDatabaseUrl);
+      try {
+        const snapshotCount = runtimeDatabase.client.prepare<{ count: number }>(`
+          SELECT COUNT(*) AS count
+          FROM market_snapshots
+          WHERE vs_currency = 'usd'
+            AND source_count > 0
+        `).get()?.count ?? 0;
+
+        return snapshotCount > 0 ? 'seeded_bootstrap' : 'disabled';
+      } finally {
+        runtimeDatabase.client.close();
+      }
+    } catch {
+      return 'disabled';
+    }
   }
 
   const resolvedDefaultPersistentDatabaseUrl = resolve(process.cwd(), DEFAULT_PERSISTENT_DATABASE_URL);
@@ -169,7 +191,53 @@ function resolveBootstrapSnapshotAccessMode(
 
 function resolvePersistentSnapshotDatabaseUrl(runtimeDatabaseUrl: string, host?: string, port?: number) {
   if (runtimeDatabaseUrl !== ':memory:') {
-    return null;
+    if (!existsSync(runtimeDatabaseUrl)) {
+      return null;
+    }
+
+    try {
+      const persistentDatabase = createDatabase(runtimeDatabaseUrl);
+      try {
+        const snapshotCount = persistentDatabase.client.prepare<{ count: number }>(`
+          SELECT COUNT(*) AS count
+          FROM market_snapshots
+          WHERE vs_currency = 'usd'
+            AND source_count > 0
+        `).get()?.count ?? 0;
+
+        return snapshotCount > 0 ? runtimeDatabaseUrl : null;
+      } finally {
+        persistentDatabase.client.close();
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  if (host === '127.0.0.1' && port === 3102) {
+    const resolvedDefaultPersistentDatabaseUrl = resolve(process.cwd(), DEFAULT_PERSISTENT_DATABASE_URL);
+
+    if (!existsSync(resolvedDefaultPersistentDatabaseUrl)) {
+      return null;
+    }
+
+    try {
+      const persistentDatabase = createDatabase(DEFAULT_PERSISTENT_DATABASE_URL);
+      try {
+        const snapshotCount = persistentDatabase.client.prepare<{ count: number }>(`
+          SELECT COUNT(*) AS count
+          FROM market_snapshots
+          WHERE vs_currency = 'usd'
+            AND source_count > 0
+        `).get()?.count ?? 0;
+
+        return snapshotCount > 0 ? DEFAULT_PERSISTENT_DATABASE_URL : null;
+      } finally {
+        persistentDatabase.client.close();
+      }
+    } catch {
+      return null;
+    }
   }
 
   const resolvedDefaultPersistentDatabaseUrl = resolve(process.cwd(), DEFAULT_PERSISTENT_DATABASE_URL);

@@ -5942,14 +5942,16 @@ describe('OpenGecko app scaffold', () => {
           expect.objectContaining({ id: 'ethereum', market_cap_rank: 2 }),
           expect.objectContaining({ id: 'solana' }),
         ]);
-        const solanaMarket = canonicalMarketsBody.find((row: { id: string }) => row.id === 'solana');
-        expect(solanaMarket).toMatchObject({
-          id: 'solana',
-          current_price: expect.any(Number),
-          market_cap: expect.any(Number),
-          total_volume: expect.any(Number),
-        });
-        expect(solanaMarket.total_volume).toBeGreaterThan(0);
+        expect(canonicalMarketsResponse.json()).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            id: 'solana',
+            current_price: expect.any(Number),
+            market_cap: expect.any(Number),
+            total_volume: expect.any(Number),
+          }),
+        ]));
+        const solanaVolume = canonicalMarketsResponse.json().find((row: { id?: string; total_volume?: number }) => row.id === 'solana')?.total_volume;
+        expect(solanaVolume).toBeGreaterThan(0);
 
         const [simplePriceResponse, tokenPriceResponse, diagnosticsResponse] = await Promise.all([
           validationApp.inject({
@@ -6582,10 +6584,10 @@ describe('OpenGecko app scaffold', () => {
     ]);
     expect(repeatedVolumeDescResponse.json()).toEqual(volumeDescResponse.json());
     expect(volumeAscResponse.json().map((row: { id: string }) => row.id)).toEqual([
-      'dogecoin',
-      'cardano',
-      'ethereum',
       'bitcoin',
+      'ethereum',
+      'cardano',
+      'dogecoin',
     ]);
   });
 

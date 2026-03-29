@@ -197,9 +197,14 @@ export function registerCoinRoutes(
     const vsCurrency = query.vs_currency.toLowerCase();
     const priceChangePercentages = parseCsvQuery(query.price_change_percentage).map((value) => value.toLowerCase());
     const { snapshotAccessPolicy, rows } = parseMarketRowsRequest(database, runtimeState, marketFreshnessThresholdSeconds, query);
+    const shouldBypassPageSliceForExplicitIds = parseCsvQuery(query.ids).length > 0;
     const start = (page - 1) * perPage;
 
-    const payload = rows.slice(start, start + perPage).map((row) => buildMarketRow(database, row, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy, runtimeState, {
+    const pagedRows = shouldBypassPageSliceForExplicitIds
+      ? rows
+      : rows.slice(start, start + perPage);
+
+    const payload = pagedRows.map((row) => buildMarketRow(database, row, vsCurrency, marketFreshnessThresholdSeconds, snapshotAccessPolicy, runtimeState, {
       sparkline,
       precision,
       priceChangePercentages,
