@@ -47,6 +47,23 @@ export type BuildAppOptions = {
 export type AppLifecycleState = ReturnType<typeof createMarketDataRuntimeState>;
 
 type BootstrapSnapshotAccessMode = 'disabled' | 'seeded_bootstrap';
+type Database = ReturnType<typeof createDatabase>;
+type SeededBootstrapContext = {
+  persistentSnapshotDatabaseUrl: string | null;
+  seededBootstrapPreserved: boolean;
+};
+type InitialSyncCallbacks = import('./services/initial-sync').InitialSyncProgressHandlers;
+type InitialSyncResult = {
+  coinsDiscovered: number;
+  chainsDiscovered: number;
+  snapshotsCreated: number;
+  tickersWritten: number;
+  exchangesSynced: number;
+  ohlcvCandlesWritten: number;
+};
+
+const CANONICAL_COIN_IDS = ['bitcoin', 'ethereum', 'solana'] as const;
+const DEFAULT_PERSISTENT_DATABASE_URL = './data/opengecko.db';
 
 function recordStartupPrewarmObservation(
   app: FastifyInstance,
@@ -140,8 +157,7 @@ function resolveBootstrapSnapshotAccessMode(
     return 'disabled';
   }
 
-  const defaultPersistentDatabaseUrl = './data/opengecko.db';
-  const resolvedDefaultPersistentDatabaseUrl = resolve(process.cwd(), defaultPersistentDatabaseUrl);
+  const resolvedDefaultPersistentDatabaseUrl = resolve(process.cwd(), DEFAULT_PERSISTENT_DATABASE_URL);
 
   if (!existsSync(resolvedDefaultPersistentDatabaseUrl)) {
     return 'disabled';
@@ -155,15 +171,14 @@ function resolvePersistentSnapshotDatabaseUrl(runtimeDatabaseUrl: string, host?:
     return null;
   }
 
-  const defaultPersistentDatabaseUrl = './data/opengecko.db';
-  const resolvedDefaultPersistentDatabaseUrl = resolve(process.cwd(), defaultPersistentDatabaseUrl);
+  const resolvedDefaultPersistentDatabaseUrl = resolve(process.cwd(), DEFAULT_PERSISTENT_DATABASE_URL);
 
   if (!existsSync(resolvedDefaultPersistentDatabaseUrl)) {
     return null;
   }
 
   try {
-    const persistentDatabase = createDatabase(defaultPersistentDatabaseUrl);
+    const persistentDatabase = createDatabase(DEFAULT_PERSISTENT_DATABASE_URL);
     try {
       const snapshotCount = persistentDatabase.client.prepare<{ count: number }>(`
         SELECT COUNT(*) AS count
@@ -172,7 +187,7 @@ function resolvePersistentSnapshotDatabaseUrl(runtimeDatabaseUrl: string, host?:
           AND source_count > 0
       `).get()?.count ?? 0;
 
-      return snapshotCount > 0 ? defaultPersistentDatabaseUrl : null;
+      return snapshotCount > 0 ? DEFAULT_PERSISTENT_DATABASE_URL : null;
     } finally {
       persistentDatabase.client.close();
     }
@@ -201,7 +216,7 @@ function canonicalCoinImportParameters(runtimeCanonicalSnapshotCoinIds: Set<stri
 }
 
 function seedRuntimeSnapshotsFromPersistentStore(
-  runtimeDatabase: ReturnType<typeof createDatabase>,
+  runtimeDatabase: Database,
   persistentDatabaseUrl: string,
   runtimeState: AppLifecycleState,
 ) {
@@ -212,8 +227,7 @@ function seedRuntimeSnapshotsFromPersistentStore(
   const persistentDatabase = createDatabase(persistentDatabaseUrl);
 
   try {
-    const canonicalCoinIds = ['bitcoin', 'ethereum', 'solana'] as const;
-    const canonicalCoinPreservationClause = canonicalCoinImportClause('ms.coin_id', canonicalCoinIds.length);
+    const canonicalCoinPreservationClause = canonicalCoinImportClause('ms.coin_id', CANONICAL_COIN_IDS.length);
     const sourceRows = persistentDatabase.client.prepare<{
       coin_id: string;
       symbol: string;
@@ -322,7 +336,7 @@ function seedRuntimeSnapshotsFromPersistentStore(
         AND ${canonicalCoinPreservationClause}
         AND (ct.exchange_id IS NULL OR e.id IS NOT NULL)
       ORDER BY ms.coin_id, ct.exchange_id, ct.base, ct.target
-    `).all(...canonicalCoinIds);
+    `).all(...CANONICAL_COIN_IDS);
 
     if (sourceRows.length === 0) {
       return {
@@ -332,7 +346,6 @@ function seedRuntimeSnapshotsFromPersistentStore(
       };
     }
 
-    const now = new Date();
     const insertCoin = runtimeDatabase.client.prepare(`
       INSERT INTO coins (
         id, symbol, name, api_symbol, hashing_algorithm, block_time_in_minutes,
@@ -420,9 +433,9 @@ function seedRuntimeSnapshotsFromPersistentStore(
         total_volume
       FROM chart_points
       WHERE vs_currency = 'usd'
-        AND ${canonicalCoinImportClause('chart_points.coin_id', canonicalCoinIds.length)}
+        AND ${canonicalCoinImportClause('chart_points.coin_id', CANONICAL_COIN_IDS.length)}
       ORDER BY coin_id, timestamp
-    `).all(...canonicalCoinIds);
+    `).all(...CANONICAL_COIN_IDS);
     const insertChartPoint = runtimeDatabase.client.prepare(`
       INSERT INTO chart_points (
         coin_id, vs_currency, timestamp, price, market_cap, total_volume
@@ -439,10 +452,6 @@ function seedRuntimeSnapshotsFromPersistentStore(
     const existingExchangeIds = new Set(
       runtimeDatabase.client.prepare<{ id: string }>('SELECT id FROM exchanges').all().map((row) => row.id),
     );
-    const existingCoinIds = new Set(
-      runtimeDatabase.client.prepare<{ id: string }>('SELECT id FROM coins').all().map((row) => row.id),
-    );
-
     runtimeDatabase.client.exec('BEGIN');
     try {
       for (const row of sourceRows) {
@@ -546,23 +555,9 @@ function seedRuntimeSnapshotsFromPersistentStore(
   }
 }
 
-export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
-  const config = mergeConfig(options.config);
-  const shouldStartBackgroundJobs = options.startBackgroundJobs ?? false;
-  const bootstrapSnapshotAccessMode = resolveBootstrapSnapshotAccessMode(
-    config.databaseUrl,
-    shouldStartBackgroundJobs,
-    config.host,
-    config.port,
-  );
-  const bootstrapOnlyValidationRuntime = !shouldStartBackgroundJobs
-    && config.host === '127.0.0.1'
-    && config.port === 3102;
-  const seedValidationSnapshotMode = bootstrapSnapshotAccessMode === 'seeded_bootstrap'
-    && bootstrapOnlyValidationRuntime;
-  const suppressBuiltInLogsUntilReady = options.startupProgress != null;
+function createLoggerOptions(config: AppConfig) {
   const useEmojiCompactHttpLogs = config.logPretty && config.httpLogStyle === 'emoji_compact_p';
-  const loggerOpts = config.logLevel === 'silent'
+  const logger = config.logLevel === 'silent'
     ? false
     : {
         level: config.logLevel,
@@ -578,6 +573,311 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
           },
         } : {}),
       };
+
+  return { logger, useEmojiCompactHttpLogs };
+}
+
+function registerAppRoutes(
+  app: FastifyInstance,
+  database: Database,
+  config: AppConfig,
+  marketDataRuntimeState: AppLifecycleState,
+  metrics: MetricsRegistry,
+) {
+  registerErrorHandler(app);
+  registerTransportControls(app, {
+    responseCompressionThresholdBytes: config.responseCompressionThresholdBytes,
+  });
+  registerHealthRoutes(app);
+  registerDiagnosticsRoutes(
+    app,
+    database,
+    config.marketFreshnessThresholdSeconds,
+    metrics,
+    {
+      requestTimeoutMs: config.requestTimeoutMs,
+      responseCompressionThresholdBytes: config.responseCompressionThresholdBytes,
+    },
+  );
+  registerSimpleRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
+  registerAssetPlatformRoutes(app, database);
+  registerCoinRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
+  registerExchangeRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
+  registerTreasuryRoutes(app, database);
+  registerOnchainRoutes(app, database);
+  registerSearchRoutes(app, database);
+  registerGlobalRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
+}
+
+function createInitialSyncCallbacks(options: BuildAppOptions): InitialSyncCallbacks {
+  return {
+    onStepChange: (stepId) => {
+      options.startupProgress?.begin(stepId);
+    },
+    onOhlcvBackfillProgress: (current, total) => {
+      options.startupProgress?.updateOhlcvProgress(current, total);
+    },
+    onExchangeResult: (exchangeId, status, message) => {
+      options.startupProgress?.reportExchangeResult(exchangeId, status, message);
+    },
+    onCatalogResult: (id, category, count, durationMs) => {
+      options.startupProgress?.reportCatalogResult(id, category, count, durationMs);
+    },
+    onStatusDetail: (message) => {
+      options.startupProgress?.reportStatus(message);
+    },
+    onTickerFetchStart: (exchangeId) => {
+      options.startupProgress?.reportStatus(`Fetching tickers: ${exchangeId}`);
+    },
+    onTickerFetchComplete: (exchangeId, durationMs) => {
+      options.startupProgress?.reportStatus(`Completed tickers: ${exchangeId} (${(durationMs / 1000).toFixed(1)}s)`);
+    },
+    onTickerFetchFailed: (exchangeId, _message, durationMs) => {
+      options.startupProgress?.reportStatus(`Failed tickers: ${exchangeId} (${(durationMs / 1000).toFixed(1)}s)`);
+    },
+    onWaitingExchangeStatus: (exchangeIds) => {
+      options.startupProgress?.reportStatus(`Still waiting for ticker responses: ${exchangeIds.join(', ')}`);
+    },
+  };
+}
+
+async function withStartupTimeout<T>(
+  operation: Promise<T>,
+  startupTimeoutMs: number | undefined,
+  message: string,
+) {
+  if (!startupTimeoutMs || startupTimeoutMs <= 0) {
+    return operation;
+  }
+
+  return await Promise.race([
+    operation,
+    new Promise<T>((_, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(message));
+      }, startupTimeoutMs);
+
+      operation.finally(() => {
+        clearTimeout(timeout);
+      });
+    }),
+  ]);
+}
+
+function seedPersistentBootstrapSnapshots(
+  database: Database,
+  marketDataRuntimeState: AppLifecycleState,
+  persistentSnapshotDatabaseUrl: string,
+  bootstrapOnlyValidationRuntime: boolean,
+) {
+  marketDataRuntimeState.validationOverride.reason = bootstrapOnlyValidationRuntime
+    ? 'validation runtime seeded from persistent live snapshots'
+    : 'default runtime seeded from persistent live snapshots';
+
+  const canonicalCoinPlaceholders = CANONICAL_COIN_IDS.map(() => '?').join(', ');
+  seedStaticReferenceData(database, { includeSeededExchanges: true });
+  database.client.prepare(`
+    DELETE FROM coins
+    WHERE id IN (${canonicalCoinPlaceholders})
+      AND updated_at = created_at
+      AND image_large_url LIKE 'https://assets.opengecko.test/%'
+  `).run(...CANONICAL_COIN_IDS);
+  database.client.prepare(`
+    DELETE FROM chart_points
+    WHERE coin_id IN (${canonicalCoinPlaceholders})
+      AND vs_currency = 'usd'
+  `).run(...CANONICAL_COIN_IDS);
+
+  seedRuntimeSnapshotsFromPersistentStore(
+    database,
+    persistentSnapshotDatabaseUrl,
+    marketDataRuntimeState,
+  );
+}
+
+function resolveSeededBootstrapContext(
+  database: Database,
+  config: AppConfig,
+  marketDataRuntimeState: AppLifecycleState,
+  bootstrapSnapshotAccessMode: BootstrapSnapshotAccessMode,
+  bootstrapOnlyValidationRuntime: boolean,
+): SeededBootstrapContext {
+  const persistentSnapshotDatabaseUrl = bootstrapSnapshotAccessMode === 'seeded_bootstrap'
+    ? resolvePersistentSnapshotDatabaseUrl(config.databaseUrl, config.host, config.port)
+    : null;
+
+  if (persistentSnapshotDatabaseUrl) {
+    seedPersistentBootstrapSnapshots(
+      database,
+      marketDataRuntimeState,
+      persistentSnapshotDatabaseUrl,
+      bootstrapOnlyValidationRuntime,
+    );
+  }
+
+  const seededBootstrapPreserved =
+    marketDataRuntimeState.validationOverride.reason === 'validation runtime seeded from persistent live snapshots'
+    || marketDataRuntimeState.validationOverride.reason === 'default runtime seeded from persistent live snapshots';
+
+  return { persistentSnapshotDatabaseUrl, seededBootstrapPreserved };
+}
+
+function updateValidationOverrideAfterBootstrapSync(
+  config: AppConfig,
+  marketDataRuntimeState: AppLifecycleState,
+  bootstrapSnapshotAccessMode: BootstrapSnapshotAccessMode,
+  bootstrapOnlyValidationRuntime: boolean,
+  seedValidationSnapshotMode: boolean,
+) {
+  if (
+    bootstrapOnlyValidationRuntime
+    && config.databaseUrl !== ':memory:'
+    && !marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
+  ) {
+    marketDataRuntimeState.validationOverride = {
+      mode: 'stale_allowed',
+      reason: 'default runtime exposing seeded/live snapshots after bootstrap sync',
+      snapshotTimestampOverride: null,
+      snapshotSourceCountOverride: null,
+    };
+  }
+
+  if (
+    config.databaseUrl === ':memory:'
+    && bootstrapSnapshotAccessMode === 'seeded_bootstrap'
+    && (seedValidationSnapshotMode || config.port === 3000)
+    && (
+      marketDataRuntimeState.validationOverride.reason === 'validation runtime seeded from persistent live snapshots'
+      || marketDataRuntimeState.validationOverride.reason === 'default runtime seeded from persistent live snapshots'
+    )
+  ) {
+    const seededBootstrapReason = bootstrapOnlyValidationRuntime
+      ? 'validation runtime seeded from persistent live snapshots'
+      : 'default runtime seeded from persistent live snapshots';
+    marketDataRuntimeState.validationOverride = {
+      mode: marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
+        ? 'degraded_seeded_bootstrap'
+        : 'seeded_bootstrap',
+      reason: seededBootstrapReason,
+      snapshotTimestampOverride: marketDataRuntimeState.validationOverride.snapshotTimestampOverride,
+      snapshotSourceCountOverride: marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
+        ? 0
+        : marketDataRuntimeState.validationOverride.snapshotSourceCountOverride,
+    };
+  }
+}
+
+function finalizeBootstrapState(
+  marketDataRuntimeState: AppLifecycleState,
+  seededBootstrapPreserved: boolean,
+  bootstrapOnlyValidationRuntime: boolean,
+) {
+  if (seededBootstrapPreserved) {
+    marketDataRuntimeState.initialSyncCompleted = false;
+    marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots = false;
+    marketDataRuntimeState.allowStaleLiveService = true;
+    marketDataRuntimeState.syncFailureReason = null;
+    marketDataRuntimeState.listenerBindDeferred = false;
+    if (marketDataRuntimeState.hotDataRevision === 0) {
+      marketDataRuntimeState.hotDataRevision = 1;
+    }
+    return;
+  }
+
+  marketDataRuntimeState.initialSyncCompleted = true;
+  marketDataRuntimeState.allowStaleLiveService = bootstrapOnlyValidationRuntime
+    && marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots;
+  marketDataRuntimeState.syncFailureReason = null;
+
+  if (
+    !marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
+    && marketDataRuntimeState.hotDataRevision > 0
+  ) {
+    marketDataRuntimeState.hotDataRevision += 1;
+  }
+}
+
+async function runBootstrapReadinessFlow(
+  app: FastifyInstance,
+  database: Database,
+  config: AppConfig,
+  marketDataRuntimeState: AppLifecycleState,
+  metrics: MetricsRegistry,
+  options: BuildAppOptions,
+  bootstrapSnapshotAccessMode: BootstrapSnapshotAccessMode,
+  bootstrapOnlyValidationRuntime: boolean,
+  seedValidationSnapshotMode: boolean,
+) {
+  const { runInitialMarketSync } = await import('./services/initial-sync');
+  const startupTimeoutMs = options.startupPluginTimeout ?? options.pluginTimeout;
+  const { persistentSnapshotDatabaseUrl, seededBootstrapPreserved } = resolveSeededBootstrapContext(
+    database,
+    config,
+    marketDataRuntimeState,
+    bootstrapSnapshotAccessMode,
+    bootstrapOnlyValidationRuntime,
+  );
+  const shouldRunBootstrapInitialSync = !seededBootstrapPreserved;
+  const syncOperation: Promise<InitialSyncResult> = shouldRunBootstrapInitialSync
+    ? runInitialMarketSync(
+        database,
+        config,
+        undefined,
+        createInitialSyncCallbacks(options),
+        marketDataRuntimeState,
+      )
+    : Promise.resolve({
+        coinsDiscovered: 0,
+        chainsDiscovered: 0,
+        snapshotsCreated: 0,
+        tickersWritten: 0,
+        exchangesSynced: 0,
+        ohlcvCandlesWritten: 0,
+      });
+
+  await withStartupTimeout(
+    syncOperation,
+    startupTimeoutMs,
+    `Startup initial sync exceeded ${startupTimeoutMs}ms before listener bind`,
+  );
+
+  updateValidationOverrideAfterBootstrapSync(
+    config,
+    marketDataRuntimeState,
+    bootstrapSnapshotAccessMode,
+    bootstrapOnlyValidationRuntime,
+    seedValidationSnapshotMode,
+  );
+  finalizeBootstrapState(marketDataRuntimeState, seededBootstrapPreserved, bootstrapOnlyValidationRuntime);
+
+  options.startupProgress?.begin('seed_reference_data');
+  if (!persistentSnapshotDatabaseUrl) {
+    seedStaticReferenceData(database, { includeSeededExchanges: true });
+  }
+  options.startupProgress?.complete('seed_reference_data');
+  options.startupProgress?.begin('rebuild_search_index');
+  rebuildSearchIndex(database);
+  options.startupProgress?.complete('rebuild_search_index');
+  await runStartupPrewarm(app, marketDataRuntimeState, metrics, config.startupPrewarmBudgetMs);
+  options.startupProgress?.begin('start_http_listener');
+}
+
+export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
+  const config = mergeConfig(options.config);
+  const shouldStartBackgroundJobs = options.startBackgroundJobs ?? false;
+  const bootstrapSnapshotAccessMode = resolveBootstrapSnapshotAccessMode(
+    config.databaseUrl,
+    shouldStartBackgroundJobs,
+    config.host,
+    config.port,
+  );
+  const bootstrapOnlyValidationRuntime = !shouldStartBackgroundJobs
+    && config.host === '127.0.0.1'
+    && config.port === 3102;
+  const seedValidationSnapshotMode = bootstrapSnapshotAccessMode === 'seeded_bootstrap'
+    && bootstrapOnlyValidationRuntime;
+  const suppressBuiltInLogsUntilReady = options.startupProgress != null;
+  const { logger: loggerOpts, useEmojiCompactHttpLogs } = createLoggerOptions(config);
 
   const app = Fastify({
     logger: loggerOpts,
@@ -618,217 +918,26 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   migrateDatabase(database);
   options.startupProgress?.complete('connect_database');
 
-  registerErrorHandler(app);
-  registerTransportControls(app, {
-    responseCompressionThresholdBytes: config.responseCompressionThresholdBytes,
-  });
-  registerHealthRoutes(app);
-  registerDiagnosticsRoutes(
-    app,
-    database,
-    config.marketFreshnessThresholdSeconds,
-    metrics,
-    {
-      requestTimeoutMs: config.requestTimeoutMs,
-      responseCompressionThresholdBytes: config.responseCompressionThresholdBytes,
-    },
-  );
-  registerSimpleRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
-  registerAssetPlatformRoutes(app, database);
-  registerCoinRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
-  registerExchangeRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
-  registerTreasuryRoutes(app, database);
-  registerOnchainRoutes(app, database);
-  registerSearchRoutes(app, database);
-  registerGlobalRoutes(app, database, config.marketFreshnessThresholdSeconds, marketDataRuntimeState);
+  registerAppRoutes(app, database, config, marketDataRuntimeState, metrics);
 
   app.addHook('onReady', async () => {
-    const startupTimeoutMs = options.startupPluginTimeout ?? options.pluginTimeout;
-    const withStartupTimeout = async <T>(operation: Promise<T>, message: string) => {
-      if (!startupTimeoutMs || startupTimeoutMs <= 0) {
-        return operation;
-      }
-
-      return await Promise.race([
-        operation,
-        new Promise<T>((_, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error(message));
-          }, startupTimeoutMs);
-
-          operation.finally(() => {
-            clearTimeout(timeout);
-          });
-        }),
-      ]);
-    };
-    const shouldEnforceInitialSyncTimeout = !runtime;
-
-    // Always run initial market sync (live data from CCXT)
     if (runtime) {
       await runtime.start();
       await runtime.whenReady();
       seedStaticReferenceData(database, { includeSeededExchanges: true });
       rebuildSearchIndex(database);
     } else {
-      const persistentSnapshotDatabaseUrl = bootstrapSnapshotAccessMode === 'seeded_bootstrap'
-        ? resolvePersistentSnapshotDatabaseUrl(
-        config.databaseUrl,
-        config.host,
-        config.port,
-      )
-        : null;
-      if (persistentSnapshotDatabaseUrl) {
-        marketDataRuntimeState.validationOverride.reason = bootstrapOnlyValidationRuntime
-          ? 'validation runtime seeded from persistent live snapshots'
-          : 'default runtime seeded from persistent live snapshots';
-        const canonicalCoinIds = ['bitcoin', 'ethereum', 'solana'] as const;
-        const canonicalCoinPlaceholders = canonicalCoinIds.map(() => '?').join(', ');
-        seedStaticReferenceData(database, { includeSeededExchanges: true });
-        database.client.prepare(`
-          DELETE FROM coins
-          WHERE id IN (${canonicalCoinPlaceholders})
-            AND updated_at = created_at
-            AND image_large_url LIKE 'https://assets.opengecko.test/%'
-        `).run(...canonicalCoinIds);
-        database.client.prepare(`
-          DELETE FROM chart_points
-          WHERE coin_id IN (${canonicalCoinPlaceholders})
-            AND vs_currency = 'usd'
-        `).run(...canonicalCoinIds);
-        seedRuntimeSnapshotsFromPersistentStore(
-          database,
-          persistentSnapshotDatabaseUrl,
-          marketDataRuntimeState,
-        );
-      }
-      const { runInitialMarketSync } = await import('./services/initial-sync');
-      const seededBootstrapPreserved = marketDataRuntimeState.validationOverride.reason === 'validation runtime seeded from persistent live snapshots'
-        || marketDataRuntimeState.validationOverride.reason === 'default runtime seeded from persistent live snapshots';
-      if (!seededBootstrapPreserved) {
-        const hotDataWasVisible =
-          marketDataRuntimeState.initialSyncCompleted
-          || marketDataRuntimeState.allowStaleLiveService
-          || marketDataRuntimeState.syncFailureReason !== null;
-        void hotDataWasVisible;
-      }
-      const shouldRunBootstrapInitialSync = !seededBootstrapPreserved;
-      const syncOperation = shouldRunBootstrapInitialSync
-        ? runInitialMarketSync(database, config, undefined, {
-        onStepChange: (stepId) => {
-          options.startupProgress?.begin(stepId);
-        },
-        onOhlcvBackfillProgress: (current, total) => {
-          options.startupProgress?.updateOhlcvProgress(current, total);
-        },
-        onExchangeResult: (exchangeId, status, message) => {
-          options.startupProgress?.reportExchangeResult(exchangeId, status, message);
-        },
-        onCatalogResult: (id, category, count, durationMs) => {
-          options.startupProgress?.reportCatalogResult(id, category, count, durationMs);
-        },
-        onStatusDetail: (message) => {
-          options.startupProgress?.reportStatus(message);
-        },
-        onTickerFetchStart: (exchangeId) => {
-          options.startupProgress?.reportStatus(`Fetching tickers: ${exchangeId}`);
-        },
-        onTickerFetchComplete: (exchangeId, durationMs) => {
-          options.startupProgress?.reportStatus(`Completed tickers: ${exchangeId} (${(durationMs / 1000).toFixed(1)}s)`);
-        },
-        onTickerFetchFailed: (exchangeId, _message, durationMs) => {
-          options.startupProgress?.reportStatus(`Failed tickers: ${exchangeId} (${(durationMs / 1000).toFixed(1)}s)`);
-        },
-        onWaitingExchangeStatus: (exchangeIds) => {
-          options.startupProgress?.reportStatus(`Still waiting for ticker responses: ${exchangeIds.join(', ')}`);
-        },
-      }, marketDataRuntimeState)
-        : Promise.resolve({
-            coinsDiscovered: 0,
-            chainsDiscovered: 0,
-            snapshotsCreated: 0,
-            tickersWritten: 0,
-            exchangesSynced: 0,
-            ohlcvCandlesWritten: 0,
-          });
-      await (shouldEnforceInitialSyncTimeout
-        ? withStartupTimeout(
-            syncOperation,
-            `Startup initial sync exceeded ${startupTimeoutMs}ms before listener bind`,
-          )
-        : syncOperation);
-      if (
-        bootstrapOnlyValidationRuntime
-        && config.databaseUrl !== ':memory:'
-        && !marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
-      ) {
-        marketDataRuntimeState.validationOverride = {
-          mode: 'stale_allowed',
-          reason: 'default runtime exposing seeded/live snapshots after bootstrap sync',
-          snapshotTimestampOverride: null,
-          snapshotSourceCountOverride: null,
-        };
-      }
-      if (
-        config.databaseUrl === ':memory:'
-        && bootstrapSnapshotAccessMode === 'seeded_bootstrap'
-        && (
-          seedValidationSnapshotMode
-          || config.port === 3000
-        )
-        && (
-          marketDataRuntimeState.validationOverride.reason === 'validation runtime seeded from persistent live snapshots'
-          || marketDataRuntimeState.validationOverride.reason === 'default runtime seeded from persistent live snapshots'
-        )
-      ) {
-        const seededBootstrapReason = bootstrapOnlyValidationRuntime
-          ? 'validation runtime seeded from persistent live snapshots'
-          : 'default runtime seeded from persistent live snapshots';
-        marketDataRuntimeState.validationOverride = {
-          mode: marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
-            ? 'degraded_seeded_bootstrap'
-            : 'seeded_bootstrap',
-          reason: seededBootstrapReason,
-          snapshotTimestampOverride: marketDataRuntimeState.validationOverride.snapshotTimestampOverride,
-          snapshotSourceCountOverride: marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
-            ? 0
-            : marketDataRuntimeState.validationOverride.snapshotSourceCountOverride,
-        };
-      }
-      if (seededBootstrapPreserved) {
-        marketDataRuntimeState.initialSyncCompleted = false;
-        marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots = false;
-        marketDataRuntimeState.allowStaleLiveService = true;
-        marketDataRuntimeState.syncFailureReason = null;
-        marketDataRuntimeState.listenerBindDeferred = false;
-        if (marketDataRuntimeState.hotDataRevision === 0) {
-          marketDataRuntimeState.hotDataRevision = 1;
-        }
-      } else {
-        marketDataRuntimeState.initialSyncCompleted = true;
-        marketDataRuntimeState.allowStaleLiveService = bootstrapOnlyValidationRuntime
-          && marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots;
-        marketDataRuntimeState.syncFailureReason = null;
-
-        if (
-          !marketDataRuntimeState.initialSyncCompletedWithoutUsableLiveSnapshots
-          && marketDataRuntimeState.hotDataRevision > 0
-        ) {
-          marketDataRuntimeState.hotDataRevision += 1;
-        }
-      }
-
-      // Seed static reference data (treasury, derivatives, onchain) after coins exist
-      options.startupProgress?.begin('seed_reference_data');
-      if (!persistentSnapshotDatabaseUrl) {
-        seedStaticReferenceData(database, { includeSeededExchanges: true });
-      }
-      options.startupProgress?.complete('seed_reference_data');
-      options.startupProgress?.begin('rebuild_search_index');
-      rebuildSearchIndex(database);
-      options.startupProgress?.complete('rebuild_search_index');
-      await runStartupPrewarm(app, marketDataRuntimeState, metrics, config.startupPrewarmBudgetMs);
-      options.startupProgress?.begin('start_http_listener');
+      await runBootstrapReadinessFlow(
+        app,
+        database,
+        config,
+        marketDataRuntimeState,
+        metrics,
+        options,
+        bootstrapSnapshotAccessMode,
+        bootstrapOnlyValidationRuntime,
+        seedValidationSnapshotMode,
+      );
     }
   });
 
