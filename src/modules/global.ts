@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import BigNumber from 'bignumber.js';
 
 import type { AppDatabase } from '../db/client';
 import { chartPoints, type MarketSnapshotRow } from '../db/schema';
@@ -16,7 +17,7 @@ import { getCanonicalCandles } from '../services/candle-store';
 function computeMarketCapChangePercentage24hUsd(
   marketRows: Array<{ snapshot: MarketSnapshotRow }>,
 ) {
-  const currentMarketCapUsd = marketRows.reduce((sum, row) => sum + (row.snapshot.marketCap ?? 0), 0);
+  const currentMarketCapUsd = marketRows.reduce((sum, row) => sum.plus(row.snapshot.marketCap ?? 0), new BigNumber(0));
   const previousMarketCapUsd = marketRows.reduce((sum, row) => {
     const marketCap = row.snapshot.marketCap;
     const changePercentage = row.snapshot.priceChangePercentage24h;
@@ -25,14 +26,14 @@ function computeMarketCapChangePercentage24hUsd(
       return sum;
     }
 
-    return sum + (marketCap / (1 + (changePercentage / 100)));
-  }, 0);
+    return sum.plus(new BigNumber(marketCap).dividedBy(new BigNumber(1).plus(new BigNumber(changePercentage).dividedBy(100))));
+  }, new BigNumber(0));
 
-  if (previousMarketCapUsd === 0) {
+  if (previousMarketCapUsd.isZero()) {
     return 0;
   }
 
-  return ((currentMarketCapUsd - previousMarketCapUsd) / previousMarketCapUsd) * 100;
+  return currentMarketCapUsd.minus(previousMarketCapUsd).dividedBy(previousMarketCapUsd).multipliedBy(100).toNumber();
 }
 
 const globalMarketCapChartQuerySchema = z.object({
@@ -147,7 +148,10 @@ export function registerGlobalRoutes(
 
     for (const row of rows) {
       const timestamp = row.timestamp.getTime();
-      groupedRows.set(timestamp, (groupedRows.get(timestamp) ?? 0) + ((row.marketCap ?? 0) * rate));
+      groupedRows.set(
+        timestamp,
+        new BigNumber(groupedRows.get(timestamp) ?? 0).plus(new BigNumber(row.marketCap ?? 0).multipliedBy(rate)).toNumber(),
+      );
     }
 
     const orderedRows = [...groupedRows.entries()]
@@ -187,10 +191,10 @@ export function registerGlobalRoutes(
       .map((categoryId) => categoryId.toLowerCase())
       .some((categoryId) => stablecoinCategoryIds.has(categoryId)));
 
-    const defiMarketCap = defiMarketRows.reduce((sum, row) => sum + (row.snapshot.marketCap ?? 0), 0);
-    const tradingVolume24h = defiMarketRows.reduce((sum, row) => sum + (row.snapshot.totalVolume ?? 0), 0);
+    const defiMarketCap = defiMarketRows.reduce((sum, row) => sum.plus(row.snapshot.marketCap ?? 0), new BigNumber(0)).toNumber();
+    const tradingVolume24h = defiMarketRows.reduce((sum, row) => sum.plus(row.snapshot.totalVolume ?? 0), new BigNumber(0)).toNumber();
     const ethMarketCap = activeMarketRows.find((row) => row.coin.id === 'ethereum')?.snapshot.marketCap ?? 0;
-    const totalMarketCapUsd = activeMarketRows.reduce((sum, row) => sum + (row.snapshot.marketCap ?? 0), 0);
+    const totalMarketCapUsd = activeMarketRows.reduce((sum, row) => sum.plus(row.snapshot.marketCap ?? 0), new BigNumber(0)).toNumber();
     const topCoin = [...defiMarketRows]
       .sort((left, right) => (right.snapshot.marketCap ?? 0) - (left.snapshot.marketCap ?? 0))[0];
     const topCoinMarketCap = topCoin?.snapshot.marketCap ?? 0;
@@ -218,8 +222,8 @@ export function registerGlobalRoutes(
       .filter((row): row is typeof row & { snapshot: NonNullable<typeof row.snapshot> } => row.snapshot !== null);
     const activeCoinCount = getMarketRows(database, 'usd', { status: 'active' }).length;
     const exchangeCount = database.db.select().from(exchanges).all().length;
-    const totalMarketCapUsd = marketRows.reduce((sum, row) => sum + (row.snapshot?.marketCap ?? 0), 0);
-    const totalVolumeUsd = marketRows.reduce((sum, row) => sum + (row.snapshot?.totalVolume ?? 0), 0);
+    const totalMarketCapUsd = marketRows.reduce((sum, row) => sum.plus(row.snapshot?.marketCap ?? 0), new BigNumber(0)).toNumber();
+    const totalVolumeUsd = marketRows.reduce((sum, row) => sum.plus(row.snapshot?.totalVolume ?? 0), new BigNumber(0)).toNumber();
     const totalMarketCap = Object.fromEntries(
       SUPPORTED_VS_CURRENCIES.map((currency) => [currency, totalMarketCapUsd * getConversionRate(database, currency, marketFreshnessThresholdSeconds, snapshotAccessPolicy)]),
     );
@@ -241,7 +245,7 @@ export function registerGlobalRoutes(
         .map((row) => [row.coin.symbol.toLowerCase(), totalMarketCapUsd === 0 ? 0 : ((row.snapshot.marketCap ?? 0) / totalMarketCapUsd) * 100]),
     );
     const volumeChangePercentage24hUsd = totalVolumeUsd === 0
-      ? 0
+      ? new BigNumber(0)
       : marketRows.reduce((sum, row) => {
         const volume = row.snapshot.totalVolume;
         const changePercentage = row.snapshot.priceChangePercentage24h;
@@ -250,8 +254,8 @@ export function registerGlobalRoutes(
           return sum;
         }
 
-        return sum + (volume / (1 + (changePercentage / 100)));
-      }, 0);
+        return sum.plus(new BigNumber(volume).dividedBy(new BigNumber(1).plus(new BigNumber(changePercentage).dividedBy(100))));
+      }, new BigNumber(0));
     const updatedAt = marketRows.reduce((maxTimestamp, row) => Math.max(maxTimestamp, row.snapshot.lastUpdated.getTime()), 0);
 
     return {
@@ -270,9 +274,9 @@ export function registerGlobalRoutes(
           ...marketCapPercentage,
         },
         market_cap_change_percentage_24h_usd: computeMarketCapChangePercentage24hUsd(marketRows),
-        volume_change_percentage_24h_usd: volumeChangePercentage24hUsd === 0
+        volume_change_percentage_24h_usd: volumeChangePercentage24hUsd.isZero()
           ? 0
-          : ((totalVolumeUsd - volumeChangePercentage24hUsd) / volumeChangePercentage24hUsd) * 100,
+          : new BigNumber(totalVolumeUsd).minus(volumeChangePercentage24hUsd).dividedBy(volumeChangePercentage24hUsd).multipliedBy(100).toNumber(),
         updated_at: Math.floor(updatedAt / 1000),
       },
     };

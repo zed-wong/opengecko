@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
+    "bignumber.js": "^9.3.1",
     "ccxt": "^4.4.81",
     "drizzle-orm": "^0.44.5",
     "fastify": "^5.2.1",

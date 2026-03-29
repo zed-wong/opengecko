@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import BigNumber from 'bignumber.js';
 
 import { buildLiveSnapshotValue, createMarketQuoteAccumulator, getSnapshotOwnership } from '../src/services/market-snapshots';
 
@@ -10,11 +11,11 @@ describe('market snapshot service helpers', () => {
 
   it('builds live snapshot updates by carrying forward supply-driven market fields', () => {
     const accumulator = createMarketQuoteAccumulator();
-    accumulator.priceTotal = 171000;
+    accumulator.priceTotal = new BigNumber(171000);
     accumulator.priceCount = 2;
-    accumulator.volumeTotal = 60000000000;
+    accumulator.volumeTotal = new BigNumber(60000000000);
     accumulator.volumeCount = 2;
-    accumulator.changeTotal = 4;
+    accumulator.changeTotal = new BigNumber(4);
     accumulator.changeCount = 2;
     accumulator.latestTimestamp = Date.parse('2026-03-20T00:05:00.000Z');
     accumulator.providers.add('binance');

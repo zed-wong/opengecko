@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import BigNumber from 'bignumber.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createDatabase, migrateDatabase, rebuildSearchIndex, seedStaticReferenceData, type AppDatabase } from '../src/db/client';
@@ -241,13 +242,13 @@ describe('global parity', () => {
         ownership: row.snapshot ? getSnapshotOwnership(row.snapshot) : null,
       }))
       .filter((row): row is typeof row & { snapshot: NonNullable<typeof row.snapshot> } => row.snapshot !== null);
-    const totalMarketCapUsd = usableRows.reduce((sum, row) => sum + (row.snapshot.marketCap ?? 0), 0);
-    const totalVolumeUsd = usableRows.reduce((sum, row) => sum + (row.snapshot.totalVolume ?? 0), 0);
+    const totalMarketCapUsd = usableRows.reduce((sum, row) => sum.plus(row.snapshot.marketCap ?? 0), new BigNumber(0)).toNumber();
+    const totalVolumeUsd = usableRows.reduce((sum, row) => sum.plus(row.snapshot.totalVolume ?? 0), new BigNumber(0)).toNumber();
     const updatedAt = usableRows.reduce((maxTimestamp, row) => Math.max(maxTimestamp, row.snapshot.lastUpdated.getTime()), 0);
     const marketCapPercentage = Object.fromEntries(
       usableRows
         .filter((row) => ['bitcoin', 'ethereum', 'tether', 'binancecoin', 'ripple', 'usd-coin', 'solana'].includes(row.coin.id))
-        .map((row) => [row.coin.symbol.toLowerCase(), ((row.snapshot.marketCap ?? 0) / totalMarketCapUsd) * 100]),
+        .map((row) => [row.coin.symbol.toLowerCase(), new BigNumber(row.snapshot.marketCap ?? 0).dividedBy(totalMarketCapUsd).multipliedBy(100).toNumber()]),
     );
 
     expect(usableRows).toHaveLength(7);

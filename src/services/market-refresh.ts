@@ -1,4 +1,5 @@
 import { and, eq, lte, or } from 'drizzle-orm';
+import BigNumber from 'bignumber.js';
 
 import type { AppConfig } from '../config/env';
 import type { AppDatabase } from '../db/client';
@@ -144,7 +145,7 @@ function buildBidAskSpreadPercentage(bid: number | null, ask: number | null) {
     return null;
   }
 
-  return ((ask - bid) / ask) * 100;
+  return new BigNumber(ask).minus(bid).dividedBy(ask).multipliedBy(100).toNumber();
 }
 
 function buildTradeUrl(exchangeId: ExchangeId, base: string, target: string) {
@@ -161,11 +162,17 @@ function upsertLiveCoinTicker(
   conversionContext: ConversionContext,
 ) {
   const convertedLastUsd = conversionContext.usdPriceByCoinId.get(pendingTicker.coinId)
-    ?? (pendingTicker.vsCurrency === 'eur' ? pendingTicker.last / conversionContext.eurPerUsd : pendingTicker.last);
+    ?? (pendingTicker.vsCurrency === 'eur'
+      ? new BigNumber(pendingTicker.last).dividedBy(conversionContext.eurPerUsd).toNumber()
+      : pendingTicker.last);
   const convertedVolumeUsd = pendingTicker.quoteVolume === null
-    ? (pendingTicker.volume === null ? null : pendingTicker.volume * convertedLastUsd)
-    : (pendingTicker.vsCurrency === 'eur' ? pendingTicker.quoteVolume / conversionContext.eurPerUsd : pendingTicker.quoteVolume);
-  const convertedLastBtc = conversionContext.btcUsdPrice === null ? null : convertedLastUsd / conversionContext.btcUsdPrice;
+    ? (pendingTicker.volume === null ? null : new BigNumber(pendingTicker.volume).multipliedBy(convertedLastUsd).toNumber())
+    : (pendingTicker.vsCurrency === 'eur'
+      ? new BigNumber(pendingTicker.quoteVolume).dividedBy(conversionContext.eurPerUsd).toNumber()
+      : pendingTicker.quoteVolume);
+  const convertedLastBtc = conversionContext.btcUsdPrice === null
+    ? null
+    : new BigNumber(convertedLastUsd).dividedBy(conversionContext.btcUsdPrice).toNumber();
 
   database.db
     .insert(coinTickers)
@@ -226,7 +233,10 @@ function recordExchangeQuoteVolume(exchangeQuoteVolumes: Map<string, number>, ex
     return;
   }
 
-  exchangeQuoteVolumes.set(exchangeId, (exchangeQuoteVolumes.get(exchangeId) ?? 0) + quoteVolume);
+  exchangeQuoteVolumes.set(
+    exchangeId,
+    new BigNumber(exchangeQuoteVolumes.get(exchangeId) ?? 0).plus(quoteVolume).toNumber(),
+  );
 }
 
 function recordAccumulatorSample(
@@ -237,16 +247,16 @@ function recordAccumulatorSample(
 ) {
   const accumulatorKey = `${marketTarget.coinId}:${marketTarget.vsCurrency}`;
   const accumulator = accumulators.get(accumulatorKey)?.accumulator ?? createMarketQuoteAccumulator();
-  accumulator.priceTotal += ticker.last!;
+  accumulator.priceTotal = accumulator.priceTotal.plus(ticker.last!);
   accumulator.priceCount += 1;
 
   if (ticker.quoteVolume !== null) {
-    accumulator.volumeTotal += ticker.quoteVolume;
+    accumulator.volumeTotal = accumulator.volumeTotal.plus(ticker.quoteVolume);
     accumulator.volumeCount += 1;
   }
 
   if (ticker.percentage !== null) {
-    accumulator.changeTotal += ticker.percentage;
+    accumulator.changeTotal = accumulator.changeTotal.plus(ticker.percentage);
     accumulator.changeCount += 1;
   }
 

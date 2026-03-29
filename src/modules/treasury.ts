@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { and, asc, eq } from 'drizzle-orm';
+import BigNumber from 'bignumber.js';
 import { z } from 'zod';
 
 import type { AppDatabase } from '../db/client';
@@ -168,6 +169,12 @@ function findLatestBalanceAtOrBefore(rows: TreasuryTransactionRow[], timestamp: 
   return latestRow?.holdingBalance;
 }
 
+function sumBigNumber(values: Array<number | null | undefined>) {
+  return values.reduce((sum, value) => (
+    value === null || value === undefined ? sum : sum.plus(value)
+  ), new BigNumber(0));
+}
+
 export function registerTreasuryRoutes(app: FastifyInstance, database: AppDatabase) {
   app.get('/entities/list', async (request) => {
     const query = entitiesListQuerySchema.parse(request.query);
@@ -228,15 +235,17 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
     const sortedRows = sortTreasuryRows(rows, query.order);
     const start = (page - 1) * perPage;
     const pagedRows = sortedRows.slice(start, start + perPage);
-    const totalHoldings = rows.reduce((sum, row) => sum + row.amount, 0);
-    const totalValueUsd = rows.reduce((sum, row) => sum + (row.currentValueUsd ?? 0), 0);
+    const totalHoldings = sumBigNumber(rows.map((row) => row.amount)).toNumber();
+    const totalValueUsd = sumBigNumber(rows.map((row) => row.currentValueUsd)).toNumber();
 
     return {
       coin_id: coin.id,
       current_price_usd: snapshot?.price ?? null,
       total_holdings: totalHoldings,
       total_value_usd: totalValueUsd,
-      market_cap_percentage: snapshot?.marketCap ? Number(((totalValueUsd / snapshot.marketCap) * 100).toFixed(4)) : null,
+      market_cap_percentage: snapshot?.marketCap
+        ? Number(new BigNumber(totalValueUsd).dividedBy(snapshot.marketCap).multipliedBy(100).toFixed(4))
+        : null,
       [params.entity]: pagedRows.map((row) => ({
         entity_id: row.entityId,
         name: row.name,
@@ -280,15 +289,20 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
           ? row.treasury_holdings.entryValueUsd / row.treasury_holdings.amount
           : null,
         entry_value_usd: row.treasury_holdings.entryValueUsd,
-        current_value_usd: row.market_snapshots ? row.treasury_holdings.amount * row.market_snapshots.price : null,
+        current_value_usd: row.market_snapshots
+          ? new BigNumber(row.treasury_holdings.amount).multipliedBy(row.market_snapshots.price).toNumber()
+          : null,
         unrealized_pnl_usd: row.market_snapshots && row.treasury_holdings.entryValueUsd !== null
-          ? row.treasury_holdings.amount * row.market_snapshots.price - row.treasury_holdings.entryValueUsd
+          ? new BigNumber(row.treasury_holdings.amount)
+            .multipliedBy(row.market_snapshots.price)
+            .minus(row.treasury_holdings.entryValueUsd)
+            .toNumber()
           : null,
         reported_at: row.treasury_holdings.reportedAt.toISOString(),
         source_url: row.treasury_holdings.sourceUrl,
       }));
-    const totalEntryValueUsd = holdings.reduce((sum, holding) => sum + (holding.entry_value_usd ?? 0), 0);
-    const totalCurrentValueUsd = holdings.reduce((sum, holding) => sum + (holding.current_value_usd ?? 0), 0);
+    const totalEntryValueUsd = sumBigNumber(holdings.map((holding) => holding.entry_value_usd)).toNumber();
+    const totalCurrentValueUsd = sumBigNumber(holdings.map((holding) => holding.current_value_usd)).toNumber();
 
     return {
       id: entity.id,
@@ -300,7 +314,7 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
       website_url: entity.websiteUrl,
       total_entry_value_usd: totalEntryValueUsd,
       total_current_value_usd: totalCurrentValueUsd,
-      total_unrealized_pnl_usd: totalCurrentValueUsd - totalEntryValueUsd,
+      total_unrealized_pnl_usd: new BigNumber(totalCurrentValueUsd).minus(totalEntryValueUsd).toNumber(),
       holdings,
     };
   });
@@ -354,7 +368,7 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
             return {
               timestamp: row.timestamp.getTime(),
               holdingBalance,
-              holdingValueUsd: holdingBalance * row.price,
+              holdingValueUsd: new BigNumber(holdingBalance).multipliedBy(row.price).toNumber(),
             };
           })
           .filter((row): row is { timestamp: number; holdingBalance: number; holdingValueUsd: number } => row !== null)
@@ -370,7 +384,7 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
             return {
               timestamp: row.happenedAt.getTime(),
               holdingBalance: row.holdingBalance,
-              holdingValueUsd: row.holdingBalance * priceRow.price,
+              holdingValueUsd: new BigNumber(row.holdingBalance).multipliedBy(priceRow.price).toNumber(),
             };
           })
           .filter((row): row is { timestamp: number; holdingBalance: number; holdingValueUsd: number } => row !== null);

@@ -1,4 +1,5 @@
 import type { AppDatabase } from '../../db/client';
+import BigNumber from 'bignumber.js';
 import type { CoinRow, MarketSnapshotRow } from '../../db/schema';
 import { HttpError } from '../../http/errors';
 import { parseJsonObject } from '../catalog';
@@ -14,7 +15,7 @@ export function toNumberOrNull(value: number | null | undefined, precision: numb
     return value;
   }
 
-  return Number(value.toFixed(precision));
+  return new BigNumber(value).decimalPlaces(precision).toNumber();
 }
 
 export function parsePlatforms(platformsJson: string) {
