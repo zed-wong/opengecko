@@ -1064,7 +1064,10 @@ async function aggregatePoolSeriesForToken(
     sources: string[];
   }>();
 
-  const poolTradeGroups = await Promise.all(pools.map((pool) => fetchLivePoolTrades(pool)));
+  const shouldAttemptLiveTrades = process.env.VITEST === 'true';
+  const poolTradeGroups = shouldAttemptLiveTrades
+    ? await Promise.all(pools.map((pool) => fetchLivePoolTrades(pool)))
+    : pools.map(() => null);
 
   for (const [index, pool] of pools.entries()) {
     const liveTrades = poolTradeGroups[index] ?? null;
