@@ -137,6 +137,77 @@ describe('exchange surface parity', () => {
     }
   });
 
+  it('preserves aggregate pair breadth on exchange detail even when serialized tickers dedupe duplicate market rows', async () => {
+    mockedFetchExchangeMarkets.mockImplementation(async (exchangeId: string) => {
+      if (exchangeId !== 'binance') {
+        return [];
+      }
+
+      return [
+        { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin', raw: {} },
+        { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin Cash', raw: {} },
+        { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', active: true, spot: true, baseName: 'Ethereum', raw: {} },
+      ];
+    });
+    mockedFetchExchangeTickers.mockImplementation(async (exchangeId: string) => {
+      if (exchangeId !== 'binance') {
+        return [];
+      }
+
+      const timestamp = Date.parse('2026-03-28T05:13:15.000Z');
+      return [
+        { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', last: 66234.02, bid: 66230, ask: 66236, high: 67000, low: 65000, baseVolume: 27782.99853, quoteVolume: 1839443608, percentage: 1.8, timestamp, raw: {} as never },
+        { exchangeId: 'binance', symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', last: 420.12, bid: 420.05, ask: 420.2, high: 430, low: 410, baseVolume: 25410.12, quoteVolume: 10675265, percentage: 1.2, timestamp, raw: {} as never },
+        { exchangeId: 'binance', symbol: 'ETH/USDT', base: 'ETH', quote: 'USDT', last: 1989.39, bid: 1989, ask: 1990, high: 2050, low: 1900, baseVolume: 379572.2623, quoteVolume: 754815216, percentage: 2.56, timestamp, raw: {} as never },
+      ];
+    });
+
+    const app = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'duplicate-pairs.db'),
+        ccxtExchanges: ['binance'],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      const [detailResponse, tickersResponse] = await Promise.all([
+        app.inject({ method: 'GET', url: '/exchanges/binance' }),
+        app.inject({ method: 'GET', url: '/exchanges/binance/tickers' }),
+      ]);
+
+      expect(detailResponse.statusCode).toBe(200);
+      expect(tickersResponse.statusCode).toBe(200);
+
+      const detail = detailResponse.json();
+      const tickers = tickersResponse.json().tickers;
+
+      expect(detail.coins).toBe(2);
+      expect(detail.pairs).toBe(2);
+      expect(detail.tickers).toHaveLength(2);
+      expect(tickers).toHaveLength(2);
+      expect(new Set(detail.tickers.map((ticker: { base: string; target: string }) => `${ticker.base}/${ticker.target}`))).toEqual(new Set([
+        'BTC/USDT',
+        'ETH/USDT',
+      ]));
+      expect(detail.tickers).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          coin_id: 'bitcoin',
+          target_coin_id: 'tether',
+        }),
+      ]));
+      expect(detail.tickers.filter((ticker: { base: string; target: string }) => ticker.base === 'BTC' && ticker.target === 'USDT')).toHaveLength(1);
+      expect(detail.tickers).toEqual(expect.not.arrayContaining([
+        expect.objectContaining({
+          coin_id: 'bitcoin-cash',
+        }),
+      ]));
+    } finally {
+      await app.close();
+    }
+  });
+
   it('exposes canonical seeded venues on exchange registry and detail routes before live refresh data is available', async () => {
     mockedFetchExchangeMarkets.mockImplementation(async () => []);
     mockedFetchExchangeTickers.mockImplementation(async () => []);

@@ -272,6 +272,19 @@ function dedupeExchangeTickerRows(rows: ExchangeTickerRow[]) {
   return [...rowsByIdentity.values()];
 }
 
+function getRawExchangeTickerRows(database: AppDatabase, exchangeId: string, coinIds?: string[]): ExchangeTickerRow[] {
+  const whereCondition = coinIds?.length
+    ? and(eq(coinTickers.exchangeId, exchangeId), inArray(coinTickers.coinId, coinIds))
+    : eq(coinTickers.exchangeId, exchangeId);
+
+  return database.db
+    .select()
+    .from(coinTickers)
+    .innerJoin(exchanges, eq(exchanges.id, coinTickers.exchangeId))
+    .where(whereCondition)
+    .all();
+}
+
 type ExchangeTickerRow = {
   coin_tickers: typeof coinTickers.$inferSelect;
   exchanges: ExchangeRow;
@@ -283,16 +296,7 @@ type DerivativeTickerWithExchangeRow = {
 };
 
 function getExchangeTickerRows(database: AppDatabase, exchangeId: string, coinIds?: string[]): ExchangeTickerRow[] {
-  const whereCondition = coinIds?.length
-    ? and(eq(coinTickers.exchangeId, exchangeId), inArray(coinTickers.coinId, coinIds))
-    : eq(coinTickers.exchangeId, exchangeId);
-
-  return dedupeExchangeTickerRows(database.db
-    .select()
-    .from(coinTickers)
-    .innerJoin(exchanges, eq(exchanges.id, coinTickers.exchangeId))
-    .where(whereCondition)
-    .all());
+  return dedupeExchangeTickerRows(getRawExchangeTickerRows(database, exchangeId, coinIds));
 }
 
 function sortExchangeTickerRows(
@@ -600,8 +604,8 @@ export function registerExchangeRoutes(
 
     return {
       ...buildExchangeDetail(exchange),
-      coins: new Set(getExchangeTickerRows(database, params.id).map((row) => row.coin_tickers.coinId)).size,
-      pairs: getExchangeTickerRows(database, params.id).length,
+      coins: new Set(getRawExchangeTickerRows(database, params.id).map((row) => row.coin_tickers.coinId)).size,
+      pairs: getRawExchangeTickerRows(database, params.id).length,
       tickers,
     };
   });
