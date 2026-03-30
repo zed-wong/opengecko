@@ -204,6 +204,23 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json()).toEqual(contractFixtures.ping);
   });
 
+  it('serves /health with the same canonical liveness payload as /ping', async () => {
+    const [healthResponse, pingResponse] = await Promise.all([
+      getApp().inject({
+        method: 'GET',
+        url: '/health',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/ping',
+      }),
+    ]);
+
+    expect(healthResponse.statusCode).toBe(200);
+    expect(healthResponse.json()).toEqual(contractFixtures.ping);
+    expect(healthResponse.json()).toEqual(pingResponse.json());
+  });
+
   it('builds startup log context for the active sqlite runtime', () => {
     expect(getDatabaseStartupLogContext({ runtime: 'bun', url: '/tmp/opengecko.db' })).toEqual({
       runtime: 'bun',
@@ -266,6 +283,9 @@ describe('OpenGecko app scaffold', () => {
           state: 'ready',
           listener_bound: false,
           initial_sync_completed: true,
+          degraded: false,
+          zero_live_completed_boot: false,
+          validation_override_active: false,
         },
         degraded: {
           active: false,
@@ -341,6 +361,7 @@ describe('OpenGecko app scaffold', () => {
 
       expect(diagnosticsResponse.statusCode).toBe(200);
       expect(diagnosticsResponse.json().data.degraded.active).toBe(false);
+      expect(diagnosticsResponse.json().data.readiness.validation_override_active).toBe(false);
       expect(diagnosticsResponse.json().data.degraded.injected_provider_failure).toEqual({
         active: true,
         reason: 'validator forced outage',
@@ -470,6 +491,10 @@ describe('OpenGecko app scaffold', () => {
           reason: 'validator stale-live disallowed',
         },
       });
+      expect(staleDisallowedDiagnostics.json().data.readiness).toMatchObject({
+        degraded: true,
+        validation_override_active: true,
+      });
       expect(staleDisallowedDiagnostics.json().data.hot_paths.shared_market_snapshot).toMatchObject({
         source_class: 'stale_live',
         freshness: {
@@ -521,6 +546,10 @@ describe('OpenGecko app scaffold', () => {
           mode: 'stale_allowed',
           reason: 'validator stale-live allowed',
         },
+      });
+      expect(staleAllowedDiagnostics.json().data.readiness).toMatchObject({
+        degraded: true,
+        validation_override_active: true,
       });
       expect(staleAllowedDiagnostics.json().data.hot_paths.shared_market_snapshot).toMatchObject({
         source_class: 'stale_live',
@@ -586,6 +615,8 @@ describe('OpenGecko app scaffold', () => {
         readiness: {
           state: 'degraded',
           initial_sync_completed: false,
+          degraded: true,
+          validation_override_active: true,
         },
         degraded: {
           active: true,
@@ -1630,6 +1661,20 @@ describe('OpenGecko app scaffold', () => {
       expect(tokenPriceResponse.json()).toEqual({
         error: 'service_unavailable',
         message: 'No usable live market snapshots are available for simple/token_price.',
+      });
+
+      const diagnosticsResponse = await freshBootApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(diagnosticsResponse.statusCode).toBe(200);
+      expect(diagnosticsResponse.json().data.readiness).toMatchObject({
+        state: 'ready',
+        initial_sync_completed: true,
+        degraded: false,
+        zero_live_completed_boot: true,
+        validation_override_active: false,
       });
     } finally {
       await freshBootApp.close();

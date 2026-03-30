@@ -9,6 +9,9 @@ export type RuntimeDiagnostics = {
     listener_bound: boolean;
     listener_bind_deferred: boolean;
     initial_sync_completed: boolean;
+    degraded: boolean;
+    zero_live_completed_boot: boolean;
+    validation_override_active: boolean;
   };
   degraded: {
     active: boolean;
@@ -163,6 +166,9 @@ export function buildRuntimeDiagnostics(
       listener_bound: runtimeState.listenerBound,
       listener_bind_deferred: runtimeState.listenerBindDeferred,
       initial_sync_completed: effectiveInitialSyncCompleted,
+      degraded: effectiveDegradedActive,
+      zero_live_completed_boot: runtimeState.initialSyncCompletedWithoutUsableLiveSnapshots,
+      validation_override_active: validationOverrideActive,
     },
     degraded: {
       active: effectiveDegradedActive,

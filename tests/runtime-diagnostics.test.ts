@@ -64,6 +64,9 @@ describe('runtime diagnostics', () => {
         listener_bound: false,
         listener_bind_deferred: false,
         initial_sync_completed: false,
+        degraded: false,
+        zero_live_completed_boot: false,
+        validation_override_active: false,
       },
       degraded: {
         active: false,
@@ -120,6 +123,9 @@ describe('runtime diagnostics', () => {
         listener_bound: false,
         listener_bind_deferred: false,
         initial_sync_completed: false,
+        degraded: true,
+        zero_live_completed_boot: false,
+        validation_override_active: false,
       },
       degraded: {
         active: true,
@@ -176,6 +182,9 @@ describe('runtime diagnostics', () => {
         listener_bound: false,
         listener_bind_deferred: false,
         initial_sync_completed: false,
+        degraded: true,
+        zero_live_completed_boot: false,
+        validation_override_active: false,
       },
       degraded: {
         active: true,
@@ -232,6 +241,9 @@ describe('runtime diagnostics', () => {
         listener_bound: true,
         listener_bind_deferred: false,
         initial_sync_completed: true,
+        degraded: false,
+        zero_live_completed_boot: false,
+        validation_override_active: false,
       },
       degraded: {
         active: false,
@@ -321,6 +333,8 @@ describe('runtime diagnostics', () => {
       state: 'degraded',
       listener_bind_deferred: false,
       initial_sync_completed: false,
+      degraded: true,
+      validation_override_active: true,
     });
     expect(seededDiagnostics.degraded.validation_override).toEqual({
       active: true,
@@ -353,6 +367,9 @@ describe('runtime diagnostics', () => {
     expect(diagnostics.readiness).toMatchObject({
       state: 'starting',
       initial_sync_completed: false,
+      degraded: false,
+      zero_live_completed_boot: false,
+      validation_override_active: true,
     });
     expect(diagnostics.degraded).toMatchObject({
       active: false,
@@ -427,6 +444,9 @@ describe('runtime diagnostics', () => {
         listener_bound: true,
         listener_bind_deferred: false,
         initial_sync_completed: true,
+        degraded: true,
+        zero_live_completed_boot: false,
+        validation_override_active: false,
       },
       degraded: {
         active: true,
@@ -550,6 +570,33 @@ describe('runtime diagnostics', () => {
       listener_bound: false,
       listener_bind_deferred: true,
       initial_sync_completed: true,
+      degraded: false,
+      zero_live_completed_boot: false,
+      validation_override_active: false,
+    });
+  });
+
+  it('surfaces explicit zero-live completed boot readiness booleans', () => {
+    const diagnostics = buildRuntimeDiagnostics(
+      createState({
+        initialSyncCompleted: true,
+        initialSyncCompletedWithoutUsableLiveSnapshots: true,
+      }),
+      {
+        lastUpdated: new Date('2026-03-26T00:00:00.000Z'),
+        sourceProvidersJson: '[]',
+        sourceCount: 0,
+      },
+      300,
+      new Date('2026-03-26T00:01:00.000Z').getTime(),
+    );
+
+    expect(diagnostics.readiness).toMatchObject({
+      state: 'ready',
+      initial_sync_completed: true,
+      degraded: false,
+      zero_live_completed_boot: true,
+      validation_override_active: false,
     });
   });
 });
