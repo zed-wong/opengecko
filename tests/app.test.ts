@@ -5098,6 +5098,53 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json()).toMatchObject(contractFixtures.searchStable);
   });
 
+  it('keeps newly listed canonical coin ids propagated across search, list, and detail surfaces', async () => {
+    const [newListingsResponse, coinsListResponse] = await Promise.all([
+      getApp().inject({ method: 'GET', url: '/coins/list/new' }),
+      getApp().inject({ method: 'GET', url: '/coins/list?include_platform=true' }),
+    ]);
+
+    expect(newListingsResponse.statusCode).toBe(200);
+    expect(coinsListResponse.statusCode).toBe(200);
+
+    const listings = newListingsResponse.json().coins as Array<{
+      id: string;
+      symbol: string;
+      name: string;
+      activated_at: number;
+    }>;
+    expect(listings.length).toBeGreaterThan(0);
+
+    const newestListing = listings[0]!;
+    const discoveredId = newestListing.id;
+    const [searchResponse, detailResponse] = await Promise.all([
+      getApp().inject({ method: 'GET', url: `/search?query=${encodeURIComponent(discoveredId)}` }),
+      getApp().inject({ method: 'GET', url: `/coins/${discoveredId}?localization=false&tickers=false&community_data=false&developer_data=false` }),
+    ]);
+
+    expect(searchResponse.statusCode).toBe(200);
+    expect(detailResponse.statusCode).toBe(200);
+    expect(searchResponse.json().coins).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: newestListing.id,
+        symbol: newestListing.symbol,
+        name: newestListing.name,
+      }),
+    ]));
+    expect(coinsListResponse.json()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: newestListing.id,
+        symbol: newestListing.symbol,
+        name: newestListing.name,
+      }),
+    ]));
+    expect(detailResponse.json()).toMatchObject({
+      id: newestListing.id,
+      symbol: newestListing.symbol,
+      name: newestListing.name,
+    });
+  });
+
   it('returns grouped trending search results with nested coin items', async () => {
     const response = await getApp().inject({
       method: 'GET',
@@ -6528,9 +6575,10 @@ describe('OpenGecko app scaffold', () => {
       id: expect.any(String),
       symbol: expect.any(String),
       name: expect.any(String),
+      activated_at: expect.any(Number),
     }));
     const activated = body.coins.map((row: { activated_at: number }) => row.activated_at);
-    expect(activated.every((value: number | null) => value === null || Number.isFinite(value))).toBe(true);
+    expect(activated.every((value: number) => Number.isFinite(value))).toBe(true);
     expect(activated).toEqual([...activated].sort((left, right) => right - left));
   });
 

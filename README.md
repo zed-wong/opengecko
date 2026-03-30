@@ -51,6 +51,21 @@ bun run dev
 
 Server starts at `http://localhost:3000`.
 
+## Deploying to Railway
+
+1. Push this repo to GitHub.
+2. In Railway, create a new project and select this repo.
+3. Railway will use the included `Dockerfile` to build and run the app.
+4. Add a persistent Volume and mount it to `/data`.
+5. Set `DATABASE_URL=/data/opengecko.db`.
+6. Deploy the service.
+7. Verify the deployment with `/health` and `/diagnostics/runtime`.
+
+Notes:
+
+- The app listens on port `3000`.
+- The SQLite database must live on the mounted volume, or data will be lost after restart or redeploy.
+
 **Smoke check:**
 
 ```bash

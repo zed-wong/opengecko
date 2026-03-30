@@ -1,0 +1,14 @@
+.git
+.github
+.claude
+.factory
+node_modules
+dist
+coverage
+data
+.env
+*.log
+README.md
+docs
+tests
+CLAUDE.md
