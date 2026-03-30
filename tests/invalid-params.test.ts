@@ -6,6 +6,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildApp } from '../src/app';
+import * as defillamaProvider from '../src/providers/defillama';
 import errorFixtures from './fixtures/error-fixtures.json';
 
 vi.mock('../src/providers/ccxt', () => ({
@@ -895,6 +896,9 @@ describe('OpenGecko invalid parameter handling', () => {
   });
 
   it('enforces snake_case keys across representative family responses', async () => {
+    const defillamaPriceSpy = vi
+      .spyOn(defillamaProvider, 'fetchDefillamaTokenPrices')
+      .mockResolvedValue(null);
     const labeledRequests = [
       { label: 'simple', request: app!.inject({ method: 'GET', url: '/simple/supported_vs_currencies' }) },
       { label: 'assets', request: app!.inject({ method: 'GET', url: '/asset_platforms' }) },
@@ -915,6 +919,8 @@ describe('OpenGecko invalid parameter handling', () => {
       expect(response.statusCode, label).toBe(200);
       expect(collectCamelCasePaths(response.json()), label).toEqual([]);
     }
+
+    expect(defillamaPriceSpy).toHaveBeenCalledTimes(1);
   });
 
 });
