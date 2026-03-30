@@ -25,8 +25,9 @@ None.
 6. For snapshot/replay features: prove the workflow can run from stored local artifacts without repeated upstream calls; preserve raw payloads and request-identifying metadata/evidence links.
 7. For report features: emit machine-readable artifacts with stable ordering and enough ownership/evidence context to route fixes. Do not generate docs in `docs/status/` unless the assigned feature explicitly asks for it; when it does, keep route-compatibility and live-fidelity classifications explicit and non-contradictory.
 8. Run `bun run test` and `bun run typecheck`. If the baseline test suite fails only on issues already listed in mission `AGENTS.md` as pre-existing, continue with scoped work and record the baseline failure exactly in the handoff.
-9. If the feature changes replay/report behavior, start the validation API on port 3102 and manually verify at least one canonical replay/report flow against stored artifacts. If the feature is purely internal test/rules wiring, explain why curl verification was not needed.
-10. In the handoff, list every manifest entry, endpoint family, or report artifact covered and the specific validation checks added.
+9. Before ending with success, verify that the commit you are about to report actually contains scoped implementation or test changes for the assigned feature. If the branch already satisfies the feature without a legitimate feature-attributable diff, return to the orchestrator with the evidence so the feature can be completed or cancelled deliberately instead of claiming success on an unrelated commit.
+10. If the feature changes replay/report behavior, start the validation API on port 3102 and manually verify at least one canonical replay/report flow against stored artifacts. If the feature is purely internal test/rules wiring, explain why curl verification was not needed.
+11. In the handoff, list every manifest entry, endpoint family, or report artifact covered and the specific validation checks added.
 
 Mission note: For fixture-honesty or fidelity-accounting features, docs-only edits are insufficient when the validation contract expects runtime behavior. Add machine-checkable provenance or explicit empty/synthetic semantics at the HTTP boundary when the assigned assertions require it.
 
