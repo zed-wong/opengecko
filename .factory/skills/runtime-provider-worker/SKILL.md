@@ -45,6 +45,8 @@ None.
    - health/diagnostics endpoints if touched
 12. If validation finds a pre-existing unrelated repo failure, record it exactly and continue with scoped verification. If you need a new contract decision, return to the orchestrator instead of guessing.
 
+Mission note: If a feature touches readiness probes, reconcile README/service-manifest/testing guidance with the actual runtime probe contract in the same change set. Do not leave `/health` documentation diverged from the implemented probe surface.
+
 ## Example Handoff
 
 ```json

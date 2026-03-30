@@ -28,6 +28,8 @@ None.
 9. If the feature changes replay/report behavior, start the validation API on port 3102 and manually verify at least one canonical replay/report flow against stored artifacts. If the feature is purely internal test/rules wiring, explain why curl verification was not needed.
 10. In the handoff, list every manifest entry, endpoint family, or report artifact covered and the specific validation checks added.
 
+Mission note: For fixture-honesty or fidelity-accounting features, docs-only edits are insufficient when the validation contract expects runtime behavior. Add machine-checkable provenance or explicit empty/synthetic semantics at the HTTP boundary when the assigned assertions require it.
+
 ## Example Handoff
 
 ```json

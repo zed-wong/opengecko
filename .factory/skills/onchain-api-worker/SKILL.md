@@ -27,6 +27,8 @@ Use this skill for `/onchain/*` endpoints, DeFiLlama-backed discovery/enrichment
 12. Run `bun run typecheck` before finishing. If your changes affect shared onchain routing or schemas, run the most relevant broader test slice too.
 13. In the handoff, record exact ids/addresses/networks used in verification so follow-up workers and validators can reproduce the checks.
 
+Mission note: If `/onchain/networks` begins listing live-discovered non-seeded networks, make downstream dex/pool/token behavior for those networks explicit and tested. Do not imply Ethereum-level support on other networks unless the full request path really works.
+
 ## Example Handoff
 
 ```json

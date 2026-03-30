@@ -30,6 +30,8 @@ None.
 11. If your feature needs proof in a large shared file that already has unrelated working-tree hunks and you cannot isolate hunks non-interactively, do not stage the whole shared file. Prefer one of these exec-safe options instead: (a) add a new focused test/file, (b) restore malformed drift in the shared file without staging it, or (c) return to orchestrator for a revised plan. Do not commit unrelated shared-file hunks just because `git add --patch` is unavailable.
 12. In the handoff, record exact endpoints, parameters, responses, and replay/diff artifacts used in verification when applicable.
 
+Mission note: If a feature changes route fidelity classification or runtime provenance, update `docs/status/implementation-tracker.md` and `docs/plans/2026-03-29-data-fidelity-uplift-plan.md` in the same change set so docs and runtime tell the same story.
+
 ## Example Handoff
 
 ```json

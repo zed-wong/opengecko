@@ -2,37 +2,49 @@
 
 Environment variables, external dependencies, and setup notes.
 
-**What belongs here:** Required env vars, external API keys/services, dependency quirks, platform-specific notes.
-**What does NOT belong here:** Service ports/commands (use `.factory/services.yaml`).
+**What belongs here:** Required env vars, external API endpoints, dependency quirks, and platform-specific notes.
+**What does NOT belong here:** Service ports or commands (use `.factory/services.yaml`).
 
 ---
 
 ## Environment Variables
 
-All defined in `src/config/env.ts` with defaults unless noted otherwise.
+Primary runtime configuration lives in `src/config/env.ts`.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `3000` | Server port (mission validation uses `3100`) |
-| `HOST` | `0.0.0.0` | Bind host |
+| `HOST` | `0.0.0.0` | HTTP bind host |
+| `PORT` | `3000` | HTTP bind port |
+| `LOG_LEVEL` | `info` | Runtime log level |
 | `DATABASE_URL` | `./data/opengecko.db` | SQLite path |
-| `CCXT_EXCHANGES` | `binance,bigone,mexc,gate,okx` | Exchange set; mission live validation uses `binance,coinbase,okx` for a more stable core subset |
-| `MARKET_FRESHNESS_THRESHOLD_SECONDS` | `300` | Stale data threshold |
-| `DEFILLAMA_BASE_URL` | `https://api.llama.fi` | Base URL for DeFiLlama protocol, overview, and price requests |
-| `THEGRAPH_API_KEY` | (none) | Legacy path only; do not introduce new The Graph dependencies for the data-fidelity mission |
-| `COINGECKO_API_KEY` | (none) | Not required for the data-fidelity uplift mission |
+| `CCXT_EXCHANGES` | `binance,bybit,coinbase,kraken,okx,gate,mexc,bitget` | Active exchange allowlist |
+| `MARKET_FRESHNESS_THRESHOLD_SECONDS` | `300` | Fresh/stale cutoff for market reads |
+| `MARKET_REFRESH_INTERVAL_SECONDS` | runtime-policy default | Hot market refresh cadence |
+| `CURRENCY_REFRESH_INTERVAL_SECONDS` | runtime-policy default | Fiat/exchange-rate refresh cadence |
+| `SEARCH_REBUILD_INTERVAL_SECONDS` | runtime-policy default | Search rebuild cadence |
+| `PROVIDER_FANOUT_CONCURRENCY` | runtime-policy default | Upstream fanout concurrency limit |
+| `REQUEST_TIMEOUT_MS` | `15000` | Upstream request timeout |
+| `OHLCV_TARGET_HISTORY_DAYS` | runtime-policy default | Desired OHLCV history target |
+| `OHLCV_RETENTION_DAYS` | runtime-policy default | OHLCV retention window |
+| `DEFILLAMA_BASE_URL` | `https://api.llama.fi` | DeFiLlama protocol/token base URL |
+| `DEFILLAMA_YIELDS_BASE_URL` | `https://yields.llama.fi` | DeFiLlama pool-discovery base URL |
+| `RESPONSE_COMPRESSION_THRESHOLD_BYTES` | `1024` | Compression threshold |
+| `STARTUP_PREWARM_BUDGET_MS` | `250` | Startup prewarm budget |
+| `DISABLE_REMOTE_CURRENCY_REFRESH` | `false` | Disable remote fiat refresh |
+| `OPEN_GECKO_DISABLE_REPO_DOTENV` | unset | Mission-only escape hatch to bypass repo `.env` loading for isolated validation runs |
 
 ## External Dependencies
 
-- **CCXT**: Live exchange APIs for exchange metadata, tickers, and market snapshots. No auth needed.
-- **DeFiLlama**: Use `https://api.llama.fi/` for protocol/overview/price surfaces and `https://yields.llama.fi/` for free yield-pool discovery.
-- **SQD/Subsquid**: `https://v2.archive.subsquid.io/network/ethereum-mainnet` for approved Ethereum trade/OHLCV recovery paths.
-- **The Graph**: Legacy path only; not an approved new dependency for this mission.
-- **SQLite**: File-based at `DATABASE_URL`. No external database service.
+- **CCXT**: approved source for exchange metadata, tickers, market pairs, and OHLCV inputs.
+- **DeFiLlama**: approved source for onchain network / DEX / pool / token discovery and price enrichment.
+- **Subsquid**: approved source for Ethereum Uniswap V3 trade and derived onchain OHLCV paths.
+- **currency-api path already present in the repo**: approved for fiat/exchange-rate support.
+- **SQLite**: only database used in this mission.
 
 ## Mission-Specific Notes
 
-- This mission validates real provider-backed fidelity on port `3100`; expect slower boot and occasional upstream flakiness.
-- Do not add new providers or credentials unless the orchestrator explicitly expands mission scope.
-- Fixture-backed families must remain honest in canonical docs even when runtime routes stay reachable.
-- Calculation policy for this mission: use `bignumber.js` for arithmetic and aggregation logic; only convert to primitive numbers/strings when a storage column or API contract explicitly requires it.
+- The live mission API runs on port `3000`; the isolated validation API runs on port `3102` with `DATABASE_URL=:memory:` and repo dotenv loading disabled.
+- Do not add new providers, credentials, hosted services, or background infrastructure without explicit mission scope expansion.
+- Fixture-backed families must stay honest in both runtime behavior and canonical planning/status docs.
+- Use `bignumber.js` for calculation-heavy logic and only convert to primitives at storage or HTTP boundaries.
+- Expect live-provider startup on the real API to be much slower than isolated validation startup; plan manual verification accordingly.

@@ -1,108 +1,182 @@
 # Architecture
 
-Worker-facing architecture for the data-fidelity uplift mission. Focus on where truth comes from, how it moves through the system, and which surfaces must stay explicitly live, hybrid, or fixture-backed.
+Worker-facing architecture for the approved data-fidelity mission. Focus on the stable system shape, source-of-truth ownership, route-family boundaries, and the honesty rules that separate live, hybrid, and fixture-backed behavior.
+
+Unless a section explicitly says **mission target**, statements below should be read as the **current-state architecture and contract baseline** that workers must execute against today.
 
 ---
 
 ## System Shape
 
-OpenGecko has three architectural layers that matter for this mission:
+OpenGecko is a modular monolith with four runtime layers:
 
-1. **Ingress and refresh workers** discover exchanges, coins, platforms, networks, pools, and chart history from public providers.
-2. **SQLite-backed runtime state** stores the normalized catalogs, hot market snapshots, and historical series that the API serves.
-3. **Compatibility routes** reshape that stored state into CoinGecko-compatible contracts without changing route, parameter, or field semantics.
+1. **Provider ingress** pulls public data from approved upstreams.
+2. **Normalization and persistence** convert upstream payloads into canonical ids and SQLite-backed state.
+3. **Background workers** keep hot snapshots, search indexes, and historical series fresh over time.
+4. **Compatibility routes** read persisted state and shape it into CoinGecko-compatible HTTP contracts.
 
-The key invariant is that compatibility shaping must not invent fidelity. Routes may reshape, filter, and aggregate stored data, but they must remain honest about whether a surface is live-backed, hybrid-from-live, or intentionally fixture-backed.
+The mission’s central rule is: **HTTP compatibility does not imply live fidelity**. Routes may match CoinGecko paths, params, and field names even when their backing data is live, hybrid, seeded, synthetic, or fixture-backed. Worker changes must preserve that distinction instead of smoothing it over.
 
-Workers should assume neighboring surfaces may still have different fidelity classes until the mission explicitly upgrades them. In particular, exchange lists/detail, exchange tickers, exchange volume history, search/trending, categories, supply charts, treasury, and onchain analytics must be treated as separately classified surfaces rather than as one uniform "live" family.
+### Current-state vs mission-target reading rule
 
-## Core Components and Relationships
+- **Current-state architecture** means what runtime behavior, tests, and validator-facing contracts already expose now.
+- **Mission target** means a planned destination described by the mission/tracker, not something workers may assume is already true.
+- When writing code or updating worker-facing status, do not collapse these two timelines. A route family can be mission-target live while still current-state hybrid or fixture-backed.
+- If a sentence would affect validation, assume it must describe the **current state** unless it is explicitly labeled as a mission target.
 
-- **CCXT exchange provider** is the source of truth for centralized exchange metadata, tickers, volumes, market pairs, and platform hints derivable from exchange markets.
-- **Onchain discovery providers** are the source of truth for supported networks, DEXes, pools, token references, and pool-level market context.
-- **Catalog and market services** normalize provider output into canonical coin ids, platform ids, exchange ids, and network ids that can be reused across route families.
-- **Historical chart pipeline** turns refreshed market and OHLCV inputs into persisted time-series data for `/history`, `/market_chart*`, `/ohlc*`, and related exchange chart routes.
-- **Compatibility modules** serve HTTP responses by reading normalized state from SQLite and applying CoinGecko contract semantics.
-- **Canonical docs and tracker** define the honesty boundary: if runtime is fixture-backed or intentionally partial, docs must say so explicitly.
+## Approved Data Sources
 
-## Exchange Refresh Flow
+The current approved live-provider set is intentionally small:
 
-The exchange-fidelity path is:
+- **CCXT**: centralized exchange metadata, market pairs, tickers, volumes, and OHLCV inputs
+- **DeFiLlama**: onchain network / DEX / pool / token discovery and Ethereum pool enrichment
+- **Subsquid**: Ethereum Uniswap V3 swap-log-backed onchain trades
+- **currency-api**: fiat / FX support for exchange-rate style conversions
 
-1. **Exchange discovery and market refresh** pull live exchange metadata and ticker snapshots from CCXT.
-2. **Normalization** maps exchange-native symbols and markets onto canonical exchange ids, coin ids, and quote/base relationships.
-3. **Persistence** writes the latest ticker/market snapshot plus accumulated volume-history inputs into SQLite.
-4. **Serving layer** uses that persisted state for `/exchanges/{id}`, `/exchanges/{id}/tickers`, `/exchanges/{id}/volume_chart`, search/trending inputs, and related aggregate views.
+Everything else should be assumed seeded, synthetic, or fixture-backed unless the tracker or mission explicitly says otherwise. Workers should not infer additional live ownership just because a neighboring route family is live.
 
-Mission invariant: exchange tickers and exchange volume history must share the same live-refresh ownership window. If tickers are live-backed, adjacent exchange history surfaces cannot silently fall back to unrelated seeded data.
+## Core Runtime Components
 
-## Platform and Catalog Discovery
+- **Provider adapters** fetch upstream exchange and onchain data.
+- **Catalog normalization** maps provider-native symbols, contracts, venues, and chain labels onto canonical coin ids, platform ids, exchange ids, network ids, and DEX ids.
+- **SQLite** is the system-of-record for runtime state: market snapshots, exchange ticker state, accumulated chart points, discovery catalogs, and seeded reference data.
+- **Refresh / ingestion workers** populate and maintain that state:
+  - hot market snapshot refresh
+  - exchange ticker ingestion
+  - OHLCV worker and chart backfill
+  - search rebuild
+- **Fastify route modules** expose the compatibility surface and apply route-level validation, filtering, shaping, and fallback semantics.
+- **Diagnostics surfaces** expose readiness, degraded mode, freshness, and other runtime state needed by validators and operators.
 
-Platform and catalog discovery provide the canonical routing vocabulary used by both REST discovery endpoints and contract-address routes.
+Relationship summary:
 
-1. **Platform discovery** derives stable asset-platform ids and chain identifiers from **CCXT-backed exchange market metadata** and other CEX catalog hints already approved for this mission.
-2. **Coin/catalog discovery** updates the canonical coin list, including new-listing activation timing used by `/coins/list/new`.
-3. **Normalization** removes legacy alias leakage where canonical ids are available.
-4. **Propagation** makes the same canonical ids usable across `/asset_platforms`, `/token_lists/{platform}/all.json`, `/coins/list`, `/search`, and `/coins/{platform}/contract/{address}`.
+`providers -> normalization -> SQLite -> route modules -> CoinGecko-compatible responses`
 
-Mission invariant: discovery outputs are not just descriptive; they are routing state. A platform or coin id published by discovery must be consumable by the adjacent route families that depend on it.
+Docs and tracker sit beside this path as a contract boundary: if runtime behavior is hybrid or fixture-backed, the canonical status artifacts must describe it the same way.
 
-## Onchain Discovery
+## Primary Data Flows
 
-Onchain architecture is split between discovery surfaces that should become live-backed and analytics surfaces that remain intentionally narrow unless a real source exists.
+### 1. Centralized market flow
 
-1. **Network and DEX discovery** come from the approved onchain providers for this mission, primarily **DeFiLlama** for network, dex, pool, and token discovery.
-2. **Pool and token discovery** provide pool inventories, token detail anchors, and network-scoped resolution.
-3. **Onchain market serving** exposes those normalized resources through the JSON:API-style `/onchain/*` family.
-4. **Analytics exceptions** such as top holders, top traders, and holders charts remain explicitly fixture-only where no affordable live source exists.
+1. CCXT fetches exchange metadata, tickers, quote volumes, and chart inputs.
+2. Services normalize symbols and venue data into canonical coins, markets, and exchanges.
+3. SQLite stores hot market snapshots plus exchange-scoped accumulated history.
+4. Routes such as `/simple/*`, `/coins/markets`, `/exchanges/*`, `/global`, and parts of `/search` read from that persisted state.
 
-Mission invariant: network scoping must stay strict. Unsupported network/token combinations must fail explicitly or return empty analytics collections rather than fabricating broad coverage.
+Important invariant: **fresh-by-default market reads come from internal snapshots, not direct per-request provider calls**.
 
-## Chart History Pipeline
+### 2. Catalog and platform flow
 
-Coin chart history and exchange volume history are adjacent but not identical pipelines.
+1. Exchange-market metadata and seeded reference catalogs feed canonical coin / platform / contract resolution.
+2. Normalization suppresses duplicate alias leakage at discovery surfaces while preserving supported downstream alias resolution.
+3. The resulting canonical ids drive `/asset_platforms`, `/coins/list`, `/coins/list/new`, token-list exports, `/search`, and contract-address routes.
 
-### Coin History and OHLCV
+Important invariant: **discovery endpoints publish routing state**. If a platform or coin id is emitted by discovery, adjacent detail and contract-resolution surfaces must understand it.
 
-1. **Hot refresh inputs** provide current prices and market context.
-2. **OHLCV ingestion and backfill workers** accumulate persisted candles over time, prioritizing the top-100-first policy for recent and historical coverage.
-3. **History shaping** derives CoinGecko-compatible point-in-time and range responses for `/history`, `/market_chart*`, and `/ohlc*`.
-4. **Fallback behavior** is allowed only when real candles are absent, and it must remain visibly bounded rather than implying deep historical truth that does not exist.
+### 3. Onchain discovery flow
 
-### Exchange Volume History
+1. DeFiLlama provides network, dex, pool, and token discovery inputs, with the strongest live enrichment currently centered on Ethereum.
+2. Subsquid provides live trade inputs for supported Ethereum pools.
+3. SQLite-backed normalized onchain resources are served through `/onchain/*`.
+4. Some analytics families remain fixture-only even when discovery and pool detail are partially live.
 
-1. **Ticker refresh inputs** provide exchange-level market and quote-volume snapshots.
-2. **Volume accumulation** writes timestamped exchange volume points into SQLite on the same ownership path as live exchange ticker refresh.
-3. **Route shaping** serves `/exchanges/{id}/volume_chart*` from those accumulated points without borrowing coin OHLCV semantics.
+Important invariant: **network scoping is strict**. Wrong-network token/pool requests must fail cleanly rather than silently cross-resolving.
 
-Mission invariant: synthetic or degraded chart responses are compatibility fallbacks, not silent substitutes for real history. They must stay narrow and honest.
+### 4. Historical chart flow
 
-## Fixture Honesty and Documentation Boundaries
+1. Hot market refresh and OHLCV ingestion provide current and historical candle inputs.
+2. The OHLCV worker persists candles over time with the repository’s **top-100-first** policy.
+3. Chart routes shape stored series into `/history`, `/market_chart*`, `/ohlc*`, and related contract-address chart responses.
+4. When persisted real candles are missing, fallback behavior may exist but must stay explicit and bounded.
 
-Some families remain intentionally fixture-backed in this mission:
+Important invariant: **persisted real history takes precedence over bootstrap, seeded, or synthetic history** whenever it exists.
 
-- derivatives
-- treasury/public-disclosure routes
-- onchain holder/trader analytics and holders charts
-- seeded categories unless explicitly reclassified by the mission
-- unresolved supply-chart surfaces unless they are explicitly stubbed or reclassified by the mission
-- other explicitly documented seeded or unresolved surfaces
+## Route Families and Fidelity Boundaries
 
-These boundaries matter architecturally because runtime, tests, and canonical docs must agree on the same classification.
+Workers should reason about route families by fidelity class, not just by URL prefix.
 
-Mission invariant:
+### Mostly live
 
-1. **Runtime** must keep fixture-backed families reachable and contract-compatible.
-2. **API behavior** must not imply those families are live-powered.
-3. **Canonical docs/status artifacts** must describe the same surfaces as fixture-backed, hybrid, or live so workers and validators can trust the classification.
+- `/ping`
+- `/simple/price`
+- `/simple/token_price`
+- `/exchange_rates`
+- `/asset_platforms`
+- live-backed portions of `/exchanges`
+- ETH-patched portions of `/onchain/networks/eth/pools`
+- live-trade portions of `/onchain/networks/eth/pools/*/trades`
 
-## Worker Guidance
+### Hybrid
 
-When changing this mission area, reason in this order:
+- `/coins/{id}` and related coin detail/history/chart surfaces
+- `/global`
+- `/search` and `/search/trending`
+- `/token_lists/{asset_platform_id}/all.json`
+- `/exchanges/{id}/volume_chart*`
+- `/onchain/networks`
+- `/onchain/networks/*/tokens/*`
+- `/public_treasury/*` where live USD valuation is combined with seeded holdings/transactions
 
-1. What is the source of truth for the surface?
-2. Where is it normalized and persisted?
-3. Which other route families reuse the same canonical ids or stored history?
-4. Is the result live, hybrid-from-live, or fixture-backed?
-5. Do runtime behavior and canonical docs still tell the same story?
-6. If the change performs arithmetic, use `bignumber.js` for the calculation path and only convert back to primitive values at the storage or HTTP boundary where the contract requires it.
+### Fixture / seeded / synthetic
+
+- `/derivatives*`
+- `/public_treasury/*/holding_chart`
+- `/public_treasury/*/transaction_history`
+- `/onchain/*/top_holders`
+- `/onchain/*/top_traders`
+- `/onchain/*/holders_chart`
+- fallback onchain pool OHLCV / trade payloads when live data is absent
+- `/coins/list/new` until live new-listing discovery lands
+- `/coins/*/circulating_supply_chart*`
+- `/coins/*/total_supply_chart*`
+- `/global/market_cap_chart`
+- seeded categories unless reclassified by mission work
+
+Neighboring endpoints can belong to different classes. Do not upgrade or reinterpret one family based on another family’s current state.
+
+These classifications are **current-state** unless a mission artifact explicitly reclassifies them after shipped runtime changes.
+
+## Runtime and Readiness Invariants
+
+- **Compatibility-first**: route path, query semantics, and field names must stay CoinGecko-compatible.
+- **Freshness-first for hot reads**: market-facing live routes should serve persisted fresh snapshots or fail/degrade honestly.
+- **Readiness must be machine-readable**: runtime diagnostics must expose the implemented readiness contract in a validator-visible way. Current-state readiness is anchored by the existing machine-readable diagnostics surfaces, not by inventing new enum states in docs.
+- **Zero-live must be observable without overclaiming the enum**: “startup finished but no usable live snapshots exist” is a real validator-relevant condition, but current-state contract work treats it as something exposed through diagnostics combinations/booleans and downstream hot-path behavior, not as a guaranteed separate readiness enum value unless runtime/test evidence says so.
+- **Degraded behavior must stay explicit**: stale-live or fallback serving cannot masquerade as ordinary fresh operation.
+- **Validation flow depends on an externally started server**: smoke scripts and validator flows assume the API is already running and reachable at `localhost:3000` unless overridden.
+- **`/health` vs `/ping` is a baseline execution trap**: workers must not assume deploy/readiness docs, smoke flows, and runtime probes are already reconciled. The mission and validation contract explicitly call out that `/health` may still be documented while current runtime behavior only guarantees `/ping`, with readiness actually evaluated through `/diagnostics/runtime`.
+
+## Cross-Family Coupling to Watch
+
+- **Canonical ids** connect `/asset_platforms`, `/coins/list`, `/search`, token lists, contract-address routes, and onchain/token surfaces.
+- **Exchange ticker ingestion** feeds both exchange detail/ticker responses and exchange volume-chart accumulation.
+- **Coin snapshot and candle storage** feed `/simple`, `/coins/markets`, coin detail market_data, `/history`, `/market_chart*`, and `/ohlc*`.
+- **Onchain network/pool/token identity** must remain consistent across pool detail, token detail, trades, and OHLCV routes.
+- **Runtime honesty metadata and diagnostics** must tell the same story as the HTTP payload class and the implementation tracker.
+
+## Worker Rules of Thumb
+
+When changing a surface, check these in order:
+
+1. What upstream or seed source actually owns the data?
+2. Where is the canonical identity decided?
+3. What SQLite state or persisted series does the route read from?
+4. Which adjacent route families reuse the same ids, snapshots, or history?
+5. Is the route meant to be live, hybrid, or fixture-backed today?
+6. Does the HTTP behavior remain honest about that class?
+7. If arithmetic is involved, keep calculation paths on `bignumber.js` until the storage or response boundary requires primitives.
+
+## Conflict Resolution When Artifacts Disagree
+
+When runtime, tracker, docs, and worker library text disagree, trust them in this order:
+
+1. **Runtime-observable contract and tests** (`src` behavior plus validator-relevant tests)
+2. **Mission-specific validation contract**
+3. **Implementation tracker / mission artifacts**
+4. **Worker library summaries and broader docs**
+
+Execution rule:
+
+- Never let a doc or tracker statement overrule an already observable runtime/tested contract.
+- Never let a broad architecture summary erase a narrower mission validation rule.
+- If docs advertise behavior the runtime does not implement yet (example: `/health` vs `/ping`), treat that mismatch as an execution hazard to preserve or resolve explicitly, not as permission to assume the documented behavior is real.
