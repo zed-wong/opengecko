@@ -1,0 +1,58 @@
+{
+  "milestone": "baseline-stability",
+  "round": 2,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "TMPDIR=/home/whoami/dev/openGecko/data bun run test -- --maxWorkers=4",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "bun run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "echo \"no lint configured\"",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 4,
+    "passed": 3,
+    "failed": 1,
+    "failedFeatures": [
+      "baseline-invalid-params-timeout-hardening"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "baseline-invalid-params-timeout-hardening",
+      "severity": "blocking",
+      "description": "The assigned feature was to harden the representative snake_case invalid-params timeout path, but commit `ab66a27` makes no change to `tests/invalid-params.test.ts` or any app/setup code exercised by that test. The only shipped diff touches exchange-detail pair breadth, so the feature is not actually implemented in the reviewed commit."
+    },
+    {
+      "featureId": "baseline-invalid-params-timeout-hardening",
+      "severity": "blocking",
+      "description": "This feature handoff points at commit `ab66a27`, whose code changes are unrelated to invalid-params timeout hardening: it swaps `/exchanges/{id}` aggregate `coins`/`pairs` to use raw ticker rows. Because the reviewed feature’s expected behavior concerns the runtime cost or timeout budget of the snake_case representative-response scan, this commit-to-feature mismatch means the reported success is unsupported by the actual shipped code."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "compatibility-hardening-worker skill",
+      "suggestion": "Require workers to prove the reported feature commit actually contains scoped implementation or test changes for the assigned feature before calling EndFeatureRun success, and treat commit/handoff mismatches as validation failures.",
+      "evidence": "Review for `baseline-invalid-params-timeout-hardening` found session `46f683f5-39ae-4d91-968b-05cb66023575` reran validators and reported success on commit `ab66a27ce63c7bb9cc8fc4172472212b35f39396`, but `git show ab66a27` only changes exchange-detail breadth behavior and related exchange tests.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "The baseline endpoint smoke script still probes only `/ping` and does not exercise `/health`.",
+      "reason": "non-blocking knowledge note for the readiness feature; current validator expectations already pass because `/health` behavior is reconciled and the smoke script remains operable against the documented externally started server flow."
+    }
+  ],
+  "previousRound": "/home/whoami/dev/openGecko/.factory/validation/baseline-stability/scrutiny/synthesis.json"
+}

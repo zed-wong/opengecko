@@ -1,0 +1,21 @@
+{
+  "featureId": "baseline-readiness-surface-hardening",
+  "reviewedAt": "2026-03-30T18:30:30Z",
+  "commitId": "603cec05ece3933de586479600a13db62592834a",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature stays scoped to readiness hardening: it adds `/health` parity with `/ping`, exposes machine-readable readiness booleans in runtime diagnostics, and strengthens regression coverage for validation overrides and zero-live completed-boot behavior. I found no correctness or scope issues in the committed diff.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The baseline endpoint smoke script still probes only `/ping` for readiness and does not exercise `/health`, even though the runtime-provider skill explicitly says readiness-probe features must reconcile README/service-manifest/testing guidance with the implemented probe surface in the same change set.",
+      "evidence": "scripts/test-endpoints.sh:205-210 waits for `/simple/price` readiness and then checks `GET /ping`, but contains no `/health` probe; runtime-provider-worker SKILL.md mission note says to reconcile README/service-manifest/testing guidance with the actual runtime probe contract when readiness probes change."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed the worker transcript skeleton, handoff, and commit `603cec05ece3933de586479600a13db62592834a`. The implementation correctly hardens readiness surfaces without widening scope, and the added tests cover the newly exposed readiness booleans and `/health` parity; no blocking or non-blocking code defects were found."
+}

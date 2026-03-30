@@ -1,0 +1,34 @@
+{
+  "featureId": "baseline-invalid-params-timeout-hardening",
+  "reviewedAt": "2026-03-30T18:30:32.498368+00:00",
+  "commitId": "ab66a27ce63c7bb9cc8fc4172472212b35f39396",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The reviewed commit fixes `/exchanges/{id}` aggregate pair breadth, but it does not implement or verify any change for the assigned invalid-params timeout feature. The worker session only re-ran validators on an already-green branch and handed off success without evidence of a measured timeout remediation scoped to `tests/invalid-params.test.ts`.",
+    "issues": [
+      {
+        "file": "tests/invalid-params.test.ts",
+        "line": 897,
+        "severity": "blocking",
+        "description": "The assigned feature was to harden the representative snake_case invalid-params timeout path, but commit `ab66a27` makes no change to `tests/invalid-params.test.ts` or any app/setup code exercised by that test. The only shipped diff touches exchange-detail pair breadth, so the feature is not actually implemented in the reviewed commit."
+      },
+      {
+        "file": "src/modules/exchanges.ts",
+        "line": 604,
+        "severity": "blocking",
+        "description": "This feature handoff points at commit `ab66a27`, whose code changes are unrelated to invalid-params timeout hardening: it swaps `/exchanges/{id}` aggregate `coins`/`pairs` to use raw ticker rows. Because the reviewed feature\u2019s expected behavior concerns the runtime cost or timeout budget of the snake_case representative-response scan, this commit-to-feature mismatch means the reported success is unsupported by the actual shipped code."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The worker marked `compatibility-hardening-worker` as followed, but the transcript shows no failing-test-first work, no diff, and no manual validation tied to the invalid-params timeout path. The skill currently assumes implementation work will occur, but this feature can also fail via bookkeeping/handoff mismatch where a worker validates an unrelated HEAD commit and reports the feature complete.",
+      "evidence": "Worker transcript session `46f683f5-39ae-4d91-968b-05cb66023575` contains only reads plus validator reruns, then `EndFeatureRun` reports success with commit `ab66a27ce63c7bb9cc8fc4172472212b35f39396`; `git show ab66a27` changes only `src/modules/exchanges.ts` and `tests/exchange-surface-parity.test.ts`."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail: the reviewed handoff claims `baseline-invalid-params-timeout-hardening` succeeded, but the referenced commit is an exchange-detail semantics fix and contains no invalid-params timeout hardening changes or feature-specific implementation evidence."
+}

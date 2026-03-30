@@ -1,0 +1,28 @@
+{
+  "featureId": "baseline-suite-regression-repair",
+  "reviewedAt": "2026-03-31T00:00:00.000Z",
+  "commitId": "2ded4cceb076acdf35bdf9516efe8824d8a6865b",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The change removes duplicate Binance ticker rows from exchange payloads and realigns the exchange-fidelity test to the current seeded ordering, but it also changes the `/exchanges/{id}` aggregate `pairs` count to report deduplicated rows rather than the persisted ticker breadth that the route previously exposed.",
+    "issues": [
+      {
+        "file": "src/modules/exchanges.ts",
+        "line": 604,
+        "severity": "blocking",
+        "description": "`/exchanges/:id` now computes `pairs` from `getExchangeTickerRows()`, which was changed to dedupe rows by `exchangeId:base:target`. That means any exchange with multiple persisted tickers for the same pair but different `coinId`s will under-report `pairs` compared with the stored dataset and prior route behavior, even though the feature scope explicitly called for avoiding unrelated HTTP contract changes. The fix should keep deduplication scoped to the serialized ticker list (or otherwise preserve aggregate counts from raw rows) instead of changing the detail payload's aggregate semantics as a side effect."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The worker had to inspect persisted SQLite ticker rows to understand why Binance exposed duplicate `BNB/USDT` identities (`binancecoin` and `binance-coin`) and how current seeded ordering differed from the stale test expectation.",
+      "evidence": "worker-transcripts.jsonl for session 736096f4-bfc5-411c-a2ec-ea23895c1199 shows ad-hoc Python SQLite queries and source spelunking before the fix; no `.factory/library/` note currently documents this seeded Binance duplication baseline."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, transcript skeleton, skill, and commit `2ded4cceb076acdf35bdf9516efe8824d8a6865b`. Found one blocking regression: deduping `getExchangeTickerRows()` changes `/exchanges/:id` aggregate `pairs` semantics beyond the intended scoped test repair. Report written for scrutiny triage."
+}

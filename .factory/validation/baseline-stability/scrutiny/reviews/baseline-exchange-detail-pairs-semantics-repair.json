@@ -1,0 +1,15 @@
+{
+  "featureId": "baseline-exchange-detail-pairs-semantics-repair",
+  "reviewedAt": "2026-03-30T18:30:32.211900Z",
+  "commitId": "ab66a27ce63c7bb9cc8fc4172472212b35f39396",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix cleanly separates raw exchange ticker breadth from serialized ticker deduplication. `/exchanges/{id}` now preserves aggregate `coins` and `pairs` counts from persisted raw rows while keeping deduplication scoped to emitted ticker rows, and the added regression covers the previously blocking duplicate-market semantics issue.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": "/home/whoami/dev/openGecko/.factory/validation/baseline-stability/scrutiny/reviews/baseline-suite-regression-repair.json",
+  "summary": "Reviewed the original baseline repair commit `2ded4cceb076acdf35bdf9516efe8824d8a6865b`, the fix commit `ab66a27ce63c7bb9cc8fc4172472212b35f39396`, the fix worker transcript skeleton, prior review, and shared-state references. The fix adequately resolves the prior blocking `/exchanges/{id}` pair-breadth regression by restoring aggregate semantics from raw ticker rows and adding targeted regression coverage for duplicate market rows with distinct coin identities."
+}
