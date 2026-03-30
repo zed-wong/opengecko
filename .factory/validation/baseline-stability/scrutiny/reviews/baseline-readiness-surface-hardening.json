@@ -1,21 +1,21 @@
 {
   "featureId": "baseline-readiness-surface-hardening",
-  "reviewedAt": "2026-03-30T18:30:30Z",
+  "reviewedAt": "2026-03-31T00:00:00Z",
   "commitId": "603cec05ece3933de586479600a13db62592834a",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The feature stays scoped to readiness hardening: it adds `/health` parity with `/ping`, exposes machine-readable readiness booleans in runtime diagnostics, and strengthens regression coverage for validation overrides and zero-live completed-boot behavior. I found no correctness or scope issues in the committed diff.",
+    "summary": "The commit stays within the readiness-surface scope: it reconciles `/health` with `/ping`, adds machine-readable readiness booleans to runtime diagnostics, and tightens readiness-focused tests for live, degraded, validation-override, and zero-live boot states. I did not find a correctness issue in the shipped diff relative to the feature brief.",
     "issues": []
   },
   "sharedStateObservations": [
     {
-      "area": "knowledge",
-      "observation": "The baseline endpoint smoke script still probes only `/ping` for readiness and does not exercise `/health`, even though the runtime-provider skill explicitly says readiness-probe features must reconcile README/service-manifest/testing guidance with the implemented probe surface in the same change set.",
-      "evidence": "scripts/test-endpoints.sh:205-210 waits for `/simple/price` readiness and then checks `GET /ping`, but contains no `/health` probe; runtime-provider-worker SKILL.md mission note says to reconcile README/service-manifest/testing guidance with the actual runtime probe contract when readiness probes change."
+      "area": "services",
+      "observation": "The worker hit an `EADDRINUSE` condition on port 3102 during manual verification because a prior validation API process was already listening there; reviewer-facing guidance says to stop any existing 3102 listener first, but `.factory/services.yaml` only defines start/stop commands and does not document that this collision is a known recurring validator hazard.",
+      "evidence": "worker transcript 68435f74-8b1f-412a-9251-fe4d530c66bc shows the first 3102 start collided and the handoff records a non-blocking issue about an existing process on 3102; compare AGENTS.md Testing & Validation Guidance ('Before starting the isolated validation API on 3102, stop any existing listener on that port')."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Reviewed the worker transcript skeleton, handoff, and commit `603cec05ece3933de586479600a13db62592834a`. The implementation correctly hardens readiness surfaces without widening scope, and the added tests cover the newly exposed readiness booleans and `/health` parity; no blocking or non-blocking code defects were found."
+  "summary": "Reviewed commit 603cec05ece3933de586479600a13db62592834a for `baseline-readiness-surface-hardening`. The implementation satisfies the assigned readiness-surface scope and passes review; the only noted follow-up is a shared-state/services observation about recurring 3102 port-collision handling during validation runs."
 }
