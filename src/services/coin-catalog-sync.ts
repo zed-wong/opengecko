@@ -15,21 +15,30 @@ function upsertDiscoveredCoin(
   void database;
   const coinId = buildCoinId(market.base, market.baseName);
   const existingCoin = existingCoinsById.get(coinId);
+  const now = new Date();
 
   if (existingCoin && existingCoin.symbol.toLowerCase() !== market.base.toLowerCase()) {
     return;
   }
 
-  if (discoveredCoins.has(coinId)) {
+  const existingPending = discoveredCoins.get(coinId);
+  if (existingPending) {
+    const existingPendingActivatedAt = existingPending.activatedAt?.getTime() ?? existingPending.createdAt.getTime();
+    const candidateActivatedAt = existingCoin?.activatedAt?.getTime() ?? existingCoin?.createdAt.getTime() ?? now.getTime();
+
+    if (candidateActivatedAt < existingPendingActivatedAt) {
+      existingPending.activatedAt = new Date(candidateActivatedAt);
+      existingPending.createdAt = new Date(candidateActivatedAt);
+    }
+
     return;
   }
-
-  const now = new Date();
   const existingPlatforms = existingCoin?.platformsJson && existingCoin.platformsJson !== '{}'
     ? existingCoin.platformsJson
     : coinId === 'usd-coin'
       ? JSON.stringify({ ethereum: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48' })
       : '{}';
+  const activatedAt = existingCoin?.activatedAt ?? existingCoin?.createdAt ?? now;
 
   discoveredCoins.set(coinId, {
     id: coinId,
@@ -52,7 +61,8 @@ function upsertDiscoveredCoin(
     genesisDate: existingCoin?.genesisDate ?? null,
     platformsJson: existingPlatforms,
     status: existingCoin?.status ?? 'active',
-    createdAt: existingCoin?.createdAt ?? now,
+    activatedAt,
+    createdAt: existingCoin?.createdAt ?? activatedAt,
     updatedAt: now,
   });
 }
@@ -76,6 +86,7 @@ function flushDiscoveredCoins(database: AppDatabase, discoveredCoins: Map<string
           apiSymbol: value.apiSymbol,
           descriptionJson: value.descriptionJson,
           platformsJson: value.platformsJson,
+          activatedAt: value.activatedAt,
           updatedAt: value.updatedAt,
           status: value.status,
         },

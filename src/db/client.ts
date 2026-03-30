@@ -836,6 +836,7 @@ const seededMinimalCoins = [
   genesisDate: coin.id === 'bitcoin' ? '2009-01-03' : null,
   platformsJson: coin.id === 'usd-coin' ? JSON.stringify({ ethereum: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48' }) : '{}',
   status: 'active' as const,
+  activatedAt: new Date(seedTimestamp),
   createdAt: new Date(seedTimestamp),
   updatedAt: new Date(seedTimestamp),
 }));

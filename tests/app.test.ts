@@ -5480,6 +5480,7 @@ describe('OpenGecko app scaffold', () => {
           solana: '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E',
         }),
         status: 'active',
+        activatedAt: new Date('2026-03-20T00:00:00.000Z'),
         createdAt: new Date('2026-03-20T00:00:00.000Z'),
         updatedAt: new Date('2026-03-20T00:00:00.000Z'),
       })
@@ -5631,6 +5632,7 @@ describe('OpenGecko app scaffold', () => {
             solana: '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E',
           }),
           status: 'active',
+          activatedAt: new Date('2026-03-20T00:00:00.000Z'),
           createdAt: new Date('2026-03-20T00:00:00.000Z'),
           updatedAt: new Date('2026-03-20T00:00:00.000Z'),
         },
@@ -5654,6 +5656,7 @@ describe('OpenGecko app scaffold', () => {
             solana: '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E',
           }),
           status: 'active',
+          activatedAt: new Date('2026-03-20T00:00:00.000Z'),
           createdAt: new Date('2026-03-20T00:00:00.000Z'),
           updatedAt: new Date('2026-03-20T00:00:00.000Z'),
         },
@@ -6721,6 +6724,55 @@ describe('OpenGecko app scaffold', () => {
     const activated = body.coins.map((row: { activated_at: number }) => row.activated_at);
     expect(activated.every((value: number) => Number.isFinite(value))).toBe(true);
     expect(activated).toEqual([...activated].sort((left, right) => right - left));
+  });
+
+  it('collapses duplicate exchange discoveries into one canonical listing using the earliest activation time', async () => {
+    const mockedFetchExchangeMarkets = ccxtProvider.fetchExchangeMarkets as ReturnType<typeof vi.fn>;
+    const activationStart = Date.now();
+
+    mockedFetchExchangeMarkets.mockImplementation(async (exchangeId: string) => {
+      if (exchangeId === 'binance') {
+        return [
+          { exchangeId, symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin', raw: {} },
+          { exchangeId, symbol: 'ZED/USDT', base: 'ZED', quote: 'USDT', active: true, spot: true, baseName: 'Zed Token', raw: {} },
+        ];
+      }
+
+      return [
+        { exchangeId, symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT', active: true, spot: true, baseName: 'Bitcoin', raw: {} },
+        { exchangeId, symbol: 'ZED/USDT', base: 'ZED', quote: 'USDT', active: true, spot: true, baseName: 'Zed Token', raw: {} },
+      ];
+    });
+
+    const seededBeforeSync = getApp().db.db.select().from(coins).where(eq(coins.id, 'zed-token')).limit(1).get();
+    expect(seededBeforeSync).toBeUndefined();
+
+    await getApp().ready();
+
+    const discovered = getApp().db.db.select().from(coins).where(eq(coins.id, 'zed-token')).limit(1).get();
+    expect(discovered).toBeDefined();
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/coins/list/new',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const listings = response.json().coins as Array<{
+      id: string;
+      symbol: string;
+      name: string;
+      activated_at: number;
+    }>;
+    const zedListings = listings.filter((row) => row.id === 'zed-token');
+    expect(zedListings).toHaveLength(1);
+    expect(zedListings[0]).toMatchObject({
+      id: 'zed-token',
+      symbol: 'zed',
+      name: 'Zed Token',
+    });
+    expect(zedListings[0]?.activated_at).toBe(Math.floor(discovered!.createdAt.getTime() / 1000));
+    expect(discovered!.createdAt.getTime()).toBeGreaterThanOrEqual(activationStart);
   });
 
   it('supports coin market ordering and pagination defaults', async () => {

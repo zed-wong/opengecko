@@ -17,6 +17,7 @@ export const coins = sqliteTable('coins', {
   genesisDate: text('genesis_date'),
   platformsJson: text('platforms_json').notNull().default('{}'),
   status: text('status', { enum: ['active', 'inactive'] }).notNull().default('active'),
+  activatedAt: integer('activated_at', { mode: 'timestamp_ms' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 }, (table) => ({

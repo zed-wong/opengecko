@@ -279,7 +279,9 @@ export function registerCoinRoutes(
     const rows = getCoins(database, { status: 'active' })
       .slice()
       .sort((left, right) => {
-        const timeDelta = right.createdAt.getTime() - left.createdAt.getTime();
+        const rightActivatedAt = right.activatedAt ?? right.createdAt;
+        const leftActivatedAt = left.activatedAt ?? left.createdAt;
+        const timeDelta = rightActivatedAt.getTime() - leftActivatedAt.getTime();
 
         if (timeDelta !== 0) {
           return timeDelta;

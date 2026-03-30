@@ -44,7 +44,7 @@ For each family, we classify **what is live** vs **what is not**, and decide the
 | `/coins/{id}/history` | Recent: live snapshots; historical: seeded 7-day synthetic | In progress: tighten history fidelity |
 | `/coins/{id}/market_chart` | Seeded synthetic candles (7 days) | In progress: real candles accumulate post-boot |
 | `/coins/{id}/ohlc`, `/ohlc/range` | Seeded synthetic candles (7 days) | In progress: real candles accumulate post-boot |
-| `/coins/list/new` | Seeded `createdAt` ordering | In progress: implement live coin discovery |
+| `/coins/list/new` | CCXT-backed canonical `activated_at` ordering with duplicate-discovery collapse | Landed in platform milestone; validate downstream continuity through list/search/detail/history surfaces |
 | `/coins/top_gainers_losers` | Live from snapshots, simple ranking | ✅ Done (ranking logic is honest) |
 | `/coins/categories*` | Seeded 2 categories | Accepted fixture for this mission unless later follow-up expands it |
 | `/coins/*/circulating_supply_chart` | Seeded | Accepted unresolved / fixture-backed |
@@ -158,7 +158,7 @@ High impact, low effort. All items below are confirmed viable with existing prov
 | 1.2 | Live exchange volume accumulation | `/exchanges/{id}/volume_chart`, `/volume_chart/range` | CCXT tickers → `exchangeVolumePoints` | Complete |
 | 1.3 | Honest `/search/trending` semantics and docs | `/search/trending` | Market-rank proxy + docs | Complete |
 | 1.4 | CCXT-based asset platform discovery at boot | `/asset_platforms` | CCXT exchange metadata scan | Complete |
-| 1.5 | Live newly-listed coin detection | `/coins/list/new` | CCXT market diff | Pending |
+| 1.5 | Live newly-listed coin detection | `/coins/list/new` | CCXT market diff | Shipped: canonical `activated_at` persistence now drives newest-first ordering |
 
 ### Phase 2: Meaningful Uplift (2-3 cycles)
 

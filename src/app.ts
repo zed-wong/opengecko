@@ -454,8 +454,8 @@ function seedRuntimeSnapshotsFromPersistentStore(
       INSERT INTO coins (
         id, symbol, name, api_symbol, hashing_algorithm, block_time_in_minutes,
         categories_json, description_json, links_json, image_thumb_url, image_small_url,
-        image_large_url, market_cap_rank, genesis_date, platforms_json, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, NULL, NULL, '[]', ?, '{}', ?, ?, ?, ?, NULL, ?, 'active', ?, ?)
+        image_large_url, market_cap_rank, genesis_date, platforms_json, status, activated_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, NULL, NULL, '[]', ?, '{}', ?, ?, ?, ?, NULL, ?, 'active', ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         symbol = excluded.symbol,
         name = excluded.name,
@@ -466,6 +466,7 @@ function seedRuntimeSnapshotsFromPersistentStore(
         image_large_url = COALESCE(excluded.image_large_url, coins.image_large_url),
         market_cap_rank = COALESCE(excluded.market_cap_rank, coins.market_cap_rank),
         platforms_json = excluded.platforms_json,
+        activated_at = COALESCE(coins.activated_at, excluded.activated_at),
         updated_at = excluded.updated_at
     `);
     const insertSnapshot = runtimeDatabase.client.prepare(`
@@ -570,6 +571,7 @@ function seedRuntimeSnapshotsFromPersistentStore(
           row.image_large_url,
           row.market_cap_rank,
           row.platforms_json,
+          row.updated_at,
           row.updated_at,
           row.updated_at,
         );

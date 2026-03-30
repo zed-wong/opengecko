@@ -207,11 +207,13 @@ export function parseMoverPriceChangePercentage(value: string | undefined) {
 }
 
 export function buildNewListingRow(coin: CoinRow) {
+  const activatedAt = coin.activatedAt ?? coin.createdAt;
+
   return {
     id: coin.id,
     symbol: coin.symbol,
     name: coin.name,
-    activated_at: Math.floor(coin.createdAt.getTime() / 1000),
+    activated_at: Math.floor(activatedAt.getTime() / 1000),
   };
 }
 
