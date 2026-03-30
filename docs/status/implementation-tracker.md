@@ -27,7 +27,7 @@ Use this tracker for current status, active priorities, completed milestones, an
 ## Current Priorities
 
 1. Restore the main Vitest suite to green so parity and milestone-sealing claims reflect actual repository state rather than planned state.
-2. Finish the active `platform-and-catalog-discovery` milestone by landing live new-listings discovery plus the remaining `/search` relevance and `/global` breadth uplifts.
+2. Finish the active `platform-and-catalog-discovery` milestone by validating bounded `/search` families, canonical-platform alias continuity across token-list/contract routes, and the remaining `/global` breadth uplifts.
 3. Continue the `onchain-discovery-uplift` milestone, including deterministic invalid-params coverage and multi-network DeFiLlama-backed discovery hardening.
 4. Improve coin enrichment and chart fidelity while preserving the top-100-first OHLCV policy and honest fallback behavior.
 5. Keep derivatives, treasury, categories, and unresolved supply-chart surfaces honest and contract-compatible as accepted fixture families while tightening observability, cache invalidation, and runtime failure behavior.
@@ -63,9 +63,9 @@ The system has 3 live data sources: **CCXT** (8 CEX, ticker/OHLCV/exchange metad
 | `/ping` | R0 | done | live | CoinGecko-style ping response implemented and tested |
 | `/simple/*` | R0 | done | live | `/simple/supported_vs_currencies`, `/simple/price`, `/simple/token_price/{id}`, and `/exchange_rates` are implemented and tested; all backed by live CCXT snapshots or currency-api |
 | `/asset_platforms` | R0 | done | live | Canonical CCXT-discovered platforms are now exposed; legacy aliases are suppressed as top-level ids |
-| `/token_lists/{asset_platform_id}/all.json` | R1 | done | hybrid | Canonical platform ids and contract routing now align with the discovered platform catalog; token-list payloads remain seeded/reference-backed |
-| `/search` | R0 | partial | hybrid | FTS5-backed search over seeded coin/exchange tables; exact-match relevance uplift is pending, while `search/trending` is now an explicitly rank-honest top-market-cap proxy |
-| `/global` | R0 | partial | hybrid | Aggregate market routes exist and read live snapshots, but breadth uplift across the broader discovered catalog is still pending |
+| `/token_lists/{asset_platform_id}/all.json` | R1 | done | hybrid | Canonical platform ids remain the discovery surface, token-list rows stay deterministic/symbol-sorted, and supported aliases like `eth` still resolve downstream while unknown platforms fail closed with `404` |
+| `/search` | R0 | partial | hybrid | FTS5-backed search over seeded coin/exchange tables now preserves stable grouped-family keys, rejects blank queries, and bounds each family to the top 10 results; broader relevance uplift is still pending |
+| `/global` | R0 | partial | hybrid | Aggregate market routes exist and stay internally coherent with ordered market-cap chart points, but breadth uplift across the broader discovered catalog is still pending |
 | `/coins/list` | R0 | done | seeded | Seeded coin registry remains in place; canonical identity propagation is improved, but true new-coin discovery is still pending |
 | `/coins/list/new` | R1 | partial-live | ccxt-backed canonical discovery | Returns `coins` ordered by canonical `activated_at` from exchange discovery, collapsing duplicate exchange discoveries to the earliest activation while keeping ids reusable across list/search/detail/history surfaces |
 | Core coin market endpoints | R1 | partial | hybrid | `/coins/markets` live snapshots now include canonical bootstrap backfill fixes; `/coins/{id}` detail enrichment plus history/chart/OHLC fidelity work remain pending, and sparklines still rely on seeded/synthetic history |
@@ -108,7 +108,7 @@ The system has 3 live data sources: **CCXT** (8 CEX, ticker/OHLCV/exchange metad
 4. **Onchain holders/traders are fake**: `top_holders`, `top_traders`, `holders_chart` return fixture data for USDC only; all other tokens return empty arrays.
 5. **Chart history is synthetic**: All `/coins/*/market_chart`, `/ohlc`, `/ohlc/range` serve seeded 7-day synthetic candles. Real OHLCV accumulates after boot but top-100-first policy means most coins never get real candles.
 6. **Treasury is static**: 2 entities, 6 transactions, fixed holdings. No live disclosure ingestion.
-7. **Platform-and-catalog-discovery is not sealed yet**: live newly-listed discovery, exact-match search relevance, and broader global breadth still need to land and validate, and the main Vitest suite is still failing in parity/runtime-sensitive areas.
+7. **Platform-and-catalog-discovery is not sealed yet**: broader global breadth and remaining search relevance uplift still need to land and validate, even though bounded search families, canonical platform alias continuity, and newly-listed identity propagation are now covered.
 8. **Historical chart and OHLC** now has canonical persistence, but longer-horizon policy and hosted-worker operations remain open.
 9. **Removed NFT rows** remain intentionally unactioned in the parity matrix and are excluded from the active parity target.
 
@@ -127,7 +127,7 @@ The system has 3 live data sources: **CCXT** (8 CEX, ticker/OHLCV/exchange metad
 - `/onchain/pool trades` (fallback): 6 synthetic trades when Subsquid returns nothing.
 - `/asset_platforms`: now live-backed via canonical CCXT-discovered platform rows; remove older references that still describe it as the original 3-platform seed.
 - `/coins/list/new`: now uses canonical discovery `activated_at` ordering from CCXT-backed catalog sync; duplicate exchange discoveries collapse to one stable listing record using earliest activation time.
-- `/search`: exact-match relevance uplift remains pending even though `/search/trending` has been hardened to honest rank-driven semantics.
+- `/search`: family-grouped output, blank-query rejection, and per-family result bounds are covered; exact-match relevance uplift beyond the current FTS ordering remains pending even though `/search/trending` has been hardened to honest rank-driven semantics.
 - The Graph provider was removed in 08e4b39 — Subsquid is now the sole live-trade provider for onchain pool trades.
 
 ## Completed Milestones

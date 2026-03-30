@@ -32,6 +32,10 @@ function getRankDrivenScore(marketCapRank: number | null | undefined) {
   return marketCapRank ?? 0;
 }
 
+function clampFamilyResults<T>(rows: T[], limit = 10) {
+  return rows.slice(0, limit);
+}
+
 function convertToBtc(
   amount: number | null | undefined,
   btcPrice: number | undefined,
@@ -69,10 +73,9 @@ export function registerSearchRoutes(app: FastifyInstance, database: AppDatabase
     const categoryById = new Map(getCategories(database).map((category) => [category.id, category]));
     const exchangeById = new Map(database.db.select().from(exchanges).orderBy(asc(exchanges.id)).all().map((exchange) => [exchange.id, exchange]));
 
-    const coins = coinOrder
+    const coins = clampFamilyResults(coinOrder
       .map((coinId) => coinById.get(coinId))
       .filter((coin): coin is NonNullable<typeof coin> => Boolean(coin))
-      .slice(0, 10)
       .map((coin) => {
         const marketRow = marketRowById.get(coin.id);
 
@@ -86,28 +89,26 @@ export function registerSearchRoutes(app: FastifyInstance, database: AppDatabase
           large: coin.imageLargeUrl,
           categories: parseJsonArray<string>(coin.categoriesJson),
         };
-      });
+      }));
 
-    const categories = categoryOrder
+    const categories = clampFamilyResults(categoryOrder
       .map((categoryId) => categoryById.get(categoryId))
       .filter((category): category is NonNullable<typeof category> => Boolean(category))
-      .slice(0, 10)
       .map((category) => ({
         id: category.id,
         name: category.name,
-      }));
+      })));
 
-    const exchangeResults = exchangeOrder
+    const exchangeResults = clampFamilyResults(exchangeOrder
       .map((exchangeId) => exchangeById.get(exchangeId))
       .filter((exchange): exchange is NonNullable<typeof exchange> => Boolean(exchange))
-      .slice(0, 10)
       .map((exchange) => ({
         id: exchange.id,
         name: exchange.name,
         market_type: exchange.centralised ? 'cex' : 'dex',
         thumb: exchange.imageUrl,
         large: exchange.imageUrl,
-      }));
+      })));
 
     return {
       coins,

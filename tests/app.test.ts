@@ -4982,6 +4982,27 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('accepts canonical platform aliases for token lists and contract chart/detail routes', async () => {
+    const [canonicalTokenListResponse, aliasTokenListResponse, aliasContractDetailResponse, aliasContractChartResponse] = await Promise.all([
+      getApp().inject({ method: 'GET', url: '/token_lists/ethereum/all.json' }),
+      getApp().inject({ method: 'GET', url: '/token_lists/eth/all.json' }),
+      getApp().inject({ method: 'GET', url: '/coins/eth/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48?localization=false&tickers=false&community_data=false&developer_data=false' }),
+      getApp().inject({ method: 'GET', url: '/coins/erc20/contract/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/market_chart?vs_currency=usd&days=7' }),
+    ]);
+
+    expect(canonicalTokenListResponse.statusCode).toBe(200);
+    expect(aliasTokenListResponse.statusCode).toBe(200);
+    expect(aliasTokenListResponse.json()).toEqual(canonicalTokenListResponse.json());
+    expect(aliasContractDetailResponse.statusCode).toBe(200);
+    expect(aliasContractDetailResponse.json()).toMatchObject({ id: 'usd-coin', symbol: 'usdc', name: 'USDC' });
+    expect(aliasContractChartResponse.statusCode).toBe(200);
+    expect(aliasContractChartResponse.json()).toEqual(expect.objectContaining({
+      prices: expect.any(Array),
+      market_caps: expect.any(Array),
+      total_volumes: expect.any(Array),
+    }));
+  });
+
   it('returns seeded coins with optional platform data', async () => {
     const response = await getApp().inject({
       method: 'GET',
@@ -5131,6 +5152,53 @@ describe('OpenGecko app scaffold', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject(contractFixtures.searchEth);
+  });
+
+  it('keeps search response families bounded to 10 results each', async () => {
+    await getApp().ready();
+
+    for (let index = 0; index < 12; index += 1) {
+      getApp().db.db
+        .insert(exchanges)
+        .values({
+          id: `eth-exchange-${index}`,
+          name: `ETH Exchange ${index}`,
+          yearEstablished: null,
+          country: null,
+          description: '',
+          url: `https://eth-exchange-${index}.example.com`,
+          imageUrl: null,
+          facebookUrl: null,
+          redditUrl: null,
+          telegramUrl: null,
+          slackUrl: null,
+          otherUrlJson: '[]',
+          twitterHandle: null,
+          hasTradingIncentive: false,
+          centralised: true,
+          publicNotice: null,
+          alertNotice: null,
+          trustScore: 1,
+          trustScoreRank: 100 + index,
+          tradeVolume24hBtc: null,
+          tradeVolume24hBtcNormalized: null,
+          updatedAt: new Date(`2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`),
+        })
+        .onConflictDoNothing()
+        .run();
+    }
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/search?query=eth',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().coins.length).toBeLessThanOrEqual(10);
+    expect(response.json().exchanges.length).toBeLessThanOrEqual(10);
+    expect(response.json().categories.length).toBeLessThanOrEqual(10);
+    expect(response.json().icos).toEqual([]);
+    expect(response.json().nfts).toEqual([]);
   });
 
   it('returns FTS-backed category search results', async () => {

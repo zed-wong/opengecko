@@ -27,8 +27,8 @@ For each family, we classify **what is live** vs **what is not**, and decide the
 |---|---|---|
 | `/simple/price`, `/simple/token_price` | Live from CCXT snapshots | ✅ Done |
 | `/exchange_rates` | Live from currency-api (fiat) + DB snapshot (BTC/ETH) | ✅ Done |
-| `/global`, `/global/decentralized_finance_defi` | Live from snapshots (limited catalog) | In progress: expand catalog breadth |
-| `/search` | Seeded index, live enrichment | In progress: improve exact-match relevance |
+| `/global`, `/global/decentralized_finance_defi` | Live from snapshots with coherent ordered chart output (limited catalog) | In progress: expand catalog breadth |
+| `/search` | Seeded index, live enrichment, stable grouped-family bounds | In progress: improve exact-match relevance |
 | `/search/trending` | Rank-honest top market-cap proxy (not true trending) | ✅ Done for current honest semantics |
 | `/asset_platforms` | Canonical CCXT-discovered platforms | ✅ Done |
 
@@ -148,7 +148,7 @@ These choices gate specific uplift tasks. Each has a **recommended position** be
 
 ### Phase 1: Quick Wins (1-2 cycles)
 
-Status update: exchange ticker ingestion, exchange volume accumulation, rank-honest `/search/trending`, canonical platform discovery, BigNumber calculation foundation, bootstrap catalog repair, and related Bun test compatibility work are complete. The main remaining Phase 1/platform work is live newly-listed coin detection, followed by search/global fidelity uplift before the milestone can validate.
+Status update: exchange ticker ingestion, exchange volume accumulation, rank-honest `/search/trending`, canonical platform discovery, BigNumber calculation foundation, bootstrap catalog repair, live newly-listed coin detection, grouped `/search` family bounds, and canonical-platform alias continuity for token-list/contract flows are complete. The main remaining platform work is broader search/global fidelity uplift before the milestone can validate.
 
 High impact, low effort. All items below are confirmed viable with existing providers.
 
@@ -158,7 +158,7 @@ High impact, low effort. All items below are confirmed viable with existing prov
 | 1.2 | Live exchange volume accumulation | `/exchanges/{id}/volume_chart`, `/volume_chart/range` | CCXT tickers → `exchangeVolumePoints` | Complete |
 | 1.3 | Honest `/search/trending` semantics and docs | `/search/trending` | Market-rank proxy + docs | Complete |
 | 1.4 | CCXT-based asset platform discovery at boot | `/asset_platforms` | CCXT exchange metadata scan | Complete |
-| 1.5 | Live newly-listed coin detection | `/coins/list/new` | CCXT market diff | Shipped: canonical `activated_at` persistence now drives newest-first ordering |
+| 1.5 | Live newly-listed coin detection | `/coins/list/new` | CCXT market diff | Shipped: canonical `activated_at` persistence now drives newest-first ordering and downstream id continuity through list/search/detail surfaces |
 
 ### Phase 2: Meaningful Uplift (2-3 cycles)
 
@@ -243,7 +243,7 @@ Status update: the top-100-first worker policy remains in force and BigNumber ma
 - Each task should update the tracker: mark family status, update "Data quality" column.
 - After Phase 3 documentation, the tracker should accurately reflect fixture families with explicit labels.
 - Any task that requires a new external provider dependency must be approved as a new Active Decision before implementation.
-- Current next tasks: `new-listings-discovery-propagation`, `search-relevance-uplift`, and `global-catalog-breadth-uplift`.
+- Current next tasks: `search-relevance-uplift` and `global-catalog-breadth-uplift`, with downstream platform-alias continuity and newly-listed id propagation now covered on the current branch.
 
 ## GSTACK REVIEW REPORT
 
