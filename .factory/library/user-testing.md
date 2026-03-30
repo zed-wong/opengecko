@@ -112,6 +112,7 @@ Reasoning: the live provider path is the dominant source of boot cost, latency, 
 
 ### isolated-api
 - Use `3102` only for validation-only override routes or structural checks that should not share live state.
+- Stop any pre-existing listener on `3102` before launching a fresh isolated validation API instance; stale validation servers can otherwise cause `EADDRINUSE` and misleading setup failures.
 - Confirm the same route is absent or gated on `3000` when the contract requires validation-only access.
 
 ### repo-validations
