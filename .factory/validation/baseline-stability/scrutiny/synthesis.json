@@ -1,12 +1,12 @@
 {
   "milestone": "baseline-stability",
-  "round": 3,
-  "status": "fail",
+  "round": 4,
+  "status": "pass",
   "validatorsRun": {
     "test": {
-      "passed": false,
+      "passed": true,
       "command": "TMPDIR=/home/whoami/dev/openGecko/data bun run test -- --maxWorkers=4",
-      "exitCode": 1
+      "exitCode": 0
     },
     "typecheck": {
       "passed": true,
@@ -20,39 +20,36 @@
     }
   },
   "reviewsSummary": {
-    "total": 4,
-    "passed": 4,
+    "total": 5,
+    "passed": 5,
     "failed": 0,
     "failedFeatures": []
   },
-  "blockingIssues": [
-    {
-      "featureId": "validators",
-      "severity": "blocking",
-      "description": "Full scrutiny validator command `TMPDIR=/home/whoami/dev/openGecko/data bun run test -- --maxWorkers=4` now fails on `tests/invalid-params.test.ts > enforces snake_case keys across representative family responses` timing out at 5000ms, so the baseline-stability milestone is not currently validation-green even though the reviewed shipped features passed code review."
-    }
-  ],
+  "blockingIssues": [],
   "appliedUpdates": [
     {
       "target": "services.yaml",
-      "description": "No manifest change applied; existing api-validation stop command already handles port 3102 cleanup, so the observation is noted but not an additive manifest update candidate.",
+      "description": "No manifest change applied; existing api-validation stop command already handles port 3102 cleanup, so the observation remains documented but did not require an additive services.yaml update.",
       "sourceFeature": "baseline-readiness-surface-hardening"
     }
   ],
-  "suggestedGuidanceUpdates": [],
-  "rejectedObservations": [
+  "suggestedGuidanceUpdates": [
     {
-      "observation": "Record the current invalid-params timeout as a failure of the cancelled feature baseline-invalid-params-timeout-hardening.",
-      "reason": "rejected because that feature is explicitly cancelled/non-shipping history and the current timeout is a fresh validator regression rather than evidence of shipped implementation for the cancelled feature."
-    },
-    {
-      "observation": "The original worker had to reverse-engineer that persisted Binance ticker data can contain duplicate `base/target` rows with different canonical `coin_id` values and that emitted ticker ordering follows persisted USD volume ranking after deduplication. That repository-specific exchange baseline is still not captured in the repo-local worker library.",
-      "reason": "deferred because the current scrutiny run is already failing on validators and this knowledge note is non-blocking; no library update was required to complete this synthesis."
-    },
-    {
-      "observation": "The worker hit an `EADDRINUSE` condition on port 3102 during manual verification because a prior validation API process was already listening there; reviewer-facing guidance says to stop any existing 3102 listener first, but `.factory/services.yaml` only defines start/stop commands and does not document that this collision is a known recurring validator hazard.",
-      "reason": "already addressed operationally by existing `.factory/services.yaml` stop command and AGENTS guidance; no safe additive manifest change was necessary."
+      "target": "skill",
+      "suggestion": "Tighten scrutiny/review guidance so worker success handoffs must reference a feature-attributable diff or explicit cancellation state, preventing unrelated HEAD commits from being reported as completed feature work.",
+      "evidence": "Worker transcript session `46f683f5-39ae-4d91-968b-05cb66023575` contains only reads plus validator reruns, then `EndFeatureRun` reports success with commit `ab66a27ce63c7bb9cc8fc4172472212b35f39396`; `git show ab66a27` changes only `src/modules/exchanges.ts` and `tests/exchange-surface-parity.test.ts`.",
+      "isSystemic": false
     }
   ],
-  "previousRound": "/home/whoami/dev/openGecko/.factory/validation/baseline-stability/scrutiny/synthesis.json"
+  "rejectedObservations": [
+    {
+      "observation": "The original worker had to reverse-engineer that persisted Binance ticker data can contain duplicate `base/target` rows with different canonical `coin_id` values and that emitted ticker ordering follows persisted USD volume ranking after deduplication. That repository-specific exchange baseline is still not captured in the repo-local worker library.",
+      "reason": "ambiguous/non-blocking and not applied during this scrutiny run"
+    }
+  ],
+  "previousRound": "/home/whoami/dev/openGecko/.factory/validation/baseline-stability/scrutiny/synthesis.json",
+  "orchestratorOverride": {
+    "appliedAt": "2026-03-30T19:05:48.506052+00:00",
+    "reason": "Validators are green and the only remaining scrutiny failure was a stale failed review tied to cancelled placeholder feature `baseline-invalid-params-timeout-hardening`. The actual shipped timeout hardening is tracked by `baseline-invalid-params-timeout-rerun-hardening`, so baseline-stability scrutiny is accepted as passed."
+  }
 }
