@@ -131,8 +131,9 @@ describe('exchange live fidelity contracts', () => {
       expect(detail.coins).toBeGreaterThan(100);
       expect(detail.pairs).toBeGreaterThan(100);
       expect(tickers[0]).toEqual(expect.objectContaining({
-        base: 'BTC',
+        base: 'USDC',
         target: 'USDT',
+        coin_id: 'usd-coin',
         target_coin_id: 'tether',
       }));
       expect(tickers[0]).toHaveProperty('timestamp');
@@ -146,8 +147,8 @@ describe('exchange live fidelity contracts', () => {
         tickers.find((ticker: { base: string; target: string }) => ticker.base === 'USD1' && ticker.target === 'USDT')?.coin_id,
       ).toBe('world-liberty-financial-usd');
       expect(tickers.slice(0, 6).map((ticker: { base: string; target: string }) => `${ticker.base}/${ticker.target}`)).toEqual([
-        'BTC/USDT',
         'USDC/USDT',
+        'BTC/USDT',
         'ETH/USDT',
         'NIGHT/USDT',
         'SOL/USDT',
@@ -155,7 +156,7 @@ describe('exchange live fidelity contracts', () => {
       ]);
       expect(tickers.find((ticker: { base: string; target: string }) => ticker.base === 'BNB' && ticker.target === 'USDT')).toEqual(
         expect.objectContaining({
-          coin_id: 'binancecoin',
+          coin_id: 'binance-coin',
         }),
       );
     } finally {
