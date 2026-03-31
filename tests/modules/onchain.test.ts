@@ -30,6 +30,7 @@ const defaultDefillamaMocks = () => {
   vi.spyOn(defillamaProvider, 'fetchDefillamaDexVolumes').mockResolvedValue(null);
   vi.spyOn(defillamaProvider, 'fetchDefillamaDiscoveredPools').mockResolvedValue(null);
   vi.spyOn(defillamaProvider, 'fetchDefillamaTokenPrices').mockResolvedValue(null);
+  vi.spyOn(defillamaProvider, 'fetchDefillamaTokens').mockResolvedValue(null);
 };
 
 describe('onchain pool discovery', () => {
@@ -325,5 +326,103 @@ describe('onchain pool discovery', () => {
     expect(discoveredPool1).toBeDefined();
     expect(discoveredPool2).toBeDefined();
     expect(discoveredPool1!.id).toBe(discoveredPool2!.id);
+  });
+});
+
+describe('token discovery', () => {
+  let app: FastifyInstance | undefined;
+  let tempDir: string;
+
+  function getApp() {
+    if (!app) {
+      throw new Error('Test app was not initialized.');
+    }
+    return app;
+  }
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), 'opengecko-token-discovery-'));
+    vi.restoreAllMocks();
+    resetCurrencyApiSnapshotForTests();
+    defaultDefillamaMocks();
+    app = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'test.db'),
+        ccxtExchanges: ['binance'],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+  });
+
+  afterEach(async () => {
+    if (app) {
+      await app.close();
+      app = undefined;
+    }
+  });
+
+  it('enriches token detail with DeFiLlama live data', async () => {
+    vi.spyOn(defillamaProvider, 'fetchDefillamaTokens').mockResolvedValue([
+      {
+        address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        name: 'USD Coin',
+        symbol: 'USDC',
+        decimals: 6,
+        priceUsd: 1.0,
+      },
+      {
+        address: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+        name: 'Wrapped Ether',
+        symbol: 'WETH',
+        decimals: 18,
+        priceUsd: 3500.25,
+      },
+    ]);
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.data.attributes.symbol).toBe('USDC');
+    expect(body.data.attributes.name).toBe('USD Coin');
+    expect(body.data.attributes.decimals).toBe(6);
+    expect(body.data.attributes.price_usd).toBe(1.0);
+  });
+
+  it('falls back to pool data when DeFiLlama returns null', async () => {
+    vi.spyOn(defillamaProvider, 'fetchDefillamaTokens').mockResolvedValue(null);
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/tokens/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.data.attributes.symbol).toBe('USDC');
+  });
+
+  it('does not call DeFiLlama tokens for non-eth networks', async () => {
+    vi.spyOn(defillamaProvider, 'fetchDefillamaTokens').mockResolvedValue([
+      {
+        address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        name: 'USD Coin',
+        symbol: 'USDC',
+        decimals: 6,
+        priceUsd: 1.0,
+      },
+    ]);
+
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/solana/tokens/So11111111111111111111111111111111111111112',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(defillamaProvider.fetchDefillamaTokens).not.toHaveBeenCalled();
   });
 });

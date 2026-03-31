@@ -7,7 +7,7 @@ import { coins, marketSnapshots, onchainDexes, onchainNetworks, onchainPools } f
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePositiveInt } from '../http/params';
 import { buildCoinId } from '../lib/coin-id';
-import { fetchDefillamaDexVolumes, fetchDefillamaPoolData, fetchDefillamaTokenPrices } from '../providers/defillama';
+import { fetchDefillamaDexVolumes, fetchDefillamaPoolData, fetchDefillamaTokenPrices, fetchDefillamaTokens } from '../providers/defillama';
 import { fetchEthereumPoolSwapLogs } from '../providers/sqd';
 
 const paginationQuerySchema = z.object({
@@ -778,6 +778,7 @@ function buildTokenResource(
       : primaryPool.quoteTokenSymbol
     : null;
   const priceUsd = options?.livePriceUsd ?? primaryPool?.priceUsd ?? null;
+  const decimals = tokenSymbol === 'USDC' || tokenSymbol === 'USDT' ? 6 : 18;
 
   return {
     id: normalizedAddress,
@@ -786,6 +787,7 @@ function buildTokenResource(
       address: normalizedAddress,
       symbol: tokenSymbol,
       name: tokenSymbol,
+      decimals,
       price_usd: priceUsd,
       top_pools: tokenPools.map((pool) => pool.address),
       ...(options?.includeInactiveSource ? { inactive_source: false } : {}),
@@ -2955,13 +2957,27 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     }
 
     const livePrice = await fetchLiveSimpleTokenPrice(params.network, normalizeAddress(params.address), tokenPools, database);
+    const tokenResource = buildTokenResource(params.network, params.address, tokenPools, {
+      includeInactiveSource,
+      includeComposition,
+      livePriceUsd: livePrice?.priceUsd ?? null,
+    });
+
+    if (params.network === 'eth') {
+      const liveTokens = await fetchDefillamaTokens('Ethereum');
+      if (liveTokens) {
+        const tokenData = liveTokens.find((t) => normalizeAddress(t.address) === normalizeAddress(params.address));
+        if (tokenData) {
+          tokenResource.attributes.name = tokenData.name;
+          tokenResource.attributes.symbol = tokenData.symbol;
+          tokenResource.attributes.decimals = tokenData.decimals;
+          tokenResource.attributes.price_usd = tokenData.priceUsd;
+        }
+      }
+    }
 
     return {
-      data: buildTokenResource(params.network, params.address, tokenPools, {
-        includeInactiveSource,
-        includeComposition,
-        livePriceUsd: livePrice?.priceUsd ?? null,
-      }),
+      data: tokenResource,
       ...(includes.includes('top_pools')
         ? { included: tokenPools.map((row) => buildPoolResource(row)) }
         : {}),

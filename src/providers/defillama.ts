@@ -234,6 +234,57 @@ export async function fetchDefillamaDiscoveredPools(
   }
 }
 
+export async function fetchDefillamaTokens(
+  chain: string = 'Ethereum',
+  options: DefillamaRequestOptions = {},
+): Promise<Array<{
+  address: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  priceUsd: number | null;
+}> | null> {
+  try {
+    const response = await fetchJson<Record<string, {
+      coins?: Record<string, { price?: number; symbol?: string; decimals?: number }>;
+    }>>(`/prices/current/coingecko:${chain}`, options);
+
+    if (!response || typeof response !== 'object') {
+      return null;
+    }
+
+    const tokens: Array<{
+      address: string;
+      name: string;
+      symbol: string;
+      decimals: number;
+      priceUsd: number | null;
+    }> = [];
+
+    for (const [key, value] of Object.entries(response)) {
+      if (key.startsWith(`${chain}:`) && value.coins) {
+        for (const [coinKey, coinData] of Object.entries(value.coins)) {
+          const address = coinKey.split(':').pop();
+          if (address && address.startsWith('0x')) {
+            tokens.push({
+              address,
+              name: coinData.symbol ?? 'Unknown',
+              symbol: coinData.symbol ?? 'UNKNOWN',
+              decimals: coinData.decimals ?? 18,
+              priceUsd: coinData.price ?? null,
+            });
+          }
+        }
+      }
+    }
+
+    return tokens;
+  } catch (error) {
+    console.error('Failed to fetch DeFiLlama tokens', error);
+    return null;
+  }
+}
+
 export async function fetchDefillamaDexVolumes(chain?: string, options: DefillamaRequestOptions = {}): Promise<DefillamaDexVolumes | null> {
   try {
     const suffix = chain ? `/${encodeURIComponent(chain)}` : '';
