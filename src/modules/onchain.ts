@@ -3232,10 +3232,13 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       data: holdersRows.map((holder) => buildTopHolderResource(holder, includePnlDetails)),
       ...(included.length > 0 ? { included } : {}),
       meta: {
+        fixture: true,
         network: params.network,
         token_address: tokenAddress,
         holders,
         include_pnl_details: includePnlDetails,
+        scope: 'USDC only',
+        note: 'Holder data is seeded fixture for USDC only; all other tokens return empty arrays',
       },
     };
   });
@@ -3280,11 +3283,14 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     return {
       data: tradersRows.map((trader) => buildTopTraderResource(trader, includeAddressLabel)),
       meta: {
+        fixture: true,
         network: params.network,
         token_address: tokenAddress,
         traders,
         sort,
         include_address_label: includeAddressLabel,
+        scope: 'USDC only',
+        note: 'Trader data is seeded fixture for USDC only; all other tokens return empty arrays',
       },
     };
   });
@@ -3311,9 +3317,12 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     return {
       data: data.map(buildHoldersChartResource),
       meta: {
+        fixture: true,
         network: params.network,
         token_address: tokenAddress,
         days,
+        scope: 'USDC only',
+        note: 'Holders chart data is seeded fixture for USDC only; all other tokens return empty arrays',
       },
     };
   });
