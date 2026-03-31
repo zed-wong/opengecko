@@ -1,0 +1,75 @@
+{
+  "surface": "isolated-api",
+  "assertions": [
+    {
+      "id": "VAL-BASE-004",
+      "status": "failed",
+      "reason": "Observed diagnostics did not match the zero-live completed-boot contract.",
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/diagnostics/runtime",
+        "status": 200,
+        "statusLine": "HTTP/1.1 200 OK",
+        "observed": {
+          "readiness.state": "starting",
+          "readiness.initial_sync_completed": false,
+          "readiness.zero_live_completed_boot": false,
+          "readiness.validation_override_active": true,
+          "degraded.active": false,
+          "degraded.stale_live_enabled": true,
+          "degraded.reason": "validation runtime seeded from persistent live snapshots",
+          "degraded.validation_override.active": true,
+          "hot_paths.shared_market_snapshot.available": true,
+          "hot_paths.shared_market_snapshot.source_class": "seeded_bootstrap",
+          "hot_paths.shared_market_snapshot.provider_count": 1
+        },
+        "artifacts": {
+          "headers": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live/diagnostics-runtime.headers.txt",
+          "body": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live/diagnostics-runtime.body.json"
+        }
+      }
+    },
+    {
+      "id": "VAL-BASE-007",
+      "status": "failed",
+      "reason": "One or both simple price surfaces did not return the expected 503 service_unavailable contract.",
+      "evidence": {
+        "simple_price": {
+          "request": "GET http://127.0.0.1:3102/simple/price?ids=bitcoin&vs_currencies=usd",
+          "status": 200,
+          "statusLine": "HTTP/1.1 200 OK",
+          "body": {
+            "bitcoin": {
+              "usd": 66394.70333333334
+            }
+          },
+          "artifacts": {
+            "headers": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live/simple-price.headers.txt",
+            "body": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live/simple-price.body.json"
+          }
+        },
+        "token_price": {
+          "request": "GET http://127.0.0.1:3102/simple/token_price/ethereum?contract_addresses=0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2&vs_currencies=usd",
+          "status": 200,
+          "statusLine": "HTTP/1.1 200 OK",
+          "body": {},
+          "artifacts": {
+            "headers": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live/token-price.headers.txt",
+            "body": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live/token-price.body.json"
+          }
+        }
+      }
+    }
+  ],
+  "toolsUsed": [
+    "Read",
+    "Grep",
+    "Execute(curl)",
+    "python3"
+  ],
+  "frictions": [
+    "Validation API on 3102 was not in the expected zero-live completed-boot state; it responded with seeded bootstrap behavior and 200 simple price responses instead of the target 503 contract."
+  ],
+  "blockers": [
+    "Setup/runtime mismatch: isolated validation API appears configured with seeded bootstrap override or persistent live snapshot availability, so zero-live assertions could not be validated against the requested scenario."
+  ]
+}

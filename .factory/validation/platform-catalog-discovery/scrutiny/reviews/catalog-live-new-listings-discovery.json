@@ -1,0 +1,28 @@
+{
+  "featureId": "catalog-live-new-listings-discovery",
+  "reviewedAt": "2026-03-31T00:04:33.220763Z",
+  "commitId": "4f97852fb1c65a951c6012a8e28785d33a9b9208",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature correctly adds activated_at persistence and newest-first ordering for /coins/list/new, and it preserves list/search/detail continuity for discovered ids. However, it does not add regression coverage or implementation evidence that discovered ids remain usable through /coins/{id}/history, /market_chart, and /ohlc as required by VAL-CROSS-002, and the tracker statement overclaims that history continuity is covered.",
+    "issues": [
+      {
+        "file": "tests/app.test.ts",
+        "line": 6810,
+        "severity": "blocking",
+        "description": "The new duplicate-discovery test stops at /coins/list/new and direct DB inspection, but never follows the discovered id through /coins/{id}/history, /coins/{id}/market_chart, or /coins/{id}/ohlc. The existing continuity test added earlier only checks list/search/detail surfaces, so this feature lacks feature-attributable evidence for VAL-CROSS-002's required historical-surface continuity."
+      },
+      {
+        "file": "docs/status/implementation-tracker.md",
+        "line": 70,
+        "severity": "non_blocking",
+        "description": "The tracker says /coins/list/new ids are reusable across list/search/detail/history surfaces, but the committed tests and diff only verify list/search/detail. That wording currently overstates the evidence shipped in this feature."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, transcript skeleton, skill, architecture guidance, and commit 4f97852fb1c65a951c6012a8e28785d33a9b9208. New-listing ordering and duplicate-discovery persistence look correct, but the feature does not demonstrate or regress historical-surface continuity for discovered ids, so it does not fully satisfy the assigned VAL-CROSS-002 review focus."
+}

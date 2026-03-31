@@ -1,0 +1,41 @@
+{
+  "milestone": "platform-catalog-discovery",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": false,
+      "command": "TMPDIR=/home/whoami/dev/openGecko/data bun run test -- --maxWorkers=4",
+      "exitCode": 1
+    },
+    "typecheck": {
+      "passed": false,
+      "command": "bun run typecheck",
+      "exitCode": null
+    },
+    "lint": {
+      "passed": false,
+      "command": "echo \"no lint configured\"",
+      "exitCode": null
+    }
+  },
+  "reviewsSummary": {
+    "total": 2,
+    "passed": 1,
+    "failed": 1,
+    "failedFeatures": [
+      "catalog-live-new-listings-discovery"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "catalog-live-new-listings-discovery",
+      "severity": "blocking",
+      "description": "The new duplicate-discovery test stops at /coins/list/new and direct DB inspection, but never follows the discovered id through /coins/{id}/history, /coins/{id}/market_chart, or /coins/{id}/ohlc. The existing continuity test added earlier only checks list/search/detail surfaces, so this feature lacks feature-attributable evidence for VAL-CROSS-002's required historical-surface continuity."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [],
+  "rejectedObservations": [],
+  "previousRound": null
+}

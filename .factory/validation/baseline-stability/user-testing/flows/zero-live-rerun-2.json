@@ -1,0 +1,64 @@
+{
+  "surface": "isolated-api",
+  "assertions": [
+    {
+      "id": "VAL-BASE-004",
+      "status": "passed",
+      "reason": "Both simple price surfaces returned the expected 503 service_unavailable contract in zero-live completed-boot state.",
+      "evidence": {
+        "simple_price": {
+          "status": 503,
+          "body": {
+            "error": "service_unavailable",
+            "message": "No usable live market snapshots are available for simple/price."
+          },
+          "headers": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live-rerun-2/simple-price.headers.txt",
+          "bodyPath": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live-rerun-2/simple-price.body.json",
+          "path": "/simple/price?ids=bitcoin&vs_currencies=usd"
+        },
+        "token_price": {
+          "status": 503,
+          "body": {
+            "error": "service_unavailable",
+            "message": "No usable live market snapshots are available for simple/token_price."
+          },
+          "headers": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live-rerun-2/token-price.headers.txt",
+          "bodyPath": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live-rerun-2/token-price.body.json",
+          "path": "/simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&vs_currencies=usd"
+        }
+      }
+    },
+    {
+      "id": "VAL-BASE-007",
+      "status": "passed",
+      "reason": "Diagnostics made zero-live completed-boot machine-distinguishable from ordinary startup and degraded seeded bootstrap.",
+      "evidence": {
+        "request": "GET http://127.0.0.1:3102/diagnostics/runtime",
+        "status": 200,
+        "observed": {
+          "readiness.state": "degraded",
+          "readiness.initial_sync_completed": true,
+          "readiness.degraded": true,
+          "readiness.zero_live_completed_boot": true,
+          "readiness.validation_override_active": false,
+          "degraded.active": true,
+          "degraded.validation_override.mode": "off",
+          "hot_paths.shared_market_snapshot.available": false,
+          "hot_paths.shared_market_snapshot.source_class": "unavailable",
+          "hot_paths.shared_market_snapshot.provider_count": 0
+        },
+        "artifacts": {
+          "headers": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live-rerun-2/diagnostics-runtime.headers.txt",
+          "body": "/home/whoami/.factory/missions/f256e003-16ad-43db-80d9-59ad5ea92758/evidence/baseline-stability/zero-live-rerun-2/diagnostics-runtime.body.json"
+        }
+      }
+    }
+  ],
+  "toolsUsed": [
+    "curl-via-python-urllib"
+  ],
+  "frictions": [
+    "To reproduce true zero-live completed-boot semantics, the existing /home/whoami/dev/openGecko/data/opengecko.db had to be temporarily moved aside before starting the isolated validation server, matching the repository test setup."
+  ],
+  "blockers": []
+}

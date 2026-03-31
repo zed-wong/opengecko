@@ -1,0 +1,30 @@
+{
+  "milestone": "baseline-stability",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-BASE-004",
+    "VAL-BASE-007"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "validation-state.json",
+      "description": "Marked VAL-BASE-004 and VAL-BASE-007 passed after rerunning the isolated zero-live validation flow with the default SQLite snapshot file temporarily moved aside to reproduce the repository-tested zero-live startup state.",
+      "source": "flow-report"
+    },
+    {
+      "target": "user-testing artifacts",
+      "description": "Superseded earlier zero-live attempts that inherited seeded bootstrap state from an existing validation process or persistent snapshot source; authoritative evidence is in zero-live-rerun-2.json.",
+      "source": "setup"
+    }
+  ],
+  "previousRound": null
+}
