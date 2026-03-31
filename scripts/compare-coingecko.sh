@@ -166,8 +166,8 @@ compare_keys "exchange tickers top-level" "/exchanges/binance/tickers?per_page=1
 
 echo
 echo -e "${BOLD}📉 Derivatives${NC}"
-compare_keys "derivatives[0] keys" "/derivatives" '.[0] | keys'
-compare_keys "derivatives_exchanges[0] keys" "/derivatives/exchanges?per_page=1" '.[0] | keys'
+compare_keys "derivatives[0] keys" "/derivatives" '.data[0] | keys'
+compare_keys "derivatives_exchanges[0] keys" "/derivatives/exchanges?per_page=1" '.data[0] | keys'
 compare_keys "derivatives_exchanges/list" "/derivatives/exchanges/list" '.[].id'
 
 echo

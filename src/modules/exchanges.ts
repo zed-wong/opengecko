@@ -667,7 +667,15 @@ export function registerExchangeRoutes(
     const sortedRows = sortDerivativesExchangeRows(rows, query.order);
     const start = (page - 1) * perPage;
 
-    return sortedRows.slice(start, start + perPage).map(buildDerivativesExchangeSummary);
+    return {
+      data: sortedRows.slice(start, start + perPage).map(buildDerivativesExchangeSummary),
+      meta: {
+        page,
+        fixture: true,
+        frozen_at: '2026-03-20',
+        note: 'Derivatives data is seeded fixture, not live',
+      },
+    };
   });
 
   app.get('/derivatives/exchanges/:id', async (request) => {
@@ -676,12 +684,28 @@ export function registerExchangeRoutes(
     const exchange = getDerivativesExchangeOrThrow(database, params.id);
 
     return {
-      ...buildDerivativesExchangeSummary(exchange),
-      ...(query.include_tickers === 'true' ? { tickers: getDerivativesExchangeTickers(database, params.id) } : {}),
+      data: {
+        ...buildDerivativesExchangeSummary(exchange),
+        ...(query.include_tickers === 'true' ? { tickers: getDerivativesExchangeTickers(database, params.id) } : {}),
+      },
+      meta: {
+        page: 1,
+        fixture: true,
+        frozen_at: '2026-03-20',
+        note: 'Derivatives data is seeded fixture, not live',
+      },
     };
   });
 
   app.get('/derivatives', async () => {
-    return sortDerivativeRows(getDerivativeRows(database)).map(buildDerivativeTickerPayload);
+    return {
+      data: sortDerivativeRows(getDerivativeRows(database)).map(buildDerivativeTickerPayload),
+      meta: {
+        page: 1,
+        fixture: true,
+        frozen_at: '2026-03-20',
+        note: 'Derivatives data is seeded fixture, not live',
+      },
+    };
   });
 }

@@ -354,8 +354,8 @@ check "GET /derivatives/exchanges?order=trade_volume_24h_btc_desc&per_page=1&pag
 check "GET /derivatives/exchanges/list" "/derivatives/exchanges/list"
 check "GET /derivatives/exchanges/binance_futures?include_tickers=true" "/derivatives/exchanges/binance_futures?include_tickers=true"
 
-peek "derivatives[0]" "/derivatives" '.[0] | { market, symbol, price, basis }'
-peek "derivatives_exchanges[0]" "/derivatives/exchanges?per_page=1" '.[0] | { id, name, trade_volume_24h_btc }'
+peek "derivatives[0]" "/derivatives" '.data[0] | { market, symbol, price, basis }'
+peek "derivatives_exchanges[0]" "/derivatives/exchanges?per_page=1" '.data[0] | { id, name, trade_volume_24h_btc }'
 
 # ─────────────────────────────────────────────────
 echo

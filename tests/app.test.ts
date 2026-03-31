@@ -2170,8 +2170,10 @@ describe('OpenGecko app scaffold', () => {
     expect(listResponse.json()).toEqual(contractFixtures.derivativesExchangesList);
 
     expect(exchangesResponse.statusCode).toBe(200);
-    expect(exchangesResponse.json()).toHaveLength(1);
-    expect(exchangesResponse.json()[0]).toMatchObject(contractFixtures.derivativesExchanges[0]);
+    const exchangesBody = exchangesResponse.json();
+    expect(exchangesBody.data).toHaveLength(1);
+    expect(exchangesBody.data[0]).toMatchObject(contractFixtures.derivativesExchanges[0]);
+    expect(exchangesBody.meta).toMatchObject({ fixture: true, frozen_at: '2026-03-20' });
   });
 
   it('returns derivatives exchange detail without tickers by default and includes tickers on request', async () => {
@@ -2185,7 +2187,8 @@ describe('OpenGecko app scaffold', () => {
     });
 
     expect(detailResponse.statusCode).toBe(200);
-    expect(detailResponse.json()).toMatchObject({
+    const detailBody = detailResponse.json();
+    expect(detailBody.data).toMatchObject({
       id: 'binance_futures',
       name: 'Binance Futures',
       open_interest_btc: 185000,
@@ -2199,15 +2202,18 @@ describe('OpenGecko app scaffold', () => {
       image: 'https://assets.coingecko.com/markets/images/52/small/binance.jpg',
       centralized: true,
     });
-    expect(detailResponse.json()).not.toHaveProperty('tickers');
+    expect(detailBody.meta).toMatchObject({ fixture: true, frozen_at: '2026-03-20' });
+    expect(detailBody.data).not.toHaveProperty('tickers');
 
     expect(includeTickersResponse.statusCode).toBe(200);
-    expect(includeTickersResponse.json()).toMatchObject({
+    const includeTickersBody = includeTickersResponse.json();
+    expect(includeTickersBody.data).toMatchObject({
       id: 'binance_futures',
       name: 'Binance Futures',
     });
-    expect(includeTickersResponse.json()).toHaveProperty('tickers');
-    expect(includeTickersResponse.json().tickers).toEqual(expect.arrayContaining([
+    expect(includeTickersBody.meta).toMatchObject({ fixture: true, frozen_at: '2026-03-20' });
+    expect(includeTickersBody.data).toHaveProperty('tickers');
+    expect(includeTickersBody.data.tickers).toEqual(expect.arrayContaining([
       expect.objectContaining({
         market: 'Binance Futures',
         market_id: 'binance_futures',
@@ -2225,8 +2231,10 @@ describe('OpenGecko app scaffold', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject(contractFixtures.derivatives);
-    for (const ticker of response.json()) {
+    const derivativesBody = response.json();
+    expect(derivativesBody.data).toMatchObject(contractFixtures.derivatives);
+    expect(derivativesBody.meta).toMatchObject({ fixture: true, frozen_at: '2026-03-20', note: 'Derivatives data is seeded fixture, not live' });
+    for (const ticker of derivativesBody.data) {
       expect(ticker.funding_rate).not.toBeUndefined();
       expect(ticker.open_interest_btc).not.toBeNull();
       expect(ticker.trade_volume_24h_btc).not.toBeNull();
@@ -4924,7 +4932,8 @@ describe('OpenGecko app scaffold', () => {
     expect(derivativesListBody).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'binance_futures', name: 'Binance Futures' }),
     ]));
-    expect(derivativesDetailBody).toMatchObject({ id: 'binance_futures', name: 'Binance Futures' });
+    expect(derivativesDetailBody.data).toMatchObject({ id: 'binance_futures', name: 'Binance Futures' });
+    expect(derivativesDetailBody.meta).toMatchObject({ fixture: true, frozen_at: '2026-03-20' });
   });
 
   it('aligns token lists, contract routes, and address casing with canonical coin identity', async () => {

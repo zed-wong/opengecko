@@ -706,11 +706,14 @@ describe('CoinGecko API compatibility', () => {
       const response = await app.inject({ method: 'GET', url: '/derivatives' });
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(Array.isArray(body)).toBe(true);
+      expect(body).toHaveProperty('data');
+      expect(body).toHaveProperty('meta');
+      expect(body.meta).toMatchObject({ fixture: true, frozen_at: '2026-03-20' });
+      expect(Array.isArray(body.data)).toBe(true);
 
       // Mock data has derivatives from fixtures
-      if (body.length > 0) {
-        const derivative = body[0];
+      if (body.data.length > 0) {
+        const derivative = body.data[0];
         const requiredFields = [
           'market', 'symbol', 'index_id', 'price',
           'price_percentage_change_24h', 'contract_type',
@@ -733,10 +736,13 @@ describe('CoinGecko API compatibility', () => {
       const response = await app.inject({ method: 'GET', url: '/derivatives/exchanges' });
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(Array.isArray(body)).toBe(true);
+      expect(body).toHaveProperty('data');
+      expect(body).toHaveProperty('meta');
+      expect(body.meta).toMatchObject({ fixture: true, frozen_at: '2026-03-20' });
+      expect(Array.isArray(body.data)).toBe(true);
 
-      if (body.length > 0) {
-        const exchange = body[0];
+      if (body.data.length > 0) {
+        const exchange = body.data[0];
         const requiredFields = [
           'name', 'id', 'open_interest_btc',
           'trade_volume_24h_btc', 'number_of_perpetual_pairs',

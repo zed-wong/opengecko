@@ -80,13 +80,13 @@ describe('exchange live fidelity contracts', () => {
       });
 
       expect(exchangesResponse.statusCode).toBe(200);
-      for (const venue of exchangesResponse.json()) {
+      for (const venue of exchangesResponse.json().data) {
         expect(venue.open_interest_btc).not.toBeNull();
         expect(venue.trade_volume_24h_btc).not.toBeNull();
       }
 
       expect(derivativesResponse.statusCode).toBe(200);
-      for (const ticker of derivativesResponse.json()) {
+      for (const ticker of derivativesResponse.json().data) {
         expect(ticker.open_interest_btc).not.toBeNull();
         expect(ticker.trade_volume_24h_btc).not.toBeNull();
         expect(ticker.funding_rate).not.toBeUndefined();

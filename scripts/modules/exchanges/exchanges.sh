@@ -40,11 +40,12 @@ check_json_expr "volume chart range returns ascending timestamp/value pairs" "/e
 
 module_section "Derivatives"
 check_status "GET /derivatives responds" "/derivatives"
-check_json_expr "derivatives list exposes contract-level market fields" "/derivatives" 'type == "array" and length > 0 and ([.[0] | has("market") and has("symbol") and has("price") and has("contract_type")] | all(.))' "derivatives rows expose market, symbol, price, and contract type"
+check_json_expr "derivatives list exposes contract-level market fields" "/derivatives" '.data | type == "array" and length > 0 and ([.[0] | has("market") and has("symbol") and has("price") and has("contract_type")] | all(.))' "derivatives rows expose market, symbol, price, and contract type"
+check_json_expr "derivatives response includes fixture metadata" "/derivatives" '(.meta | has("fixture") and has("frozen_at")) and .meta.fixture == true' "derivatives response includes fixture metadata"
 check_status "GET /derivatives/exchanges responds" "/derivatives/exchanges?order=trade_volume_24h_btc_desc&per_page=1&page=1"
-check_json_expr "derivatives exchanges include open-interest and volume fields" "/derivatives/exchanges?order=trade_volume_24h_btc_desc&per_page=1&page=1" 'type == "array" and length == 1 and ([.[0] | has("id") and has("open_interest_btc") and has("trade_volume_24h_btc")] | all(.))' "derivatives exchange summaries expose open interest and volume"
+check_json_expr "derivatives exchanges include open-interest and volume fields" "/derivatives/exchanges?order=trade_volume_24h_btc_desc&per_page=1&page=1" '.data | type == "array" and length == 1 and ([.[0] | has("id") and has("open_interest_btc") and has("trade_volume_24h_btc")] | all(.))' "derivatives exchange summaries expose open interest and volume"
 check_status "GET /derivatives/exchanges/list responds" "/derivatives/exchanges/list"
 check_status "GET /derivatives/exchanges/:id responds" "/derivatives/exchanges/${DERIVATIVES_EXCHANGE_ID}?include_tickers=true"
-check_json_expr "derivatives exchange detail can include ticker payloads" "/derivatives/exchanges/${DERIVATIVES_EXCHANGE_ID}?include_tickers=true" 'has("id") and has("name") and (.tickers | type) == "array" and (.tickers | length > 0) and ([.tickers[] | has("symbol") and has("contract_type") and has("trade_volume_24h_btc")] | all(.))' "derivatives exchange detail includes seeded contract rows"
+check_json_expr "derivatives exchange detail can include ticker payloads" "/derivatives/exchanges/${DERIVATIVES_EXCHANGE_ID}?include_tickers=true" '.data | has("id") and has("name") and (.tickers | type) == "array" and (.tickers | length > 0) and ([.tickers[] | has("symbol") and has("contract_type") and has("trade_volume_24h_btc")] | all(.))' "derivatives exchange detail includes seeded contract rows"
 
 module_summary
