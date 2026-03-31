@@ -208,6 +208,32 @@ export async function fetchDefillamaTokenPrices(coins: string[], options: Defill
   }
 }
 
+export async function fetchDefillamaDiscoveredPools(
+  chain?: string,
+  options: DefillamaRequestOptions = {},
+): Promise<DefillamaYieldPool[] | null> {
+  try {
+    const poolsUrl = `${resolveYieldsBaseUrl(options.yieldsBaseUrl, options.baseUrl)}/pools`;
+    const response = await fetchJson<{ data?: unknown[] }>('/pools', options, poolsUrl);
+
+    if (!Array.isArray(response?.data)) {
+      return null;
+    }
+
+    return response.data
+      .map(normalizeYieldPool)
+      .filter((pool): pool is DefillamaYieldPool =>
+        pool !== null
+        && (!chain || pool.chain === chain)
+        && typeof pool.tvlUsd === 'number'
+        && pool.tvlUsd > 100_000,
+      );
+  } catch (error) {
+    console.error('Failed to fetch DeFiLlama discovered pools', error);
+    return null;
+  }
+}
+
 export async function fetchDefillamaDexVolumes(chain?: string, options: DefillamaRequestOptions = {}): Promise<DefillamaDexVolumes | null> {
   try {
     const suffix = chain ? `/${encodeURIComponent(chain)}` : '';

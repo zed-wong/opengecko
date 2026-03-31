@@ -204,4 +204,122 @@ describe('defillama provider', () => {
     await expect(fetchDefillamaDexVolumes(undefined, { fetchImpl: fetchMock as typeof fetch })).resolves.toBeNull();
     expect(errorSpy).toHaveBeenCalledTimes(3);
   });
+
+  it('fetches discovered pools filtered by chain and minimum TVL', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: [
+        {
+          chain: 'Ethereum',
+          project: 'uniswap-v3',
+          symbol: 'DAI-USDC',
+          pool: 'discovered-dai-usdc',
+          tvlUsd: 5_000_000,
+          volumeUsd1d: 1_000_000,
+          underlyingTokens: [
+            '0x6b175474e89094c44da98b954eedeac495271d0f',
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          ],
+        },
+        {
+          chain: 'Ethereum',
+          project: 'curve',
+          symbol: 'FRAX-USDC',
+          pool: 'discovered-frax-usdc',
+          tvlUsd: 50_000,
+          volumeUsd1d: 10_000,
+          underlyingTokens: [
+            '0x853d955acef822db058eb8505911ed77f175b99e',
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          ],
+        },
+        {
+          chain: 'Arbitrum',
+          project: 'gmx',
+          symbol: 'ETH-USDC',
+          pool: 'discovered-gmx-eth',
+          tvlUsd: 2_000_000,
+          volumeUsd1d: 500_000,
+          underlyingTokens: [
+            '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
+            '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8',
+          ],
+        },
+        {
+          chain: 'Ethereum',
+          project: 'sushiswap',
+          symbol: 'LOW-TVL',
+          pool: 'discovered-low-tvl',
+          tvlUsd: 5_000,
+          volumeUsd1d: 1_000,
+          underlyingTokens: [
+            '0x1111111111111111111111111111111111111111',
+            '0x2222222222222222222222222222222222222222',
+          ],
+        },
+      ],
+    }), { status: 200 }));
+
+    const { fetchDefillamaDiscoveredPools } = await import('../src/providers/defillama');
+
+    const result = await fetchDefillamaDiscoveredPools('Ethereum', { fetchImpl: fetchMock as typeof fetch });
+
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({
+      chain: 'Ethereum',
+      project: 'uniswap-v3',
+      symbol: 'DAI-USDC',
+      pool: 'discovered-dai-usdc',
+      tvlUsd: 5_000_000,
+      volumeUsd1d: 1_000_000,
+    });
+  });
+
+  it('returns null when discovered pools request fails', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('server error', { status: 500 }));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { fetchDefillamaDiscoveredPools } = await import('../src/providers/defillama');
+
+    const result = await fetchDefillamaDiscoveredPools('Ethereum', { fetchImpl: fetchMock as typeof fetch });
+
+    expect(result).toBeNull();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns discovered pools without chain filter when chain is omitted', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: [
+        {
+          chain: 'Ethereum',
+          project: 'uniswap-v3',
+          symbol: 'ETH-USDC',
+          pool: 'discovered-eth-usdc',
+          tvlUsd: 1_000_000,
+          volumeUsd1d: 200_000,
+          underlyingTokens: [
+            '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+            '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          ],
+        },
+        {
+          chain: 'BSC',
+          project: 'pancakeswap',
+          symbol: 'BNB-USDT',
+          pool: 'discovered-bnb-usdt',
+          tvlUsd: 3_000_000,
+          volumeUsd1d: 800_000,
+          underlyingTokens: [
+            '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+            '0x55d398326f99059ff775485246999027b3197955',
+          ],
+        },
+      ],
+    }), { status: 200 }));
+
+    const { fetchDefillamaDiscoveredPools } = await import('../src/providers/defillama');
+
+    const result = await fetchDefillamaDiscoveredPools(undefined, { fetchImpl: fetchMock as typeof fetch });
+
+    expect(result).toHaveLength(2);
+  });
 });

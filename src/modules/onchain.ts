@@ -7,7 +7,7 @@ import { coins, marketSnapshots, onchainDexes, onchainNetworks, onchainPools } f
 import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePositiveInt } from '../http/params';
 import { buildCoinId } from '../lib/coin-id';
-import { fetchDefillamaDexVolumes, fetchDefillamaPoolData, fetchDefillamaTokenPrices } from '../providers/defillama';
+import { fetchDefillamaDexVolumes, fetchDefillamaDiscoveredPools, fetchDefillamaPoolData, fetchDefillamaTokenPrices } from '../providers/defillama';
 import { fetchEthereumPoolSwapLogs } from '../providers/sqd';
 
 const paginationQuerySchema = z.object({
@@ -160,6 +160,13 @@ type LiveOnchainPoolPatch = {
   reserveUsd: number | null;
   volume24hUsd: number | null;
   source: 'live' | 'seed';
+  dexId?: string;
+  name?: string;
+  baseTokenAddress?: string;
+  baseTokenSymbol?: string;
+  quoteTokenAddress?: string;
+  quoteTokenSymbol?: string;
+  networkId?: string;
 };
 
 type LiveOnchainCatalog = {
@@ -425,6 +432,79 @@ async function buildLiveOnchainCatalog(database: AppDatabase): Promise<LiveOncha
     });
   }
 
+  const discoveredPools = await fetchDefillamaDiscoveredPools('Ethereum');
+  if (discoveredPools) {
+    for (const pool of discoveredPools) {
+      const projectSlug = pool.project ? slugifyOnchainId(pool.project) : null;
+      if (!projectSlug) continue;
+
+      if (!pool.underlyingTokens || pool.underlyingTokens.length < 2) continue;
+
+      const poolTokens = new Set(pool.underlyingTokens.map(normalizeAddress));
+
+      const alreadyMatched = [...seededPoolMap.values()].some((seeded) => {
+        if (seeded.networkId !== 'eth') return false;
+        const baseNorm = normalizeAddress(seeded.baseTokenAddress);
+        const quoteNorm = normalizeAddress(seeded.quoteTokenAddress);
+        return poolTokens.has(baseNorm) && poolTokens.has(quoteNorm);
+      });
+
+      if (alreadyMatched) continue;
+
+      const networkConfig = DEFILLAMA_NETWORK_CONFIG['Ethereum'];
+      if (!networksById.has(networkConfig.networkId)) {
+        networksById.set(networkConfig.networkId, {
+          id: networkConfig.networkId,
+          name: networkConfig.name,
+          chainIdentifier: networkConfig.chainIdentifier,
+          coingeckoAssetPlatformId: networkConfig.coingeckoAssetPlatformId,
+          nativeCurrencyCoinId: networkConfig.nativeCurrencyCoinId,
+          imageUrl: networkConfig.imageUrl,
+          updatedAt: now,
+        });
+      }
+
+      const dexConfig = DEFILLAMA_DEX_OVERRIDES[projectSlug] ?? {
+        id: projectSlug,
+        name: toDexName(projectSlug),
+        url: `https://defillama.com/protocol/${projectSlug}`,
+        imageUrl: null,
+      };
+      const dexKey = `${networkConfig.networkId}:${dexConfig.id}`;
+      if (!dexesByKey.has(dexKey)) {
+        dexesByKey.set(dexKey, {
+          id: dexConfig.id,
+          networkId: networkConfig.networkId,
+          name: dexConfig.name,
+          url: dexConfig.url,
+          imageUrl: dexConfig.imageUrl,
+          updatedAt: now,
+        });
+      }
+
+      const poolIdentifier = pool.pool ?? `${pool.chain ?? ''}-${pool.project ?? ''}-${pool.symbol ?? ''}-${(pool.underlyingTokens ?? []).join(',')}`;
+      const poolAddress = generateDeterministicAddress(poolIdentifier);
+      const baseToken = pool.underlyingTokens[0];
+      const quoteToken = pool.underlyingTokens[1];
+
+      if (!poolsByAddress.has(poolAddress)) {
+        poolsByAddress.set(poolAddress, {
+          priceUsd: null,
+          reserveUsd: pool.tvlUsd ?? null,
+          volume24hUsd: pool.volumeUsd1d ?? null,
+          source: 'live',
+          dexId: dexConfig.id,
+          name: pool.symbol ?? `${poolAddress.slice(0, 8)}...`,
+          baseTokenAddress: baseToken,
+          baseTokenSymbol: baseToken.slice(0, 8),
+          quoteTokenAddress: quoteToken,
+          quoteTokenSymbol: quoteToken.slice(0, 8),
+          networkId: networkConfig.networkId,
+        });
+      }
+    }
+  }
+
     return {
       networks: [...networksById.values()].sort((left, right) => left.name.localeCompare(right.name)),
       dexes: [...dexesByKey.values()].sort((left, right) =>
@@ -439,6 +519,17 @@ async function buildLiveOnchainCatalog(database: AppDatabase): Promise<LiveOncha
   } finally {
     liveOnchainCatalogPromise = null;
   }
+}
+
+function generateDeterministicAddress(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const char = seed.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(8, '0');
+  return `0x${hex.padEnd(40, '0')}`;
 }
 
 function isValidOnchainAddress(address: string) {
@@ -2307,7 +2398,7 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
 
     const orderBy = resolvePoolOrder(query.sort);
 
-    const rows = database.db
+    const seededRows = database.db
       .select()
       .from(onchainPools)
       .where(eq(onchainPools.networkId, params.network))
@@ -2315,10 +2406,40 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       .all()
       .map((row) => patchPoolRow(row, liveCatalog.poolsByAddress.get(row.address)));
 
+    const seededAddresses = new Set(seededRows.map((row) => row.address));
+    const now = new Date();
+    const discoveredRows = [...liveCatalog.poolsByAddress.entries()]
+      .filter(([address, patch]) =>
+        !seededAddresses.has(address)
+        && patch.source === 'live'
+        && patch.networkId === params.network
+        && patch.baseTokenAddress
+        && patch.quoteTokenAddress,
+      )
+      .map(([address, patch]) => ({
+        networkId: params.network,
+        address,
+        dexId: patch.dexId ?? 'unknown',
+        name: patch.name ?? address.slice(0, 8),
+        baseTokenAddress: patch.baseTokenAddress!,
+        baseTokenSymbol: patch.baseTokenSymbol ?? patch.baseTokenAddress!.slice(0, 8),
+        quoteTokenAddress: patch.quoteTokenAddress!,
+        quoteTokenSymbol: patch.quoteTokenSymbol ?? patch.quoteTokenAddress!.slice(0, 8),
+        priceUsd: patch.priceUsd,
+        reserveUsd: patch.reserveUsd,
+        volume24hUsd: patch.volume24hUsd,
+        transactions24hBuys: 0,
+        transactions24hSells: 0,
+        createdAtTimestamp: null,
+        updatedAt: now,
+      }));
+
+    const allRows = [...seededRows, ...discoveredRows];
+
     const start = (page - 1) * perPage;
 
     return {
-      data: rows.slice(start, start + perPage).map((row) => buildPoolResource(row)),
+      data: allRows.slice(start, start + perPage).map((row) => buildPoolResource(row)),
       meta: {
         page,
         data_source: liveCatalog.poolsByAddress.size === 0 || params.network !== 'eth' ? 'seeded' : 'live',
