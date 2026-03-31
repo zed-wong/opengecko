@@ -236,7 +236,6 @@ export async function fetchDefillamaDiscoveredPools(
 
 type DefillamaToken = {
   address: string;
-  name: string;
   symbol: string;
   decimals: number;
   priceUsd: number | null;
@@ -265,7 +264,6 @@ export async function fetchDefillamaTokens(
 
     const tokens: Array<{
       address: string;
-      name: string;
       symbol: string;
       decimals: number;
       priceUsd: number | null;
@@ -278,7 +276,6 @@ export async function fetchDefillamaTokens(
           if (address && address.startsWith('0x')) {
             tokens.push({
               address,
-              name: coinData.symbol ?? 'Unknown',
               symbol: coinData.symbol ?? 'UNKNOWN',
               decimals: coinData.decimals ?? 18,
               priceUsd: coinData.price ?? null,
