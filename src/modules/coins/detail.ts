@@ -18,6 +18,7 @@ import {
   toNumberOrNull,
 } from './helpers';
 import { buildSparkline, getSeriesChangePercentage, getSeriesExtremes } from './market-data';
+import { extractCoinMetadata, type ExchangeMarketSnapshot } from '../../providers/ccxt';
 
 export function buildCoinDetail(
   database: AppDatabase,
@@ -34,11 +35,35 @@ export function buildCoinDetail(
     includeSparkline: boolean;
     includeCategoriesDetails: boolean;
   },
+  ccxtMarkets?: ExchangeMarketSnapshot[],
 ) {
   const hydratedCoin = withResolvedCoinImages(coin);
   const categoriesList = parseJsonArray<string>(coin.categoriesJson);
   const description = parseJsonObject<Record<string, string>>(coin.descriptionJson);
   const links = parseJsonObject<Record<string, unknown>>(coin.linksJson);
+
+  // Enrich description and links from CCXT markets
+  if (ccxtMarkets?.length) {
+    const ccxtMetadata = extractCoinMetadata(ccxtMarkets, coin.id);
+    if (ccxtMetadata) {
+      if (ccxtMetadata.description && !description.en) {
+        description.en = ccxtMetadata.description;
+      }
+
+      if (ccxtMetadata.website) {
+        links.homepage = [ccxtMetadata.website];
+      }
+
+      if (ccxtMetadata.explorer) {
+        links.blockchain_site = [ccxtMetadata.explorer];
+      }
+
+      if (ccxtMetadata.sourceCode) {
+        links.repos_url = { github: [ccxtMetadata.sourceCode] };
+      }
+    }
+  }
+
   const seriesExtremes = getSeriesExtremes(database, coin.id, 'usd', marketFreshnessThresholdSeconds, snapshotAccessPolicy);
   const priceChangePercentage7d = getSeriesChangePercentage(
     database,

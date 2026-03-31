@@ -403,6 +403,37 @@ export async function fetchExchangeOHLCV(
   return rows.map((row) => toOhlcvSnapshot(exchangeId, symbol, timeframe, row));
 }
 
+export function extractCoinMetadata(
+  markets: ExchangeMarketSnapshot[],
+  coinId: string,
+): {
+  description: string | null;
+  website: string | null;
+  explorer: string | null;
+  sourceCode: string | null;
+  whitepaper: string | null;
+} | null {
+  const coinMarkets = markets.filter(
+    (m) => m.base.toLowerCase() === coinId.toLowerCase() || m.baseName?.toLowerCase() === coinId.toLowerCase(),
+  );
+
+  if (coinMarkets.length === 0) {
+    return null;
+  }
+
+  const firstMarket = coinMarkets[0];
+  const rawInfo = firstMarket.raw as Record<string, unknown>;
+  const info = (rawInfo?.info ?? {}) as Record<string, unknown>;
+
+  return {
+    description: (rawInfo?.description as string) ?? null,
+    website: (info.website as string) ?? null,
+    explorer: (info.explorer as string) ?? null,
+    sourceCode: (info.sourceCode as string) ?? null,
+    whitepaper: (info.whitepaper as string) ?? null,
+  };
+}
+
 export async function closeExchangePool() {
   const exchanges = [...exchangePool.values()];
   exchangePool.clear();
