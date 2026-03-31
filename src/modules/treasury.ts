@@ -192,7 +192,14 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
     const sortedRows = [...filteredRows].sort((left, right) => left.name.localeCompare(right.name));
     const start = (page - 1) * perPage;
 
-    return sortedRows.slice(start, start + perPage).map(buildEntityListRow);
+    return {
+      data: sortedRows.slice(start, start + perPage).map(buildEntityListRow),
+      meta: {
+        fixture: true,
+        entity_count: 2,
+        note: 'Treasury data is seeded fixture, not live',
+      },
+    };
   });
 
   app.get('/:entity/public_treasury/:coin_id', async (request) => {
@@ -305,17 +312,24 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
     const totalCurrentValueUsd = sumBigNumber(holdings.map((holding) => holding.current_value_usd)).toNumber();
 
     return {
-      id: entity.id,
-      name: entity.name,
-      symbol: entity.symbol,
-      entity_type: entity.entityType,
-      country: entity.country,
-      description: entity.description,
-      website_url: entity.websiteUrl,
-      total_entry_value_usd: totalEntryValueUsd,
-      total_current_value_usd: totalCurrentValueUsd,
-      total_unrealized_pnl_usd: new BigNumber(totalCurrentValueUsd).minus(totalEntryValueUsd).toNumber(),
-      holdings,
+      data: {
+        id: entity.id,
+        name: entity.name,
+        symbol: entity.symbol,
+        entity_type: entity.entityType,
+        country: entity.country,
+        description: entity.description,
+        website_url: entity.websiteUrl,
+        total_entry_value_usd: totalEntryValueUsd,
+        total_current_value_usd: totalCurrentValueUsd,
+        total_unrealized_pnl_usd: new BigNumber(totalCurrentValueUsd).minus(totalEntryValueUsd).toNumber(),
+        holdings,
+      },
+      meta: {
+        fixture: true,
+        entity_count: 2,
+        note: 'Treasury data is seeded fixture, not live',
+      },
     };
   });
 
@@ -346,8 +360,14 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
 
     if (rows.length === 0 || prices.length === 0) {
       return {
-        holdings: [],
-        holding_value_in_usd: [],
+        data: {
+          holdings: [],
+          holding_value_in_usd: [],
+        },
+        meta: {
+          fixture: true,
+          note: 'Treasury data is seeded fixture, not live',
+        },
       };
     }
 
@@ -390,8 +410,14 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
           .filter((row): row is { timestamp: number; holdingBalance: number; holdingValueUsd: number } => row !== null);
 
     return {
-      holdings: chartRows.map((row) => [row.timestamp, row.holdingBalance]),
-      holding_value_in_usd: chartRows.map((row) => [row.timestamp, row.holdingValueUsd]),
+      data: {
+        holdings: chartRows.map((row) => [row.timestamp, row.holdingBalance]),
+        holding_value_in_usd: chartRows.map((row) => [row.timestamp, row.holdingValueUsd]),
+      },
+      meta: {
+        fixture: true,
+        note: 'Treasury data is seeded fixture, not live',
+      },
     };
   });
 
@@ -416,16 +442,23 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
     const start = (page - 1) * perPage;
 
     return {
-      transactions: sortedRows.slice(start, start + perPage).map((row) => ({
-        date: row.happenedAt.getTime(),
-        source_url: row.sourceUrl,
-        coin_id: row.coinId,
-        type: row.type,
-        holding_net_change: row.holdingNetChange,
-        transaction_value_usd: row.transactionValueUsd,
-        holding_balance: row.holdingBalance,
-        average_entry_value_usd: row.averageEntryValueUsd,
-      })),
+      data: {
+        transactions: sortedRows.slice(start, start + perPage).map((row) => ({
+          date: row.happenedAt.getTime(),
+          source_url: row.sourceUrl,
+          coin_id: row.coinId,
+          type: row.type,
+          holding_net_change: row.holdingNetChange,
+          transaction_value_usd: row.transactionValueUsd,
+          holding_balance: row.holdingBalance,
+          average_entry_value_usd: row.averageEntryValueUsd,
+        })),
+      },
+      meta: {
+        fixture: true,
+        transaction_count: 6,
+        note: 'Treasury data is seeded fixture, not live',
+      },
     };
   });
 }

@@ -39,7 +39,7 @@ The system has 3 live data sources: **CCXT** (8 CEX, ticker/OHLCV/exchange metad
 | Tier | Coverage | Endpoints | Data source |
 |------|----------|-----------|-------------|
 | **Live** (~55%) | Real-time | `/simple/price`, `/simple/token_price`, `/exchange_rates` (currency-api), `/coins/markets`, `/asset_platforms` (canonical CCXT-discovered platforms), `/exchanges` metadata, `/exchanges/{id}/tickers` (live CCXT ticker ingestion), `/onchain/networks/*/pools` (DeFiLlama multi-network discovery), `/onchain/networks/*/tokens/*` (DeFiLlama live price + decimals), `/onchain/networks/*/pools/*/trades` (Subsquid with address labels), `/coins/{id}` (CCXT-enriched description/links) | CCXT + DeFiLlama + Subsquid |
-| **Hybrid** (~25%) | Partial live | `/coins/markets` sparkline (seeded 7-day synthetic candles), `/coins/{id}/history`, `/coins/{id}/market_chart`, `/coins/{id}/ohlc`, `/coins/{id}/ohlc/range`, `/global`, `/search` (seeded index + live enrichment), `/search/trending` (live market-cap rank, not true trending), `/coins/top_gainers_losers`, `/exchanges/{id}/volume_chart*` (live refresh ownership), `/public_treasury/*` (USD from live snapshots, holdings/transactions seeded) | Mixed |
+| **Hybrid** (~25%) | Partial live | `/coins/markets` sparkline (seeded 7-day synthetic candles), `/coins/{id}/history`, `/coins/{id}/market_chart`, `/coins/{id}/ohlc`, `/coins/{id}/ohlc/range`, `/global`, `/search` (seeded index + live enrichment), `/search/trending` (live market-cap rank, not true trending), `/coins/top_gainers_losers`, `/exchanges/{id}/volume_chart*` (live refresh ownership) | Mixed |
 | **Fixture/Seeded** (~20%) | Zero live | `/derivatives*` (3 tickers, 2 exchanges, frozen data), `/public_treasury/holding_chart` (seeded), `/public_treasury/transaction_history` (seeded 6 tx), `/onchain/*/top_holders` (fixture USDC only), `/onchain/*/top_traders` (fixture USDC only), `/onchain/*/holders_chart` (fixture USDC only), `/onchain/pool OHLCV` (synthetic fallback), `/onchain/pool trades` (fixture fallback), `/coins/*/circulating_supply_chart`, `/coins/*/total_supply_chart`, `/global/market_cap_chart` | 100% seeded/fixture |
 
 **Key gap**: "Route implemented" ≠ "has live data". The 76/76 parity claim refers to HTTP contract surface (routing, parameters, response structure), not data fidelity. Several families serve seeded, fixture, or hybrid data.
@@ -72,7 +72,7 @@ The system has 3 live data sources: **CCXT** (8 CEX, ticker/OHLCV/exchange metad
 | `/exchanges/*` | R2 | partial | hybrid | Exchange metadata and list are live from CCXT; `/exchanges/{id}/tickers` is live-backed via persisted CCXT ticker ingestion; `/exchanges/{id}/volume_chart*` is hybrid-from-live, accumulated from the same ticker refresh ownership while historical depth remains limited to retained points |
 | `/derivatives/*` | R2 | partial | fixture | 3 hardcoded tickers (BTC/ETH perpetual + 1 expired), 2 exchanges; data frozen at 2026-03-20. Responses include `meta.fixture: true` and `meta.frozen_at` to signal seeded data.
 | NFTs | removed | removed | — | removed from the active roadmap |
-| Public treasury | R3 | partial | hybrid | USD values from live snapshots; holdings (2 entities) and transactions (6 tx) are fully seeded; holding_chart is seeded synthetic |
+| Public treasury | R3 | done (fixture documented) | fixture | 2 entities, 6 transactions, fixed holdings. USD values from live snapshots. All responses now include `meta.fixture: true` to signal seeded data. |
 | Onchain DEX | R4 | partial | live | Phase 2 complete: DeFiLlama multi-network pool/token discovery (ETH, Solana, Avalanche, Fantom), live price/decimals enrichment, Subsquid address labels for trades; `top_holders`, `top_traders`, `holders_chart` remain fixture (USDC only); `pool OHLCV` fallback is 6 synthetic candles |
 
 ## Active Decisions
@@ -121,7 +121,7 @@ The system has 3 live data sources: **CCXT** (8 CEX, ticker/OHLCV/exchange metad
 - `/exchanges/{id}/tickers`: live CCXT ticker ingestion now persists venue rows into `coinTickers`; remaining divergence is mainly depth/trust approximation rather than seeded ownership.
 - `/exchanges/{id}/volume_chart*`: accumulated from live ticker refresh cycles into `exchangeVolumePoints`; recent windows are live-backed, but historical breadth is still bounded to retained runtime snapshots rather than deep venue-native archives.
 - `/derivatives/*`: fully seeded fixture — 3 tickers, 2 exchanges, frozen at 2026-03-20. No CCXT derivatives fetch exists.
-- `/public_treasury/*`: USD values from live snapshots; holdings and transactions are 100% seeded (2 entities, 6 transactions).
+- `/public_treasury/*`: 100% seeded fixture (2 entities, 6 transactions). All responses include `meta.fixture: true`. USD values derived from live snapshots.
 - `/onchain/networks/*/pools`: now live from DeFiLlama multi-network discovery (ETH, Solana, Avalanche, Fantom); pools are dynamically discovered and enriched with live price/volume/reserve data.
 - `/onchain/networks/*/tokens/*`: now live from DeFiLlama with price and decimals enrichment for ETH tokens.
 - `/onchain/*/top_holders`, `/onchain/*/top_traders`, `/onchain/*/holders_chart`: fixture only (USDC on ETH, fake addresses). All other tokens return empty arrays.
