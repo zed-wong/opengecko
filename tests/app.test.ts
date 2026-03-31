@@ -7359,7 +7359,7 @@ describe('OpenGecko app scaffold', () => {
     expect(categoriesListResponse.json()).toMatchObject(contractFixtures.categoriesList);
 
     expect(categoriesResponse.statusCode).toBe(200);
-    expect(categoriesResponse.json()[0]).toMatchObject({
+    expect(categoriesResponse.json().data[0]).toMatchObject({
       id: 'stablecoins',
     });
 

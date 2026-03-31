@@ -466,25 +466,42 @@ export function registerCoinRoutes(
   });
 
   app.get('/coins/categories/list', async () => {
-    return getCategories(database).map((category) => ({
-      category_id: category.id,
-      name: category.name,
-    }));
+    const categories = getCategories(database);
+
+    return {
+      data: categories.map((category) => ({
+        category_id: category.id,
+        name: category.name,
+      })),
+      meta: {
+        fixture: true,
+        category_count: categories.length,
+        note: 'Categories data is seeded fixture (2 categories)',
+      },
+    };
   });
 
   app.get('/coins/categories', async (request) => {
     const query = categoriesQuerySchema.parse(request.query);
+    const sorted = sortCategories(getCategories(database), query.order);
 
-    return sortCategories(getCategories(database), query.order).map((category) => ({
-      id: category.id,
-      name: category.name,
-      market_cap: category.marketCap,
-      market_cap_change_24h: category.marketCapChange24h,
-      content: category.content,
-      top_3_coins: parseJsonArray<string>(category.top3CoinsJson),
-      volume_24h: category.volume24h,
-      updated_at: category.updatedAt.toISOString(),
-    }));
+    return {
+      data: sorted.map((category) => ({
+        id: category.id,
+        name: category.name,
+        market_cap: category.marketCap,
+        market_cap_change_24h: category.marketCapChange24h,
+        content: category.content,
+        top_3_coins: parseJsonArray<string>(category.top3CoinsJson),
+        volume_24h: category.volume24h,
+        updated_at: category.updatedAt.toISOString(),
+      })),
+      meta: {
+        fixture: true,
+        category_count: sorted.length,
+        note: 'Categories data is seeded fixture (2 categories)',
+      },
+    };
   });
 
   app.get('/coins/:platform_id/contract/:contract_address', async (request) => {
