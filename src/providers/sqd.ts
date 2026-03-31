@@ -7,6 +7,19 @@ const DEFAULT_MAX_BLOCK_SPAN = 4_000;
 const MIN_BLOCK_SPAN = 128;
 const DEFAULT_REQUEST_TIMEOUT_MS = 20_000;
 
+const KNOWN_LABELS: Record<string, string> = {
+  '0x7a250d5630b4cf539739df2c5dacb4c659f2488d': 'Uniswap V2 Router',
+  '0xe592427a0aece92de3edee1f18e0157c05861564': 'Uniswap V3 Router',
+  '0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45': 'Uniswap Universal Router',
+  '0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad': 'Uniswap Universal Router 2',
+  '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640': 'Uniswap V3: USDC-WETH',
+  '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7': 'Curve: FRAX-USDC',
+};
+
+export function resolveAddressLabel(address: string): string | null {
+  return KNOWN_LABELS[address.toLowerCase()] ?? null;
+}
+
 type SqdRequestOptions = {
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;

@@ -8,7 +8,7 @@ import { HttpError } from '../http/errors';
 import { parseBooleanQuery, parseCsvQuery, parsePositiveInt } from '../http/params';
 import { buildCoinId } from '../lib/coin-id';
 import { fetchDefillamaDexVolumes, fetchDefillamaPoolData, fetchDefillamaTokenPrices, fetchDefillamaTokens } from '../providers/defillama';
-import { fetchEthereumPoolSwapLogs } from '../providers/sqd';
+import { fetchEthereumPoolSwapLogs, resolveAddressLabel } from '../providers/sqd';
 
 const paginationQuerySchema = z.object({
   page: z.string().optional(),
@@ -1608,7 +1608,7 @@ function buildOnchainTradeFixtures(database: AppDatabase): OnchainTradeRecord[] 
   ];
 }
 
-function buildTradeResource(trade: OnchainTradeRecord) {
+function buildTradeResource(trade: OnchainTradeRecord, label?: string | null) {
   return {
     id: trade.id,
     type: 'trade',
@@ -1619,6 +1619,7 @@ function buildTradeResource(trade: OnchainTradeRecord) {
       volume_in_usd: String(trade.volumeUsd),
       price_in_usd: String(trade.priceUsd),
       block_timestamp: trade.blockTimestamp,
+      ...(label ? { address_label: label } : {}),
     },
     relationships: {
       network: {
@@ -3383,7 +3384,7 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
     }, 'sending onchain pool trades response');
 
     return {
-      data: trades.map(buildTradeResource),
+      data: trades.map((trade) => buildTradeResource(trade, resolveAddressLabel(trade.poolAddress))),
       meta: {
         network: params.network,
         pool_address: params.address,
@@ -3423,7 +3424,7 @@ export function registerOnchainRoutes(app: FastifyInstance, database: AppDatabas
       .slice(0, limit);
 
     return {
-      data: trades.map(buildTradeResource),
+      data: trades.map((trade) => buildTradeResource(trade, resolveAddressLabel(trade.poolAddress))),
       meta: {
         network: params.network,
         token_address: tokenAddress,

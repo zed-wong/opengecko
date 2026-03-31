@@ -498,3 +498,71 @@ describe('token discovery', () => {
     expect(defillamaProvider.fetchDefillamaTokens).not.toHaveBeenCalled();
   });
 });
+
+describe('trades address labels', () => {
+  let app: FastifyInstance | undefined;
+  let tempDir: string;
+
+  function getApp() {
+    if (!app) {
+      throw new Error('Test app was not initialized.');
+    }
+    return app;
+  }
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), 'opengecko-trades-'));
+    vi.restoreAllMocks();
+    resetCurrencyApiSnapshotForTests();
+    defaultDefillamaMocks();
+    process.env.VITEST = 'true';
+    app = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'test.db'),
+        ccxtExchanges: ['binance'],
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+  });
+
+  afterEach(async () => {
+    delete process.env.VITEST;
+    if (app) {
+      await app.close();
+      app = undefined;
+    }
+  });
+
+  it('includes address labels in trade responses', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+
+    const hasAddressLabel = body.data.some((trade: { attributes: { address_label?: string } }) =>
+      'address_label' in trade.attributes,
+    );
+    expect(hasAddressLabel).toBe(true);
+
+    const tradesWithLabel = body.data.filter((trade: { attributes: { address_label?: string } }) =>
+      'address_label' in trade.attributes,
+    );
+    expect(tradesWithLabel.length).toBeGreaterThan(0);
+  });
+
+  it('resolves known router addresses to labels', async () => {
+    const { resolveAddressLabel } = await import('../../src/providers/sqd');
+
+    expect(resolveAddressLabel('0x7a250d5630b4cf539739df2c5dacb4c659f2488d')).toBe('Uniswap V2 Router');
+    expect(resolveAddressLabel('0xe592427a0aece92de3edee1f18e0157c05861564')).toBe('Uniswap V3 Router');
+    expect(resolveAddressLabel('0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45')).toBe('Uniswap Universal Router');
+    expect(resolveAddressLabel('0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad')).toBe('Uniswap Universal Router 2');
+
+    expect(resolveAddressLabel('0x0000000000000000000000000000000000000000')).toBeNull();
+    expect(resolveAddressLabel('unknown')).toBeNull();
+  });
+});
