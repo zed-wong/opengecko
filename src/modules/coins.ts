@@ -101,6 +101,16 @@ const coinChartRangeQuerySchema = z.object({
   precision: z.string().optional(),
 });
 
+const supplyChartQuerySchema = z.object({
+  days: z.string(),
+  interval: z.string().optional(),
+});
+
+const supplyChartRangeQuerySchema = z.object({
+  from: z.string(),
+  to: z.string(),
+});
+
 const categoriesQuerySchema = z.object({
   order: z.string().optional(),
 });
@@ -421,6 +431,10 @@ export function registerCoinRoutes(
 
   app.get('/coins/:id/circulating_supply_chart', async (request) => {
     const params = z.object({ id: z.string() }).parse(request.params);
+    const query = supplyChartQuerySchema.parse(request.query);
+    getRequiredCoin(database, params.id);
+    parseChartInterval(query.interval);
+    getChartRowsForDays(database, params.id, query.days, query.interval);
 
     return {
       data: [],
@@ -434,6 +448,9 @@ export function registerCoinRoutes(
 
   app.get('/coins/:id/circulating_supply_chart/range', async (request) => {
     const params = z.object({ id: z.string() }).parse(request.params);
+    const query = supplyChartRangeQuerySchema.parse(request.query);
+    getRequiredCoin(database, params.id);
+    parseExplicitRange(query);
 
     return {
       data: [],
@@ -447,6 +464,10 @@ export function registerCoinRoutes(
 
   app.get('/coins/:id/total_supply_chart', async (request) => {
     const params = z.object({ id: z.string() }).parse(request.params);
+    const query = supplyChartQuerySchema.parse(request.query);
+    getRequiredCoin(database, params.id);
+    parseChartInterval(query.interval);
+    getChartRowsForDays(database, params.id, query.days, query.interval);
 
     return {
       data: [],
@@ -460,6 +481,9 @@ export function registerCoinRoutes(
 
   app.get('/coins/:id/total_supply_chart/range', async (request) => {
     const params = z.object({ id: z.string() }).parse(request.params);
+    const query = supplyChartRangeQuerySchema.parse(request.query);
+    getRequiredCoin(database, params.id);
+    parseExplicitRange(query);
 
     return {
       data: [],

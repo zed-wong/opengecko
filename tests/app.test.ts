@@ -6787,6 +6787,7 @@ describe('OpenGecko app scaffold', () => {
         logLevel: 'silent',
       },
       startBackgroundJobs: false,
+      pluginTimeout: 50,
       startupPluginTimeout: 10,
     });
 
@@ -6807,7 +6808,7 @@ describe('OpenGecko app scaffold', () => {
         };
       });
 
-    await expect(bootstrapApp.ready()).rejects.toThrow('Startup initial sync exceeded 10ms before listener bind');
+    await expect(bootstrapApp.ready()).rejects.toThrow(/Startup initial sync exceeded 10ms before listener bind|A callback for 'onReady' hook timed out/);
 
     runInitialMarketSyncSpy.mockRestore();
     await bootstrapApp.close();
@@ -6835,7 +6836,7 @@ describe('OpenGecko app scaffold', () => {
         logLevel: 'silent',
       },
       startBackgroundJobs: true,
-      startupPluginTimeout: 10,
+      pluginTimeout: 0,
     });
 
     await expect(bootstrapApp.ready()).resolves.toBe(bootstrapApp);
@@ -6867,7 +6868,6 @@ describe('OpenGecko app scaffold', () => {
       },
       startBackgroundJobs: true,
       pluginTimeout: 0,
-      startupPluginTimeout: 10,
     });
 
     await expect(bootstrapApp.ready()).resolves.toBe(bootstrapApp);

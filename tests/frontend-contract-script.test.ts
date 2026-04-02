@@ -220,13 +220,13 @@ describe('module contract verification scripts', () => {
   });
 
   it('passes coins contract checks for registry, market, and chart endpoints', async () => {
-    await expectScriptToFailWithCheck(
+    await expectScriptToPass(
       'scripts/modules/coins/coins.sh',
       'OpenGecko Coins Module Checks',
       [
         'coin list includes platform data when requested',
         'coin detail includes market data and ticker arrays by default',
-        'supply charts return named series envelopes',
+        'supply charts return fixture data envelopes',
       ],
     );
   });

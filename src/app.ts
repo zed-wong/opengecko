@@ -391,7 +391,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({
     logger: loggerOpts,
     ...(useEmojiCompactHttpLogs ? { disableRequestLogging: true } : {}),
-    ...(options.pluginTimeout !== undefined ? { pluginTimeout: options.pluginTimeout } : {}),
+    ...((options.pluginTimeout !== undefined || options.startupPluginTimeout !== undefined)
+      ? { pluginTimeout: options.startupPluginTimeout ?? options.pluginTimeout }
+      : {}),
     connectionTimeout: config.requestTimeoutMs,
     requestTimeout: config.requestTimeoutMs,
     ...(suppressBuiltInLogsUntilReady ? { disableStartupMessages: true } : {}),

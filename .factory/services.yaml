@@ -3,7 +3,7 @@ commands:
   typecheck: "bun run typecheck"
   build: "bun run build"
   lint: "bun run lint"
-  test: "TMPDIR=/home/whoami/dev/opengecko/openGecko/data bun run test -- --maxWorkers=2 tests/runtime-diagnostics.test.ts tests/market-runtime.test.ts tests/market-freshness.test.ts tests/simple-price-parity.test.ts tests/coins-markets-parity.test.ts tests/coin-detail-parity.test.ts tests/stale-data.test.ts tests/app.test.ts"
+  test: "TMPDIR=/home/whoami/dev/opengecko/openGecko/data bun run test -- --maxWorkers=2"
   full_test: "TMPDIR=/home/whoami/dev/opengecko/openGecko/data bun run test -- --maxWorkers=2"
   endpoint_smoke: "BASE_URL=http://localhost:3001 /usr/bin/env bash scripts/test-endpoints.sh"
   endpoint_simple: "BASE_URL=http://localhost:3001 /usr/bin/env bash scripts/modules/simple/simple.sh"
