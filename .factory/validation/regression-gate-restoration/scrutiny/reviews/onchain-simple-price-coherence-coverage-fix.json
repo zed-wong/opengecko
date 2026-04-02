@@ -1,0 +1,15 @@
+{
+  "featureId": "onchain-simple-price-coherence-coverage-fix",
+  "reviewedAt": "2026-04-03T00:00:00+00:00",
+  "commitId": "8cc7c151503eb1d0f0b7ba29bc3d85bbb708247c",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix restores direct coverage of the original `/onchain/simple/networks/eth/token_price/:address` endpoint while keeping the test deterministic by seeding the CeFi baseline in SQLite instead of relying on a 15-second live timing window. The updated assertions keep the intended CeFi/DeFi coherence check and also verify the simple-token-price response contract on the exact path that previously flaked.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": "/home/whoami/dev/opengecko/openGecko/.factory/validation/regression-gate-restoration/scrutiny/reviews/integration-live-data-timeout-stability-fix.json",
+  "summary": "Pass: reviewed the prior failure, both diffs, the fix transcript skeleton, handoffs, and regression-gate skill guidance. Commit `8cc7c15` adequately addresses the original scrutiny failure by reinstating stable, meaningful coverage on `/onchain/simple/networks/eth/token_price/:address` without reintroducing the removed timeout-based flake."
+}
