@@ -1,15 +1,15 @@
 {
   "featureId": "treasury-envelope-regression-gate-cleanup",
-  "reviewedAt": "2026-04-02T21:45:38.099591+00:00",
+  "reviewedAt": "2026-04-02T22:05:35Z",
   "commitId": "4bbd419",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The commit cleanly wraps the three treasury read routes in the repository's existing data/meta envelope contract and updates compare-coingecko assertions accordingly. The feature stays narrowly scoped, preserves existing fixture metadata, and remains consistent with the app-level treasury contract already exercised elsewhere in the repository.",
+    "summary": "Current HEAD still satisfies the feature contract. The treasury cleanup commit wraps the reviewed treasury routes in the repository-standard data/meta envelope, the compare-coingecko assertions were updated to the wrapped shapes, and the worker handoff plus current branch state show the required full gate, build, typecheck, lint, and endpoint smoke all passed after the cleanup commit.",
     "issues": []
   },
   "sharedStateObservations": [],
   "addressesFailureFrom": null,
-  "summary": "Pass. Reviewed the feature metadata, handoff, transcript skeleton, commit 4bbd419 diff, and relevant treasury/app comparison tests; the change is scoped to the intended envelope cleanup and does not introduce contract drift or missing coverage relative to the repo's treasury contract."
+  "summary": "Reviewed current HEAD, the worker handoff, commit 4bbd419, and the current treasury/test files. The feature contract still holds on the branch and I found no blocking or non-blocking implementation issues."
 }

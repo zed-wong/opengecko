@@ -1,0 +1,21 @@
+{
+  "featureId": "listener-bound-bootstrap-source-class-alignment-fix",
+  "reviewedAt": "2026-04-02T22:05:27Z",
+  "commitId": "a5d1aa1",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Current HEAD still satisfies the feature contract. The listener-bound port-3000 app test asserts the degraded stale-live runtime truth (`source_class: stale_live`) after the listener-bound transition, while the default pre-listener path remains bootstrap-shaped. The feature commit itself is empty because the needed test alignment had already landed earlier on branch in commit 25e1a1b.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The worker followed the regression-gate skill procedure, but the feature handoff records success even though the cited broader gate command still failed from an unrelated flaky integration-live-data timeout. That outcome was justified here because the assigned app-test contract was already green, yet the skill does not explicitly describe how to handle no-op verification features whose exact gate remains red for unrelated reasons.",
+      "evidence": "Handoff 2026-04-02T21-53-58-271Z reports `TMPDIR=/home/whoami/dev/opengecko/openGecko/data bun run test -- --maxWorkers=2` exited 1 due to `tests/integration-live-data.test.ts`, while feature expectations in features.json only required the listener-bound `tests/app.test.ts` contract to match current runtime truth."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed the handoff, transcript skeleton, commit history, and current HEAD implementation. The feature contract holds on current HEAD, with no blocking or non-blocking code issues found for the listener-bound port-3000 source-class alignment path."
+}

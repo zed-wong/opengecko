@@ -1,0 +1,22 @@
+{
+  "featureId": "integration-live-data-timeout-stability-fix",
+  "reviewedAt": "2026-04-02T22:05:15.151911+00:00",
+  "commitId": "3a15cc3",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The timeout was removed, but the rewritten test no longer exercises the flaky DeFiLlama-backed `/onchain/simple/.../token_price` path named in the feature contract. It now validates a different endpoint, so the original full-suite flake can regress without this test catching it.",
+    "issues": [
+      {
+        "file": "tests/integration-live-data.test.ts",
+        "line": 310,
+        "severity": "blocking",
+        "description": "The fix swaps the DeFi-side request from `GET /onchain/simple/networks/eth/token_price/:address?vs_currencies=usd` to `GET /onchain/networks/eth/tokens/:address`. That removes coverage of the exact simple token-price path that was timing out, so the brittle timing dependency may still exist in `/onchain/simple/.../token_price` while this test stays green. The feature required hardening or removing the timing dependency without weakening the intended coherence assertion for the flaking path, but current HEAD only reroutes the assertion to a different endpoint."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Review failed: current HEAD makes the overlap test deterministic by changing it to a different onchain token endpoint, but that no longer verifies the original `/onchain/simple/.../token_price` path whose timeout was supposed to be stabilized."
+}
