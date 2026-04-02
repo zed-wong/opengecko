@@ -61,6 +61,7 @@ Reasoning: use at most 70% of observed headroom and avoid SQLite/process content
 - Start exactly one mission-owned API on port `3001`.
 - Prefer exact `curl` requests that map directly to `validation-contract.md` assertions.
 - Use this surface for normal trust-slice behavior, not override-only routes.
+- If `3001` is down at validator start, restart the manifest mission API before treating baseline assertions as failed; stale flow artifacts are context, not proof for the current HEAD.
 
 ### validation-api
 - Use `3102` only for validation-only override routes or isolated runtime-state checks.
@@ -68,6 +69,7 @@ Reasoning: use at most 70% of observed headroom and avoid SQLite/process content
 - Clear degraded-state overrides with `mode=off`, never `mode=none`.
 - Confirm the same routes are absent or gated on `3001` when the contract requires validation-only access.
 - Restart the `3102` service from a clean state when changing override assumptions or zero-live bootstrap setup.
+- If `3102` is down at validator start, restart it before reusing old evidence; reruns must exercise the current HEAD rather than only auditing prior flow files.
 - For cache transition assertions, record both `POST /diagnostics/runtime/degraded_state -> data.cache_revision` and `GET /diagnostics/runtime -> hot_paths.cache_revision`; do not look for a top-level `cache_revision` field.
 
 ### repo-validations
