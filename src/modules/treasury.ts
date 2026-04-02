@@ -191,14 +191,15 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
     const sortedRows = [...filteredRows].sort((left, right) => left.name.localeCompare(right.name));
     const start = (page - 1) * perPage;
 
-    return {
-      data: sortedRows.slice(start, start + perPage).map(buildEntityListRow),
+    const data = sortedRows.slice(start, start + perPage).map(buildEntityListRow);
+
+    return Object.assign(data, {
       meta: {
         fixture: true,
-        entity_count: 2,
+        entity_count: filteredRows.length,
         note: 'Treasury data is seeded fixture, not live',
       },
-    };
+    });
   });
 
   app.get('/:entity/public_treasury/:coin_id', async (request) => {
@@ -245,29 +246,27 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
     const totalValueUsd = sumBigNumber(rows.map((row) => row.currentValueUsd)).toNumber();
 
     return {
-      data: {
-        coin_id: coin.id,
-        current_price_usd: snapshot?.price ?? null,
-        total_holdings: totalHoldings,
-        total_value_usd: totalValueUsd,
-        market_cap_percentage: snapshot?.marketCap
-          ? Number(new BigNumber(totalValueUsd).dividedBy(snapshot.marketCap).multipliedBy(100).toFixed(4))
-          : null,
-        [params.entity]: pagedRows.map((row) => ({
-          entity_id: row.entityId,
-          name: row.name,
-          symbol: row.symbol,
-          country: row.country,
-          total_holdings: row.amount,
-          current_value_usd: row.currentValueUsd,
-          entry_value_usd: row.entryValueUsd,
-          reported_at: row.reportedAt.toISOString(),
-          source_url: row.sourceUrl,
-        })),
-      },
+      coin_id: coin.id,
+      current_price_usd: snapshot?.price ?? null,
+      total_holdings: totalHoldings,
+      total_value_usd: totalValueUsd,
+      market_cap_percentage: snapshot?.marketCap
+        ? Number(new BigNumber(totalValueUsd).dividedBy(snapshot.marketCap).multipliedBy(100).toFixed(4))
+        : null,
+      [params.entity]: pagedRows.map((row) => ({
+        entity_id: row.entityId,
+        name: row.name,
+        symbol: row.symbol,
+        country: row.country,
+        total_holdings: row.amount,
+        current_value_usd: row.currentValueUsd,
+        entry_value_usd: row.entryValueUsd,
+        reported_at: row.reportedAt.toISOString(),
+        source_url: row.sourceUrl,
+      })),
       meta: {
         fixture: true,
-        entity_count: 2,
+        entity_count: rows.length,
         note: 'Treasury data is seeded fixture, not live',
       },
     };
@@ -318,22 +317,20 @@ export function registerTreasuryRoutes(app: FastifyInstance, database: AppDataba
     const totalCurrentValueUsd = sumBigNumber(holdings.map((holding) => holding.current_value_usd)).toNumber();
 
     return {
-      data: {
-        id: entity.id,
-        name: entity.name,
-        symbol: entity.symbol,
-        entity_type: entity.entityType,
-        country: entity.country,
-        description: entity.description,
-        website_url: entity.websiteUrl,
-        total_entry_value_usd: totalEntryValueUsd,
-        total_current_value_usd: totalCurrentValueUsd,
-        total_unrealized_pnl_usd: new BigNumber(totalCurrentValueUsd).minus(totalEntryValueUsd).toNumber(),
-        holdings,
-      },
+      id: entity.id,
+      name: entity.name,
+      symbol: entity.symbol,
+      entity_type: entity.entityType,
+      country: entity.country,
+      description: entity.description,
+      website_url: entity.websiteUrl,
+      total_entry_value_usd: totalEntryValueUsd,
+      total_current_value_usd: totalCurrentValueUsd,
+      total_unrealized_pnl_usd: new BigNumber(totalCurrentValueUsd).minus(totalEntryValueUsd).toNumber(),
+      holdings,
       meta: {
         fixture: true,
-        entity_count: 2,
+        entity_count: 1,
         note: 'Treasury data is seeded fixture, not live',
       },
     };
