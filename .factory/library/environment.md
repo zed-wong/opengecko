@@ -43,8 +43,11 @@ Primary runtime configuration lives in `src/config/env.ts`.
 
 ## Mission-Specific Notes
 
-- The live mission API runs on port `3000`; the isolated validation API runs on port `3102` with `DATABASE_URL=:memory:` and repo dotenv loading disabled.
+- The repo default `PORT` remains `3000`, but this mission must start its normal local API on port `3001` and reserve port `3102` for the validation-only API profile.
+- The repo default `CCXT_EXCHANGES` comes from `src/config/runtime-policy.ts`; `.factory/services.yaml` intentionally narrows the mission API override to `binance,coinbase,okx` for predictable local validation.
+- The validation API on `3102` must run with `OPEN_GECKO_DISABLE_REPO_DOTENV=1` and `DATABASE_URL=:memory:` so override-driven checks do not reuse shared repo runtime state.
+- Ports `3000` and `5173` are off-limits for mission-owned services because they belong to other local projects.
 - Do not add new providers, credentials, hosted services, or background infrastructure without explicit mission scope expansion.
 - Fixture-backed families must stay honest in both runtime behavior and canonical planning/status docs.
 - Use `bignumber.js` for calculation-heavy logic and only convert to primitives at storage or HTTP boundaries.
-- Expect live-provider startup on the real API to be much slower than isolated validation startup; plan manual verification accordingly.
+- Expect provider-backed startup on the mission API to be much slower than isolated validation startup; plan manual verification accordingly.

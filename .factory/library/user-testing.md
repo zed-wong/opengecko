@@ -1,123 +1,75 @@
 # User Testing
 
-Testing surface, validation tooling, and concurrency guidance for the approved data-fidelity uplift mission.
+Testing surface, validation tooling, and concurrency guidance for the approved trust-slice hardening mission.
 
 ---
 
 ## Validation Surface
 
-### Surface: live-api
-- **Primary boundary**: REST API on `http://localhost:3000`
+### Surface: mission-api
+- **Primary boundary**: REST API on `http://localhost:3001`
 - **Primary tool**: `curl`
-- **Primary service**: `PORT=3000 HOST=127.0.0.1 CCXT_EXCHANGES=binance,coinbase,okx LOG_LEVEL=error bun run src/server.ts`
-- **Use for**: provider-backed readiness, catalog discovery, onchain discovery, enrichment, fixture-provenance, and chart-fidelity assertions that depend on real runtime behavior
+- **Primary service**: `.factory/services.yaml -> services.api`
+- **Use for**: normal contract checks for `/simple/price`, `/coins/markets`, `/coins/{id}`, and `GET /diagnostics/runtime`
 
-### Surface: isolated-api
+### Surface: validation-api
 - **Boundary**: REST API on `http://localhost:3102`
 - **Primary tool**: `curl`
-- **Primary service**: `OPEN_GECKO_DISABLE_REPO_DOTENV=1 PORT=3102 HOST=127.0.0.1 DATABASE_URL=:memory: CCXT_EXCHANGES='' LOG_LEVEL=error bun run src/server.ts`
-- **Use for**: validation-only override routes, structural contract checks, and negative-path checks that should not mutate shared SQLite state
+- **Primary service**: `.factory/services.yaml -> services.validation-api`
+- **Use for**: validation-only diagnostics override routes, isolated bootstrap/degraded-state checks, and negative-path checks that must not mutate the shared SQLite database
 
 ### Surface: repo-validations
-- **Primary tools**: `bun run typecheck`, targeted `bun test ...`, `bun run test`, endpoint smoke scripts
-- **Use for**: regression protection, type safety, module smoke checks, and milestone scrutiny evidence
+- **Primary tools**: `.factory/services.yaml -> commands.test`, `commands.full_test`, `commands.typecheck`, `commands.build`, `commands.lint`, and endpoint smoke commands
+- **Use for**: milestone scrutiny evidence, trust-slice regression protection, harness repair, and end-of-mission repository confidence
 
 ## Validation Concurrency
 
-- **Machine profile**: 8 CPU cores, ~31 GB RAM
-- **Observed live boot behavior**: provider-backed startup can take ~60-70s and is the main flakiness/resource risk
-- **Observed isolated boot behavior**: much lighter than the live API because providers are disabled and the DB is in-memory
+- **Machine profile**: 8 CPU cores, ~31 GB RAM total, dry-run recommendation capped at 2 validation lanes
+- **Observed startup behavior**: the mission API on `3001` is the heaviest surface because it can touch persisted SQLite state and provider-backed startup paths; the validation API on `3102` is lighter because it runs in-memory with validation-mode controls
 
 ### Max concurrent validators by surface
-- **live-api**: `1`
-- **isolated-api**: `2`
-- **repo-validations**: `1` full-suite job at a time; targeted tests may run alongside curl checks only if they do not start a second live API
+- **mission-api**: `1`
+- **validation-api**: `2`
+- **repo-validations**: `1` full-suite job at a time; targeted test jobs may run in parallel with `curl` checks only if they do not require a second mission API process
 
-Reasoning: the live provider path is the dominant source of boot cost, latency, and upstream flakiness, so real-fidelity validation should stay serialized.
+Reasoning: use at most 70% of observed headroom and avoid SQLite/process contention on the shared trust slice.
 
 ## Milestone Validation Focus
 
-### baseline-stability
-- `/ping`
-- any documented `/health` probe surface
-- `/diagnostics/runtime`
-- `/simple/price`
-- `/simple/token_price`
-- validation-only diagnostics override routes on `3102`
-- endpoint smoke flow through `bun run test:endpoint`
+### trust-slice-semantics
+- `commands.test` is the milestone scrutiny gate
+- validate `/simple/price`, `/coins/markets`, `/coins/{id}`, and `GET /diagnostics/runtime`
+- use `POST /diagnostics/runtime/degraded_state` and `POST /diagnostics/runtime/provider_failure` on `3102` only when an assertion explicitly requires an override-controlled state
 
-### platform-catalog-discovery
-- `/coins/list/new`
-- `/coins/list`
-- `/search`
-- `/search/trending`
-- `/global`
-- `/global/market_cap_chart`
-- `/asset_platforms`
-- `/token_lists/{asset_platform_id}/all.json`
-- `/coins/{id}` and downstream history/chart spot checks for discovered ids
-
-### onchain-discovery-uplift
-- `/onchain/networks`
-- `/onchain/networks/{id}/dexes`
-- `/onchain/networks/{id}/pools`
-- `/onchain/networks/{id}/pools/{address}`
-- `/onchain/networks/eth/tokens/{address}`
-- downstream trades / OHLCV spot checks for discovered token/pool identities
-
-### enrichment-uplift
-- `/coins/{id}`
-- `/onchain/networks/{network}/pools/{pool}/trades`
-- `/onchain/networks/{network}/tokens/{token}/trades`
-- version/banner surfaces when the release-sync feature runs
-
-### fixture-honesty-hardening
-- `/derivatives`
-- `/derivatives/exchanges`
-- `/public_treasury/{entity}`
-- `/public_treasury/{entity}/{coin}/holding_chart`
-- `/public_treasury/{entity}/transaction_history`
-- `/onchain/.../top_holders`
-- `/onchain/.../top_traders`
-- `/onchain/.../holders_chart`
-- `/coins/categories`
-- `/coins/categories/list`
-- `/coins/{id}/circulating_supply_chart*`
-- `/coins/{id}/total_supply_chart*`
-
-### chart-fidelity-uplift
-- `/coins/{id}/market_chart`
-- `/coins/{id}/market_chart/range`
-- `/coins/{id}/ohlc`
-- `/coins/{id}/ohlc/range`
-- `/coins/{platform_id}/contract/{contract_address}/market_chart`
-- `/coins/{platform_id}/contract/{contract_address}/market_chart/range`
+### regression-gate-restoration
+- promote back to `commands.full_test` plus `commands.build`, `commands.typecheck`, and `commands.lint`
+- run `commands.endpoint_smoke` plus the trust-slice smoke commands on `3001`
+- confirm `tests/frontend-contract-script.test.ts` and any harness fixes work in the mission environment, not only under `app.inject()`
 
 ## Known Mission Constraints
 
-- Wait for `/ping` before declaring the live API unavailable.
-- `bun run test:endpoint` and `bun run test:endpoint:*` assume the server is already running and default to `BASE_URL=http://localhost:3000`.
-- Use only one mission-owned live API against the shared SQLite file at a time to avoid `database is locked` conflicts.
-- Upstream CCXT and DeFiLlama calls can be slow or flaky; if a required provider is down, record the blocker instead of silently switching to mocks.
-- Ethereum has the strongest onchain live coverage; non-Ethereum discovery paths must be validated against actual route behavior, not assumptions.
-- Fixture-backed analytics and chart fallbacks need runtime-visible provenance evidence, not doc-only justification.
+- Port `3000` is off-limits and belongs to another project.
+- Port `5173` is off-limits and belongs to another project.
+- Use only one mission-owned API against the shared SQLite file at a time to avoid `database is locked` errors.
+- Wait up to `70s` for `/ping` on `3001` before declaring mission API startup failure.
+- Port `3102` is the only runtime that should expose validation-mode diagnostics overrides.
+- The `spawn bash ENOENT` failure in `tests/frontend-contract-script.test.ts` is an in-scope regression-gate blocker; do not paper over it by silently skipping that test.
 
 ## Flow Validator Guidance
 
-### live-api
-- Start exactly one mission-owned live API on port `3000`.
-- Wait up to `70s` for `/ping` before declaring startup failure.
-- Prefer exact `curl` requests that map cleanly to `validation-contract.md` assertions.
-- Capture response bodies and any provenance headers/metadata when validating live, hybrid, fixture, or fallback claims.
+### mission-api
+- Start exactly one mission-owned API on port `3001`.
+- Prefer exact `curl` requests that map directly to `validation-contract.md` assertions.
+- Use this surface for normal trust-slice behavior, not override-only routes.
 
-### isolated-api
-- Use `3102` only for validation-only override routes or structural checks that should not share live state.
-- Current baseline runtime override routes are `POST /diagnostics/runtime/degraded_state` and `POST /diagnostics/runtime/provider_failure` on `3102`; keep validator prompts aligned to those exact paths.
-- For zero-live completed-boot reruns on `3102`, start from a fresh validation listener and temporarily move `data/opengecko.db` aside before boot so the isolated API cannot inherit persisted snapshot state.
-- Stop any pre-existing listener on `3102` before launching a fresh isolated validation API instance; stale validation servers can otherwise cause `EADDRINUSE` and misleading setup failures.
-- Confirm the same route is absent or gated on `3000` when the contract requires validation-only access.
+### validation-api
+- Use `3102` only for validation-only override routes or isolated runtime-state checks.
+- Keep validator prompts aligned to the current POST routes: `POST /diagnostics/runtime/degraded_state` and `POST /diagnostics/runtime/provider_failure`.
+- Confirm the same routes are absent or gated on `3001` when the contract requires validation-only access.
+- Restart the `3102` service from a clean state when changing override assumptions or zero-live bootstrap setup.
 
 ### repo-validations
-- Run the narrowest relevant test slice first, then `bun run typecheck`.
-- Reserve `bun run test` for baseline repair, milestone scrutiny, or when a feature explicitly requires broader regression proof.
-- If endpoint smoke scripts are used, ensure the correct API service is already running and record the exact `BASE_URL` used.
+- Start with the narrowest relevant targeted suite.
+- During the trust-slice-semantics milestone, treat `commands.test` as the required scrutiny gate.
+- During the regression-gate-restoration milestone, use `commands.full_test` as the required repository gate before declaring the mission complete.
+- If endpoint smoke scripts are used, ensure the `3001` API service is already healthy and record the exact `BASE_URL`.
