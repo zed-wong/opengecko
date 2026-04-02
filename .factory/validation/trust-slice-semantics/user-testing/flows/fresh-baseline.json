@@ -1,0 +1,47 @@
+{
+  "flow_id": "fresh-baseline",
+  "milestone": "trust-slice-semantics",
+  "base_url": "http://localhost:3001",
+  "status": "blocked",
+  "blocker": {
+    "type": "service_unhealthy",
+    "message": "Mission-owned API on localhost:3001 was not reachable, so required baseline assertions could not be executed."
+  },
+  "checks": [
+    {
+      "step": "health_ping",
+      "endpoint": "GET /ping",
+      "http_status": 0,
+      "result": "blocked",
+      "error": "curl exit 7: Failed to connect to localhost port 3001"
+    },
+    {
+      "step": "health_runtime",
+      "endpoint": "GET /diagnostics/runtime",
+      "http_status": 0,
+      "result": "blocked",
+      "error": "curl exit 7: Failed to connect to localhost port 3001"
+    },
+    {
+      "step": "health_health",
+      "endpoint": "GET /health",
+      "http_status": 0,
+      "result": "blocked",
+      "error": "pending health probe result capture"
+    }
+  ],
+  "assertions": {
+    "VAL-DIAG-001": {
+      "status": "blocked",
+      "reason": "Mission API unhealthy/unreachable on port 3001"
+    },
+    "VAL-CROSS-001": {
+      "status": "blocked",
+      "reason": "Mission API unhealthy/unreachable on port 3001"
+    },
+    "VAL-CROSS-006": {
+      "status": "blocked",
+      "reason": "Mission API unhealthy/unreachable on port 3001"
+    }
+  }
+}

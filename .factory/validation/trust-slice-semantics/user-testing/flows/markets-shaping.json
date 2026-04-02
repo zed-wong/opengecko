@@ -1,0 +1,192 @@
+{
+  "groupId": "markets-shaping",
+  "testedAt": "2026-04-03T00:00:00Z",
+  "isolation": {
+    "missionDir": "/home/whoami/.factory/missions/281d0e47-1a05-430f-ade5-e1117ca7ba0a",
+    "validationApiBaseUrl": "http://localhost:3102",
+    "surface": "validation-api",
+    "port": 3102,
+    "assignedAssertions": [
+      "VAL-MARKETS-008",
+      "VAL-MARKETS-010",
+      "VAL-CROSS-002"
+    ]
+  },
+  "toolsUsed": [
+    "curl",
+    "python3"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-MARKETS-008",
+      "title": "stale-disallowed markets null stale market fields",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /diagnostics/runtime/degraded_state mode=stale_disallowed",
+          "expected": "Override applies stale-disallowed state",
+          "observed": "HTTP 200 body={'data': {'cache_revision': 2, 'mode': 'stale_disallowed', 'reason': 'validation degraded state override'}}"
+        },
+        {
+          "action": "GET /coins/markets?vs_currency=usd&ids=bitcoin",
+          "expected": "Identity row preserved with stale market-bearing fields nulled",
+          "observed": "HTTP 200 row={'ath': None, 'ath_change_percentage': None, 'ath_date': None, 'atl': None, 'atl_change_percentage': None, 'atl_date': None, 'circulating_supply': None, 'current_price': None, 'fully_diluted_valuation': None, 'high_24h': None, 'id': 'bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'last_updated': None, 'low_24h': None, 'market_cap': None, 'market_cap_change_24h': None, 'market_cap_change_percentage_24h': None, 'market_cap_rank': None, 'max_supply': None, 'name': 'Bitcoin', 'price_change_24h': None, 'price_change_percentage_24h': None, 'roi': None, 'symbol': 'btc', 'total_supply': None, 'total_volume': None}"
+        }
+      ],
+      "evidence": {
+        "network": "POST /diagnostics/runtime/degraded_state -> 200; GET /coins/markets -> 200",
+        "json": [
+          "stale-disallowed-override.json",
+          "stale-disallowed-coins-markets.json"
+        ],
+        "consoleErrors": "n/a"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MARKETS-010",
+      "title": "seeded-bootstrap markets retain identity/current_price but null richer market fields",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /diagnostics/runtime/degraded_state mode=seeded_bootstrap",
+          "expected": "Override applies seeded-bootstrap state",
+          "observed": "HTTP 200 body={'data': {'cache_revision': 3, 'mode': 'seeded_bootstrap', 'reason': 'validation degraded state override'}}"
+        },
+        {
+          "action": "GET /coins/markets?vs_currency=usd&ids=bitcoin",
+          "expected": "current_price retained while richer supply/cap fields are null",
+          "observed": "HTTP 200 row={'ath': 69249.31666666667, 'ath_change_percentage': -0.16593424868932605, 'ath_date': '2026-03-26T20:14:46.812Z', 'atl': 68387.90428571429, 'atl_change_percentage': 1.0915732181238764, 'atl_date': '2026-03-26T18:52:31.521Z', 'circulating_supply': None, 'current_price': 69134.40833333334, 'fully_diluted_valuation': None, 'high_24h': 70681.22808943377, 'id': 'bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'last_updated': '2026-04-02T19:33:20.068Z', 'low_24h': 66145, 'market_cap': None, 'market_cap_change_24h': None, 'market_cap_change_percentage_24h': None, 'market_cap_rank': 1, 'max_supply': None, 'name': 'Bitcoin', 'price_change_24h': -1732.803057126861, 'price_change_percentage_24h': -2.4451407401648173, 'roi': None, 'symbol': 'btc', 'total_supply': None, 'total_volume': 507827383.8753867}"
+        }
+      ],
+      "evidence": {
+        "network": "POST /diagnostics/runtime/degraded_state -> 200; GET /coins/markets -> 200",
+        "json": [
+          "seeded-bootstrap-override.json",
+          "seeded-bootstrap-coins-markets.json"
+        ],
+        "consoleErrors": "n/a"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "title": "stale-disallowed state is coherent across diagnostics, simple, markets, and detail surfaces",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /diagnostics/runtime under stale_disallowed",
+          "expected": "Diagnostics report stale_disallowed override active",
+          "observed": "HTTP 200 mode=stale_disallowed source_class=stale_live"
+        },
+        {
+          "action": "GET /simple/price?ids=bitcoin&vs_currencies=usd",
+          "expected": "Empty object when stale data cannot be served",
+          "observed": "HTTP 200 body={}"
+        },
+        {
+          "action": "GET /coins/markets?vs_currency=usd&ids=bitcoin",
+          "expected": "Matching identity row with stale market fields null",
+          "observed": "HTTP 200 row={'ath': None, 'ath_change_percentage': None, 'ath_date': None, 'atl': None, 'atl_change_percentage': None, 'atl_date': None, 'circulating_supply': None, 'current_price': None, 'fully_diluted_valuation': None, 'high_24h': None, 'id': 'bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'last_updated': None, 'low_24h': None, 'market_cap': None, 'market_cap_change_24h': None, 'market_cap_change_percentage_24h': None, 'market_cap_rank': None, 'max_supply': None, 'name': 'Bitcoin', 'price_change_24h': None, 'price_change_percentage_24h': None, 'roi': None, 'symbol': 'btc', 'total_supply': None, 'total_volume': None}"
+        },
+        {
+          "action": "GET /coins/bitcoin",
+          "expected": "market_data null while coin identity shell remains",
+          "observed": "HTTP 200 market_data=None"
+        }
+      ],
+      "evidence": {
+        "network": "GET /diagnostics/runtime -> 200; GET /simple/price -> 200; GET /coins/markets -> 200; GET /coins/bitcoin -> 200",
+        "json": [
+          "stale-disallowed-diagnostics.json",
+          "stale-disallowed-simple-price.json",
+          "stale-disallowed-coins-markets.json",
+          "stale-disallowed-coin-detail.json"
+        ],
+        "consoleErrors": "n/a"
+      },
+      "issues": null
+    }
+  ],
+  "artifacts": {
+    "evidenceDir": "/home/whoami/.factory/missions/281d0e47-1a05-430f-ade5-e1117ca7ba0a/evidence/trust-slice-semantics/markets-shaping",
+    "commands": [
+      {
+        "assertion": "VAL-MARKETS-008",
+        "label": "stale-disallowed-override",
+        "command": "curl -sS -X POST -H \"Accept: application/json\" -H \"Content-Type: application/json\" --data \"{\"mode\":\"stale_disallowed\"}\" http://localhost:3102/diagnostics/runtime/degraded_state",
+        "status": 200,
+        "evidenceFile": "stale-disallowed-override.json"
+      },
+      {
+        "assertion": "VAL-CROSS-002",
+        "label": "stale-disallowed-diagnostics",
+        "command": "curl -sS -H \"Accept: application/json\" http://localhost:3102/diagnostics/runtime",
+        "status": 200,
+        "evidenceFile": "stale-disallowed-diagnostics.json"
+      },
+      {
+        "assertion": "VAL-CROSS-002",
+        "label": "stale-disallowed-simple-price",
+        "command": "curl -sS -H \"Accept: application/json\" \"http://localhost:3102/simple/price?ids=bitcoin&vs_currencies=usd\"",
+        "status": 200,
+        "evidenceFile": "stale-disallowed-simple-price.json"
+      },
+      {
+        "assertion": "VAL-MARKETS-008",
+        "label": "stale-disallowed-coins-markets",
+        "command": "curl -sS -H \"Accept: application/json\" \"http://localhost:3102/coins/markets?vs_currency=usd&ids=bitcoin\"",
+        "status": 200,
+        "evidenceFile": "stale-disallowed-coins-markets.json"
+      },
+      {
+        "assertion": "VAL-CROSS-002",
+        "label": "stale-disallowed-coin-detail",
+        "command": "curl -sS -H \"Accept: application/json\" http://localhost:3102/coins/bitcoin",
+        "status": 200,
+        "evidenceFile": "stale-disallowed-coin-detail.json"
+      },
+      {
+        "assertion": "VAL-MARKETS-010",
+        "label": "seeded-bootstrap-override",
+        "command": "curl -sS -X POST -H \"Accept: application/json\" -H \"Content-Type: application/json\" --data \"{\"mode\":\"seeded_bootstrap\"}\" http://localhost:3102/diagnostics/runtime/degraded_state",
+        "status": 200,
+        "evidenceFile": "seeded-bootstrap-override.json"
+      },
+      {
+        "assertion": "VAL-MARKETS-010",
+        "label": "seeded-bootstrap-diagnostics",
+        "command": "curl -sS -H \"Accept: application/json\" http://localhost:3102/diagnostics/runtime",
+        "status": 200,
+        "evidenceFile": "seeded-bootstrap-diagnostics.json"
+      },
+      {
+        "assertion": "VAL-MARKETS-010",
+        "label": "seeded-bootstrap-coins-markets",
+        "command": "curl -sS -H \"Accept: application/json\" \"http://localhost:3102/coins/markets?vs_currency=usd&ids=bitcoin\"",
+        "status": 200,
+        "evidenceFile": "seeded-bootstrap-coins-markets.json"
+      },
+      {
+        "assertion": "RESTORE",
+        "label": "restore-neutral-override",
+        "command": "curl -sS -X POST -H \"Accept: application/json\" -H \"Content-Type: application/json\" --data \"{\"mode\":\"off\"}\" http://localhost:3102/diagnostics/runtime/degraded_state",
+        "status": 200,
+        "evidenceFile": "restore-neutral-override.json"
+      },
+      {
+        "assertion": "RESTORE",
+        "label": "final-diagnostics-runtime",
+        "command": "curl -sS -H \"Accept: application/json\" http://localhost:3102/diagnostics/runtime",
+        "status": 200,
+        "evidenceFile": "final-diagnostics-runtime.json"
+      }
+    ],
+    "neutralRestore": {
+      "status": 200,
+      "file": "restore-neutral-override.json"
+    },
+    "finalDiagnostics": "final-diagnostics-runtime.json"
+  },
+  "summary": "Tested 3 assertions: 3 passed, 0 failed, 0 blocked, 0 skipped."
+}

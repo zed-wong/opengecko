@@ -1,56 +1,36 @@
 {
   "milestone": "trust-slice-semantics",
-  "round": 2,
+  "round": 3,
   "status": "fail",
   "assertionsSummary": {
-    "total": 18,
-    "passed": 12,
-    "failed": 5,
-    "blocked": 1
+    "total": 6,
+    "passed": 2,
+    "failed": 4,
+    "blocked": 0
   },
   "passedAssertions": [
-    "VAL-CROSS-004",
-    "VAL-CROSS-005",
-    "VAL-CROSS-007",
-    "VAL-CROSS-008",
-    "VAL-DETAIL-003",
-    "VAL-DETAIL-009",
-    "VAL-DIAG-002",
-    "VAL-DIAG-006",
-    "VAL-DIAG-009",
-    "VAL-SIMPLE-001",
-    "VAL-SIMPLE-005",
-    "VAL-SIMPLE-006"
+    "VAL-MARKETS-008",
+    "VAL-CROSS-002"
   ],
   "failedAssertions": [
     {
-      "id": "VAL-CROSS-001",
-      "reason": "The assigned mission API never entered the required fresh_live state, and all three scoped market surfaces returned 500 instead of coherent live-backed values."
+      "id": "VAL-MARKETS-010",
+      "reason": "Validation rerun still observed seeded_bootstrap /coins/markets leaking richer live-looking fields such as ath/atl, high_24h/low_24h, price_change_24h, total_volume, market_cap_rank, and last_updated instead of a degraded null-shape."
     },
-    {
-      "id": "VAL-CROSS-002",
-      "reason": "stale-disallowed surfaces were not coherent"
-    },
-    
     {
       "id": "VAL-DIAG-001",
-      "reason": "Mission API was not in the expected ready fresh-live state during validation."
+      "reason": "Mission API on port 3001 was unreachable during rerun, so ready fresh-live baseline could not be confirmed."
     },
     {
-      "id": "VAL-MARKETS-008",
-      "reason": "coins/markets stale-disallowed response did not null expected fields"
+      "id": "VAL-CROSS-001",
+      "reason": "Mission API on port 3001 was unreachable during rerun, so fresh-live trust-slice coherence could not be confirmed."
     },
-    {
-      "id": "VAL-MARKETS-010",
-      "reason": "seeded bootstrap markets shape implied live completeness"
-    }
-  ],
-  "blockedAssertions": [
     {
       "id": "VAL-CROSS-006",
-      "blockedBy": "Blocked by 500 responses from all three trust-slice routes, preventing timestamp comparison despite diagnostics exposing a stale_live snapshot timestamp."
+      "reason": "Mission API on port 3001 was unreachable during rerun, so timestamp coherence across the trust slice could not be exercised."
     }
   ],
+  "blockedAssertions": [],
   "appliedUpdates": [],
   "toolsUsed": [
     "curl",
