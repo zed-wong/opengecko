@@ -1,0 +1,15 @@
+{
+  "featureId": "cross-surface-zero-live-markets-detail-fix",
+  "reviewedAt": "2026-04-03T00:00:00+00:00",
+  "commitId": "a66d78371ba66a6049b3d2072b42c0d61e2ccd46",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The follow-up commit closes the prior scrutiny gap by extending the zero-live completed-boot app test to hit `/coins/markets` and `/coins/{id}` in the same scenario as `/simple/price` and `/diagnostics/runtime`, and it asserts the route-specific envelopes required by the trust-slice contract.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": "/home/whoami/dev/opengecko/openGecko/.factory/validation/trust-slice-semantics/scrutiny/reviews/cross-surface-bootstrap-zero-live-coverage-fix.json",
+  "summary": "Reviewed the prior failed review, the worker transcript skeleton, handoff, and commit `a66d783`. The current branch state now exercises zero-live completed-boot end-to-end across `/simple/price`, `/coins/markets`, `/coins/{id}`, and `/diagnostics/runtime`, with explicit assertions that markets returns a bitcoin row with nulled market-bearing fields and detail preserves the metadata shell with `market_data: null`, so the missing cross-surface zero-live coverage gap is closed."
+}

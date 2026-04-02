@@ -1,15 +1,15 @@
 {
   "featureId": "shared-runtime-degraded-bootstrap-diagnostics-fix",
-  "reviewedAt": "2026-04-02T15:44:56.591934+00:00",
+  "reviewedAt": "2026-04-02T16:09:26Z",
   "commitId": "d00a613",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The fix correctly aligns validation-mode degraded_seeded_bootstrap diagnostics with the shared snapshot access policy by reporting stale_live_enabled as false, and the targeted diagnostics and coin-detail tests now lock that single truth while preserving the existing non-override degraded bootstrap expectation.",
+    "summary": "The follow-up fix resolves the original disagreement in current branch state: validation-mode `degraded_seeded_bootstrap` now reports `stale_live_enabled: false` in `buildRuntimeDiagnostics()`, and the remaining diagnostics/app/detail tests that exercise that override path were updated to assert the same truth while the non-override degraded seeded-bootstrap coverage still expects `true` for the runtime-driven stale-live case.",
     "issues": []
   },
   "sharedStateObservations": [],
   "addressesFailureFrom": null,
-  "summary": "Reviewed the worker transcript skeleton, handoff, mission guidance, and commit d00a613. The implementation is scoped correctly, matches the shared access-policy behavior in src/modules/market-freshness.ts, and adds regression coverage for the validation override truth gap without introducing conflicting expectations elsewhere."
+  "summary": "Reviewed the original failures for `shared-runtime-trust-foundation` and `runtime-diagnostics-truth-contract`, the worker handoff/transcript, commit `d00a613`, and current branch state through `HEAD`. The branch now consistently distinguishes validation-override degraded seeded bootstrap (`stale_live_enabled: false`) from the runtime-driven degraded seeded bootstrap fallback (`stale_live_enabled: true`), so the original diagnostics-vs-shared-runtime disagreement is resolved."
 }

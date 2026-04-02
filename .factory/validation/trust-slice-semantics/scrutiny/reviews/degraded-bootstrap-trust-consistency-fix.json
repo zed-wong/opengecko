@@ -1,0 +1,19 @@
+{
+  "featureId": "degraded-bootstrap-trust-consistency-fix",
+  "reviewedAt": "2026-04-03T00:00:00Z",
+  "commitId": null,
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Current branch state resolves the earlier degraded-seeded-bootstrap drift. The shared access policy still treats validation-mode `degraded_seeded_bootstrap` as bootstrap-only (`allowStaleLiveService: false`), diagnostics reports `degraded.stale_live_enabled: false` for that override, and the previously contradictory app and coin-detail coverage now assert the same contract. The remaining `stale_live_enabled: true` assertions are for non-override degraded or stale-live scenarios and do not conflict with the fixed validation-mode contract.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": [
+    "/home/whoami/dev/opengecko/openGecko/.factory/validation/trust-slice-semantics/scrutiny/reviews/shared-runtime-trust-foundation.json",
+    "/home/whoami/dev/opengecko/openGecko/.factory/validation/trust-slice-semantics/scrutiny/reviews/runtime-diagnostics-truth-contract.json",
+    "/home/whoami/dev/opengecko/openGecko/.factory/validation/trust-slice-semantics/scrutiny/reviews/coin-detail-trust-contract.json"
+  ],
+  "summary": "Pass. I reviewed the prior failed scrutiny findings, the fix handoff/transcript, and the current branch state around degraded seeded-bootstrap semantics. Although this fix feature produced no new commit, the branch now consistently encodes `stale_live_enabled: false` for validation-mode `degraded_seeded_bootstrap` across the shared runtime helper, `/diagnostics/runtime`, `tests/app.test.ts`, and `tests/coin-detail-parity.test.ts`, so the original scrutiny failures are resolved by the current state."
+}

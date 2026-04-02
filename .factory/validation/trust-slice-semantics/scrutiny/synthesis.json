@@ -1,94 +1,48 @@
 {
   "milestone": "trust-slice-semantics",
-  "round": 2,
-  "status": "fail",
+  "round": 4,
+  "status": "pass",
   "validatorsRun": {
     "test": {
-      "passed": false,
-      "command": "TMPDIR=/home/whoami/dev/opengecko/openGecko/data bun --cwd \"/home/whoami/dev/opengecko/openGecko\" run test -- --maxWorkers=2 tests/runtime-diagnostics.test.ts tests/market-runtime.test.ts tests/market-freshness.test.ts tests/simple-price-parity.test.ts tests/coins-markets-parity.test.ts tests/coin-detail-parity.test.ts tests/stale-data.test.ts tests/app.test.ts",
-      "exitCode": 1
+      "passed": true,
+      "command": "cd \"/home/whoami/dev/opengecko/openGecko\" && TMPDIR=/home/whoami/dev/opengecko/openGecko/data bun run test -- --maxWorkers=2 tests/runtime-diagnostics.test.ts tests/market-runtime.test.ts tests/market-freshness.test.ts tests/simple-price-parity.test.ts tests/coins-markets-parity.test.ts tests/coin-detail-parity.test.ts tests/stale-data.test.ts tests/app.test.ts",
+      "exitCode": 0,
+      "observation": "Vitest executed successfully: 8 test files passed, 217 tests passed, and the trust-slice suites including app/runtime/parity coverage completed green."
     },
     "typecheck": {
-      "passed": false,
-      "command": "bun --cwd \"/home/whoami/dev/opengecko/openGecko\" run typecheck",
-      "exitCode": 1
+      "passed": true,
+      "command": "cd \"/home/whoami/dev/opengecko/openGecko\" && bun run typecheck",
+      "exitCode": 0,
+      "observation": "TypeScript completed with `tsc --noEmit -p tsconfig.json` and exited 0 with no diagnostics."
     },
     "lint": {
-      "passed": false,
-      "command": "bun --cwd \"/home/whoami/dev/opengecko/openGecko\" run lint",
-      "exitCode": 1
+      "passed": true,
+      "command": "cd \"/home/whoami/dev/opengecko/openGecko\" && bun run lint",
+      "exitCode": 0,
+      "observation": "ESLint ran successfully and exited 0; it reported 35 pre-existing warnings in unrelated files but no errors."
     }
   },
   "reviewsSummary": {
-    "total": 10,
-    "passed": 5,
-    "failed": 5,
-    "failedFeatures": [
-      "shared-runtime-trust-foundation",
-      "runtime-diagnostics-truth-contract",
-      "coins-markets-trust-contract",
-      "coin-detail-trust-contract",
-      "cross-surface-trust-coherence",
-      "cross-surface-bootstrap-zero-live-coverage-fix"
-    ]
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "failedFeatures": []
   },
-  "blockingIssues": [
-    {
-      "featureId": "shared-runtime-trust-foundation",
-      "severity": "blocking",
-      "description": "The shared degraded-seeded-bootstrap truth was not fully reconciled because `tests/stale-data.test.ts` still encoded `degraded.stale_live_enabled: true` for that state after the foundation centralized it to false.",
-      "file": "tests/stale-data.test.ts",
-      "line": 288
-    },
-    {
-      "featureId": "runtime-diagnostics-truth-contract",
-      "severity": "blocking",
-      "description": "This feature should not be considered complete on its own because it changed diagnostics/test expectations for degraded seeded bootstrap while wider trust-slice coverage still expected the old truth at review time.",
-      "file": "src/services/runtime-diagnostics.ts",
-      "line": 89
-    },
-    {
-      "featureId": "coins-markets-trust-contract",
-      "severity": "blocking",
-      "description": "Commit `f4fe0d6` did not fully implement explicit `names`/`symbols` selector semantics or coverage; the follow-up fix in `617ff09` was required to satisfy that contract.",
-      "file": "src/modules/coins.ts",
-      "line": 199
-    },
-    {
-      "featureId": "coin-detail-trust-contract",
-      "severity": "blocking",
-      "description": "The feature added a contradictory degraded-seeded-bootstrap assertion (`stale_live_enabled: true`) in `tests/coin-detail-parity.test.ts`, which conflicted with the shared access policy and diagnostics contract later fixed in `d00a613`.",
-      "file": "tests/coin-detail-parity.test.ts",
-      "line": 191
-    },
-    {
-      "featureId": "cross-surface-trust-coherence",
-      "severity": "blocking",
-      "description": "The original cross-surface coherence feature omitted end-to-end seeded-bootstrap and zero-live completed-boot coverage required by the validation contract.",
-      "file": "tests/app.test.ts",
-      "line": 6724
-    },
-    {
-      "featureId": "cross-surface-bootstrap-zero-live-coverage-fix",
-      "severity": "blocking",
-      "description": "The zero-live completed-boot follow-up still omitted `/coins/markets` and `/coins/{id}` assertions, so full end-to-end cross-surface zero-live coverage remains incomplete.",
-      "file": "tests/app.test.ts",
-      "line": 6271
-    }
-  ],
+  "blockingIssues": [],
   "appliedUpdates": [],
-  "suggestedGuidanceUpdates": [
-    {
-      "target": "skill:trust-slice-worker",
-      "suggestion": "Clarify how workers should handle red-test-first expectations when inheriting pre-existing dirty hunks and how to ensure all related cross-surface assertions are updated after shared runtime semantic changes.",
-      "evidence": "Multiple reviews found features that changed shared runtime truth or claimed assertion coverage while leaving other in-scope tests on stale expectations (`shared-runtime-trust-foundation`, `coins-markets-trust-contract`).",
-      "isSystemic": true
-    }
-  ],
+  "suggestedGuidanceUpdates": [],
   "rejectedObservations": [
     {
-      "observation": "Record the exact pre-existing app-test doc-path mismatch in shared knowledge.",
-      "reason": "ambiguous; the blocker was already fixed by `trust-slice-targeted-gate-repair`, so the observation is no longer actionable shared state for this milestone synthesis."
+      "observation": "Clarify how trust-slice workers should reconcile all in-scope cross-surface assertions after shared runtime semantic changes and avoid overstating fulfilled assertions when only partial coverage landed.",
+      "reason": "resolved by the follow-up fix features now present on the branch; no new systemic guidance change is needed from this passing round."
+    },
+    {
+      "observation": "Update scrutiny-validator guidance to avoid Bun invocation forms that print help output instead of executing scripts.",
+      "reason": "the current mission note already supplied the working `cd ... && bun run ...` form and this round successfully used it; no repository artifact change was necessary from the validator pass."
+    },
+    {
+      "observation": "Record the pre-existing app-test doc-path mismatch in shared knowledge.",
+      "reason": "already addressed by trust-slice-targeted-gate-repair and not a new shared-state update for this round."
     }
   ],
   "previousRound": ".factory/validation/trust-slice-semantics/scrutiny/synthesis.json"
