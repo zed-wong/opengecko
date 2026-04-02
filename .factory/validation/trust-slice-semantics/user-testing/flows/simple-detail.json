@@ -1,0 +1,459 @@
+{
+  "groupId": "simple-detail",
+  "testedAt": "2026-04-02T16:21:16Z",
+  "isolation": {
+    "missionDir": "/home/whoami/.factory/missions/281d0e47-1a05-430f-ade5-e1117ca7ba0a",
+    "repoRoot": "/home/whoami/dev/opengecko/openGecko",
+    "missionApi": "http://localhost:3001",
+    "validationApi": "http://localhost:3102"
+  },
+  "toolsUsed": [
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-SIMPLE-001",
+      "title": "/simple/price rejects requests with no selectors",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "GET /simple/price",
+          "expected": "400 invalid_parameter with required selector message",
+          "observed": "HTTP 400 {'error': 'invalid_parameter', 'message': 'vs_currencies Required'}"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/simple/price\" -> 400",
+        "files": [
+          "trust-slice-semantics/simple-detail/vs_no_selector.json"
+        ]
+      },
+      "issues": "Route rejected missing vs_currencies before checking the contract-required selector validation message."
+    },
+    {
+      "id": "VAL-SIMPLE-002",
+      "title": "/simple/price returns canonical keyed quote objects",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET valid ids request",
+          "expected": "200 with bitcoin and ethereum keys containing numeric usd values",
+          "observed": "HTTP 200 keys=['bitcoin', 'ethereum'] values={'bitcoin': {'usd': 66908.33833333333}, 'ethereum': {'usd': 2057.3783333333336}}"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/simple/price?ids=bitcoin,ethereum&vs_currencies=usd\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/vs_valid.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SIMPLE-003",
+      "title": "/simple/price only adds optional fields when explicitly requested",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET baseline simple price",
+          "expected": "Optional fields absent",
+          "observed": "{'bitcoin': {'usd': 66908.33833333333}, 'ethereum': {'usd': 2057.3783333333336}}"
+        },
+        {
+          "action": "GET with include_* flags",
+          "expected": "Optional fields present",
+          "observed": "{'bitcoin': {'usd': 66908.33833333333, 'usd_market_cap': 1338453201263.0715, 'usd_24h_vol': 408352987.62397534, 'usd_24h_change': -2.4945750721212168, 'last_updated_at': 1775146605}, 'ethereum': {'usd': 2057.3783333333336, 'usd_market_cap': 248308047052.39307, 'usd_24h_vol': 287949766.5395454, 'usd_24h_change': -3.278949264614884, 'last_updated_at': 1775146606}}"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "paired requests -> 200/200",
+        "files": [
+          "trust-slice-semantics/simple-detail/vs_valid.json",
+          "trust-slice-semantics/simple-detail/vs_optional.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SIMPLE-004",
+      "title": "/simple/price preserves response semantics across reordered equivalent queries",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET equivalent query A and B",
+          "expected": "Identical JSON payloads",
+          "observed": "equal=True"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "paired requests -> 200/200",
+        "files": [
+          "trust-slice-semantics/simple-detail/vs_order_a.json",
+          "trust-slice-semantics/simple-detail/vs_order_b.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SIMPLE-005",
+      "title": "/simple/price refuses stale live data when stale serving is disabled",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "POST validation degraded_state stale_disallowed",
+          "expected": "Validation runtime reports stale_live with stale fallback disabled",
+          "observed": "HTTP 200 {'data': {'mode': 'stale_disallowed', 'reason': 'validation degraded state override', 'cache_revision': 3}}"
+        },
+        {
+          "action": "GET validation diagnostics/runtime",
+          "expected": "Reports stale_live and stale_live_enabled=false",
+          "observed": "{'active': True, 'stale_live_enabled': False, 'reason': 'validation degraded state override', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': False, 'reason': None}, 'validation_override': {'active': True, 'mode': 'stale_disallowed', 'reason': 'validation degraded state override'}}"
+        },
+        {
+          "action": "GET mission /simple/price for bitcoin",
+          "expected": "Expected empty object",
+          "observed": "HTTP 200 {'bitcoin': {'usd': 66908.33833333333}}"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -X POST -H 'Content-Type: application/json' -d '{\"mode\":\"stale_disallowed\"}' -w '\\nHTTPSTATUS:%{http_code}' 'http://localhost:3102/diagnostics/runtime/degraded_state' -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3102/diagnostics/runtime\" -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/simple/price?ids=bitcoin&vs_currencies=usd\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/override_set_stale_disallowed_v2.json",
+          "trust-slice-semantics/simple-detail/override_diag_stale_disallowed_v2.json",
+          "trust-slice-semantics/simple-detail/override_simple_stale_disallowed_v2.json"
+        ]
+      },
+      "issues": "Expected empty object under stale_disallowed override, but live price was still served."
+    },
+    {
+      "id": "VAL-SIMPLE-006",
+      "title": "/simple/price escalates zero-live completed boot to explicit unavailability",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "POST validation degraded_state zero_live_completed_boot",
+          "expected": "Expected successful override setup",
+          "observed": "HTTP 400 {'error': 'invalid_parameter', 'message': 'mode must be one of off, stale_disallowed, stale_allowed, degraded_seeded_bootstrap.'}"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -X POST -H 'Content-Type: application/json' -d '{\"mode\":\"zero_live_completed_boot\"}' -w '\\nHTTPSTATUS:%{http_code}' 'http://localhost:3102/diagnostics/runtime/degraded_state' -> 400",
+        "files": [
+          "trust-slice-semantics/simple-detail/override_set_zero_live_v2.json"
+        ]
+      },
+      "issues": "Validation API rejected the zero_live_completed_boot mode, so the required runtime state could not be established."
+    },
+    {
+      "id": "VAL-SIMPLE-007",
+      "title": "/simple/price resolves canonical coins through names and symbols",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET by ids, names, and symbols",
+          "expected": "All resolve to canonical bitcoin and ethereum keys",
+          "observed": "ids=['bitcoin', 'ethereum'] names=['bitcoin', 'ethereum'] symbols=['bitcoin', 'ethereum']"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/simple/price?ids=bitcoin,ethereum&vs_currencies=usd\" -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/simple/price?names=Bitcoin,Ethereum&vs_currencies=usd\" -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/simple/price?symbols=btc,eth&vs_currencies=usd\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/vs_valid.json",
+          "trust-slice-semantics/simple-detail/vs_names.json",
+          "trust-slice-semantics/simple-detail/vs_symbols.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SIMPLE-008",
+      "title": "/simple/price drops unknown selector misses instead of erroring valid mixed requests",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET ids=bitcoin,not-a-coin",
+          "expected": "Return only matched bitcoin key with 200",
+          "observed": "HTTP 200 {'bitcoin': {'usd': 66908.33833333333}}"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/simple/price?ids=bitcoin,not-a-coin&vs_currencies=usd\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/vs_mixed.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DETAIL-001",
+      "title": "/coins/{id} returns the default detail document for a known coin",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /coins/bitcoin",
+          "expected": "Default detail includes identity, metadata, image, market_data, tickers",
+          "observed": "HTTP 200 fields present=['id', 'symbol', 'name', 'description', 'image', 'market_data', 'tickers']"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/bitcoin\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/detail_default.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DETAIL-002",
+      "title": "/coins/{id} market data stays coherent with the shared hot-market snapshot",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Compare bitcoin USD price across simple, markets, detail",
+          "expected": "Values align exactly or within negligible tolerance",
+          "observed": "simple=66908.33833333333, markets=66908.33833333333, detail=66908.33833333333"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/simple/price?ids=bitcoin,ethereum&vs_currencies=usd\" -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/markets?vs_currency=usd&ids=bitcoin\" -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/bitcoin\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/vs_valid.json",
+          "trust-slice-semantics/simple-detail/markets_bitcoin.json",
+          "trust-slice-semantics/simple-detail/detail_default.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DETAIL-003",
+      "title": "/coins/{id} hides market data when stale-live serving is disabled",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "POST validation degraded_state stale_disallowed",
+          "expected": "Validation runtime reports stale_live with stale fallback disabled",
+          "observed": "HTTP 200"
+        },
+        {
+          "action": "GET validation diagnostics/runtime",
+          "expected": "Reports degraded stale-live disabled state",
+          "observed": "{'active': True, 'stale_live_enabled': False, 'reason': 'validation degraded state override', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': False, 'reason': None}, 'validation_override': {'active': True, 'mode': 'stale_disallowed', 'reason': 'validation degraded state override'}}"
+        },
+        {
+          "action": "GET mission /coins/bitcoin",
+          "expected": "Expected market_data: null",
+          "observed": "HTTP 200 market_data_is_null=False"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -X POST -H 'Content-Type: application/json' -d '{\"mode\":\"stale_disallowed\"}' -w '\\nHTTPSTATUS:%{http_code}' 'http://localhost:3102/diagnostics/runtime/degraded_state' -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3102/diagnostics/runtime\" -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/bitcoin\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/override_set_stale_disallowed_v2.json",
+          "trust-slice-semantics/simple-detail/override_diag_stale_disallowed_v2.json",
+          "trust-slice-semantics/simple-detail/override_detail_stale_disallowed_v2.json"
+        ]
+      },
+      "issues": "Expected market_data null under stale_disallowed override, but full market_data remained present."
+    },
+    {
+      "id": "VAL-DETAIL-004",
+      "title": "/coins/{id} preserves explicit null/empty semantics for optional sections",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /coins/bitcoin with market_data=false&community_data=false&developer_data=false&tickers=false",
+          "expected": "market_data/community_data/developer_data are null and tickers is []",
+          "observed": "HTTP 200 market_data=None community_data=None developer_data=None tickers_len=0"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/bitcoin?market_data=false&community_data=false&developer_data=false&tickers=false\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/detail_optional_nulls.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DETAIL-005",
+      "title": "/coins/{id} adds sparkline only when explicitly requested",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /coins/bitcoin without sparkline flag",
+          "expected": "Expected sparkline field absent",
+          "observed": "Observed sparkline_7d=None"
+        },
+        {
+          "action": "GET /coins/bitcoin?sparkline=true",
+          "expected": "sparkline_7d.price present",
+          "observed": "Observed sparkline price len=380"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/bitcoin\" -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/bitcoin?sparkline=true\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/detail_nosparkline.json",
+          "trust-slice-semantics/simple-detail/detail_sparkline.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DETAIL-006",
+      "title": "/coins/{id} rejects unknown ids explicitly",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /coins/not-a-coin",
+          "expected": "404 not_found with explicit message",
+          "observed": "HTTP 404 {'error': 'not_found', 'message': 'Coin not found: not-a-coin'}"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/not-a-coin\" -> 404",
+        "files": [
+          "trust-slice-semantics/simple-detail/detail_unknown.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DETAIL-007",
+      "title": "/coins/{id} rejects unsupported dex_pair_format",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /coins/bitcoin?dex_pair_format=bogus",
+          "expected": "400 invalid_parameter with unsupported dex_pair_format message",
+          "observed": "HTTP 400 {'error': 'invalid_parameter', 'message': 'Unsupported dex_pair_format value: bogus'}"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/bitcoin?dex_pair_format=bogus\" -> 400",
+        "files": [
+          "trust-slice-semantics/simple-detail/detail_bad_dex_pair.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DETAIL-008",
+      "title": "/coins/{id} continues serving stale market data only when stale-live serving is enabled",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST validation degraded_state stale_allowed",
+          "expected": "Validation runtime reports degraded stale_live with stale fallback enabled",
+          "observed": "HTTP 200 {'data': {'mode': 'stale_allowed', 'reason': 'validation degraded state override', 'cache_revision': 4}}"
+        },
+        {
+          "action": "GET validation diagnostics/runtime",
+          "expected": "Reports stale_live_enabled=true and source_class=stale_live",
+          "observed": "{'active': True, 'stale_live_enabled': True, 'reason': 'validation degraded state override', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': False, 'reason': None}, 'validation_override': {'active': True, 'mode': 'stale_allowed', 'reason': 'validation degraded state override'}}"
+        },
+        {
+          "action": "GET mission /coins/bitcoin",
+          "expected": "Expected stale market_data to remain present",
+          "observed": "HTTP 200 market_data_present=True"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -X POST -H 'Content-Type: application/json' -d '{\"mode\":\"stale_allowed\"}' -w '\\nHTTPSTATUS:%{http_code}' 'http://localhost:3102/diagnostics/runtime/degraded_state' -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3102/diagnostics/runtime\" -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/bitcoin\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/override_set_stale_allowed_v2.json",
+          "trust-slice-semantics/simple-detail/override_diag_stale_allowed_v2.json",
+          "trust-slice-semantics/simple-detail/override_detail_stale_allowed_v2.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DETAIL-009",
+      "title": "/coins/{id} does not imply live completeness during degraded seeded-bootstrap",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "POST validation degraded_state degraded_seeded_bootstrap",
+          "expected": "Validation runtime reports degraded seeded bootstrap",
+          "observed": "HTTP 200 {'data': {'mode': 'degraded_seeded_bootstrap', 'reason': 'validation degraded state override', 'cache_revision': 2}}"
+        },
+        {
+          "action": "GET validation diagnostics/runtime",
+          "expected": "Reports source_class=degraded_seeded_bootstrap and provider_count=0",
+          "observed": "{'available': True, 'source_class': 'degraded_seeded_bootstrap', 'last_successful_live_refresh_at': None, 'freshness': {'threshold_seconds': 300, 'age_seconds': 0, 'is_stale': False}, 'providers': ['coinbase'], 'provider_count': 0}"
+        },
+        {
+          "action": "GET mission /coins/bitcoin",
+          "expected": "Expected degraded/non-live-complete market semantics",
+          "observed": "HTTP 200 market_data_present=True"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable (curl)",
+        "network": "curl -sS -X POST -H 'Content-Type: application/json' -d '{\"mode\":\"degraded_seeded_bootstrap\"}' -w '\\nHTTPSTATUS:%{http_code}' 'http://localhost:3102/diagnostics/runtime/degraded_state' -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3102/diagnostics/runtime\" -> 200 ; curl -sS -w \"\\nHTTPSTATUS:%{http_code}\" \"http://localhost:3001/coins/bitcoin\" -> 200",
+        "files": [
+          "trust-slice-semantics/simple-detail/override_set_degraded_seeded.json",
+          "trust-slice-semantics/simple-detail/override_diag_degraded_seeded.json",
+          "trust-slice-semantics/simple-detail/override_detail_degraded_seeded.json"
+        ]
+      },
+      "issues": "Diagnostics reported degraded_seeded_bootstrap, but mission detail still returned a full live-looking market_data document."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The validation API advertises different degraded_state mode names than the validation contract text; successful requests required `stale_disallowed` / `stale_allowed` instead of the earlier attempted names.",
+      "resolved": true,
+      "resolution": "Used the mode names returned by the validation API error message and continued testing.",
+      "affectedAssertions": [
+        "VAL-SIMPLE-005",
+        "VAL-DETAIL-003",
+        "VAL-DETAIL-008"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Validation API on port 3102 does not accept the contract-required zero_live_completed_boot degraded_state mode; it returns 400 invalid_parameter.",
+      "affectedAssertions": [
+        "VAL-SIMPLE-006"
+      ],
+      "quickFixAttempted": "Retried using the contract-stated mode name directly after discovering supported modes from the API error message; it still returned 400."
+    }
+  ],
+  "summary": "Tested 17 assertions: 12 passed, 4 failed, 1 blocked."
+}

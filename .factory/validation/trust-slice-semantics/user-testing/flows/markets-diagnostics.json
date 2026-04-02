@@ -1,0 +1,3968 @@
+{
+  "groupId": "markets-diagnostics",
+  "testedAt": "2026-04-02T16:24:47.037574+00:00",
+  "isolation": {
+    "missionDir": "/home/whoami/.factory/missions/281d0e47-1a05-430f-ade5-e1117ca7ba0a",
+    "repoRoot": "/home/whoami/dev/opengecko/openGecko",
+    "missionApi": "http://localhost:3001",
+    "validationApi": "http://localhost:3102",
+    "sharedBoundary": "curl-only against shared mission/validation APIs"
+  },
+  "toolsUsed": [
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-MARKETS-001",
+      "title": "/coins/markets returns CoinGecko-shaped market rows",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /coins/markets?vs_currency=usd&per_page=5&page=1",
+          "expected": "200 array with identity + market fields",
+          "observed": "status 200, ids ['00-token', '0g', '0g3l']"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/markets-list-base.txt"
+        ],
+        "httpStatus": 200,
+        "keyJson": [
+          {
+            "id": "00-token",
+            "symbol": "00",
+            "name": "00 Token",
+            "image": null,
+            "current_price": 0.0045,
+            "market_cap": null,
+            "market_cap_rank": 9007199254740991,
+            "fully_diluted_valuation": null,
+            "total_volume": 14951.36,
+            "high_24h": 0.0053,
+            "low_24h": 0.0042,
+            "price_change_24h": -9.999999999999996e-05,
+            "price_change_percentage_24h": -2.17391304347826,
+            "market_cap_change_24h": null,
+            "market_cap_change_percentage_24h": null,
+            "circulating_supply": null,
+            "total_supply": null,
+            "max_supply": null,
+            "ath": 0.0045,
+            "ath_change_percentage": 0,
+            "ath_date": "2026-04-02T15:30:47.359Z",
+            "atl": 0.0042,
+            "atl_change_percentage": 7.142857142857143,
+            "atl_date": "2026-03-30T02:57:43.638Z",
+            "roi": null,
+            "last_updated": "2026-04-02T15:30:47.359Z"
+          }
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MARKETS-002",
+      "title": "/coins/markets defaults to deterministic market-cap-desc ordering",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect first page ordering",
+          "expected": "Descending market cap / deterministic rank order",
+          "observed": "market_caps=[None, None, None, None, None], ranks=[9007199254740991, 9007199254740991, 9007199254740991, 9007199254740991, 9007199254740991]"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/markets-list-base.txt"
+        ],
+        "httpStatus": 200,
+        "keyJson": [
+          {
+            "id": "00-token",
+            "market_cap": null,
+            "market_cap_rank": 9007199254740991
+          },
+          {
+            "id": "0g",
+            "market_cap": null,
+            "market_cap_rank": 9007199254740991
+          },
+          {
+            "id": "0g3l",
+            "market_cap": null,
+            "market_cap_rank": 9007199254740991
+          },
+          {
+            "id": "0g3s",
+            "market_cap": null,
+            "market_cap_rank": 9007199254740991
+          },
+          {
+            "id": "0x-protocol",
+            "market_cap": null,
+            "market_cap_rank": 9007199254740991
+          }
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MARKETS-003",
+      "title": "/coins/markets preserves explicit ids ordering, drops unknown ids, and bypasses page slicing",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET explicit ids with unknown id and page/per_page limits",
+          "expected": "ethereum then bitcoin only, unaffected by page/per_page",
+          "observed": "status 200, ids ['ethereum', 'bitcoin']"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/markets-ids-order.txt"
+        ],
+        "httpStatus": 200,
+        "keyJson": [
+          {
+            "id": "ethereum",
+            "symbol": "eth",
+            "name": "Ethereum",
+            "image": "https://coin-images.coingecko.com/coins/images/279/large/ethereum.png?1696501628",
+            "current_price": 2055.4283333333333,
+            "market_cap": 248072698655.88898,
+            "market_cap_rank": 2,
+            "fully_diluted_valuation": 248072698655.88898,
+            "total_volume": 289120346.25751615,
+            "high_24h": 4832.07,
+            "low_24h": 1473.38,
+            "price_change_24h": -77.77625230600248,
+            "price_change_percentage_24h": -3.6459818636050985,
+            "market_cap_change_24h": -9386931418.621428,
+            "market_cap_change_percentage_24h": -3.6459818636050985,
+            "circulating_supply": 120691485.3866902,
+            "total_supply": 120691485.3866902,
+            "max_supply": null,
+            "ath": 4946.05,
+            "ath_change_percentage": -58.4430336665959,
+            "ath_date": "2025-08-24T19:21:03.333Z",
+            "atl": 0.432979,
+            "atl_change_percentage": 474617.78846857086,
+            "atl_date": "2015-10-20T00:00:00.000Z",
+            "roi": {
+              "times": 39.149028999875206,
+              "currency": "btc",
+              "percentage": 3914.9028999875204
+            },
+            "last_updated": "2026-04-02T16:23:45.993Z"
+          },
+          {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65333333334,
+            "market_cap": 1337419279999.587,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000.0002,
+            "total_volume": 408604975.59846145,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.9728320642978,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09133362828,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z"
+          }
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MARKETS-004",
+      "title": "/coins/markets toggles sparkline output explicitly",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Compare sparkline=true vs sparkline=false",
+          "expected": "sparkline_in_7d.price only when requested",
+          "observed": "true_has=True, false_has=False"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/markets-spark-true.txt",
+          "trust-slice-semantics/markets-diagnostics/markets-spark-false.txt"
+        ],
+        "httpStatus": [
+          200,
+          200
+        ],
+        "keyJson": {
+          "true": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65333333334,
+            "market_cap": 1337419279999.587,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000.0002,
+            "total_volume": 408604975.59846145,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.9728320642978,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09133362828,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "sparkline_in_7d": {
+              "price": []
+            }
+          },
+          "false": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65333333334,
+            "market_cap": 1337419279999.587,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000.0002,
+            "total_volume": 408604975.59846145,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.9728320642978,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09133362828,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z"
+          }
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MARKETS-005",
+      "title": "/coins/markets exposes only requested price-change windows",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Compare price_change_percentage requested vs omitted",
+          "expected": "*_in_currency fields only when requested",
+          "observed": "requested_keys=['price_change_percentage_24h', 'price_change_percentage_1h_in_currency', 'price_change_percentage_24h_in_currency', 'price_change_percentage_7d_in_currency'], omitted_keys=['price_change_percentage_24h']"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/markets-pct-true.txt",
+          "trust-slice-semantics/markets-diagnostics/markets-pct-false.txt"
+        ],
+        "httpStatus": [
+          200,
+          200
+        ],
+        "keyJson": {
+          "requested": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65333333334,
+            "market_cap": 1337419279999.587,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000.0002,
+            "total_volume": 408604975.59846145,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.9728320642978,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09133362828,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "price_change_percentage_1h_in_currency": null,
+            "price_change_percentage_24h_in_currency": -2.8558179469167233,
+            "price_change_percentage_7d_in_currency": null
+          },
+          "omitted": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65333333334,
+            "market_cap": 1337419279999.587,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000.0002,
+            "total_volume": 408604975.59846145,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.9728320642978,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09133362828,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z"
+          }
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MARKETS-006",
+      "title": "/coins/markets rejects unsupported order values",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /coins/markets with unsupported order",
+          "expected": "400 invalid_parameter Unsupported order value",
+          "observed": "status 400, body {\"error\":\"invalid_parameter\",\"message\":\"Unsupported order value: nope\"}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/markets-bad-order.txt"
+        ],
+        "httpStatus": 400,
+        "keyJson": {
+          "error": "invalid_parameter",
+          "message": "Unsupported order value: nope"
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MARKETS-007",
+      "title": "/coins/markets enforces precision validation and serialization",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET invalid precision then valid precision=2",
+          "expected": "400 for invalid and rounded numeric serialization for valid",
+          "observed": "invalid_status=400, valid_price=66856.65"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/markets-bad-precision.txt",
+          "trust-slice-semantics/markets-diagnostics/markets-good-precision.txt"
+        ],
+        "httpStatus": [
+          400,
+          200
+        ],
+        "keyJson": {
+          "invalid": {
+            "error": "invalid_parameter",
+            "message": "Invalid precision value: bogus"
+          },
+          "valid": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65,
+            "market_cap": 1337419279999.59,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000,
+            "total_volume": 408604975.6,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.43,
+            "price_change_percentage_24h": -2.86,
+            "market_cap_change_24h": -39317084169.67,
+            "market_cap_change_percentage_24h": -2.86,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.97,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z"
+          }
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DIAG-004",
+      "title": "validation override routes stay hidden outside validation mode",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST override routes on 3001",
+          "expected": "404 not_found on both routes",
+          "observed": "provider_failure=404, degraded_state=404"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/diag-hidden-provider-3001.txt",
+          "trust-slice-semantics/markets-diagnostics/diag-hidden-degraded-3001.txt"
+        ],
+        "httpStatus": [
+          404,
+          404
+        ],
+        "keyJson": {
+          "provider_failure": {
+            "error": "not_found",
+            "message": "Route not found"
+          },
+          "degraded_state": {
+            "error": "not_found",
+            "message": "Route not found"
+          }
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DIAG-005",
+      "title": "invalid degraded override modes fail closed in validation mode",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST invalid degraded_state mode on 3102",
+          "expected": "400 invalid_parameter",
+          "observed": "status 400, body {\"error\":\"invalid_parameter\",\"message\":\"mode must be one of off, stale_disallowed, stale_allowed, degraded_seeded_bootstrap.\"}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/diag-invalid-degraded-mode.txt"
+        ],
+        "httpStatus": 400,
+        "keyJson": {
+          "error": "invalid_parameter",
+          "message": "mode must be one of off, stale_disallowed, stale_allowed, degraded_seeded_bootstrap."
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DIAG-001",
+      "title": "/diagnostics/runtime reports ready fresh-live state truthfully",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "GET /diagnostics/runtime on 3001",
+          "expected": "ready + fresh_live + available true + degraded false",
+          "observed": "{'readiness': {'state': 'degraded', 'listener_bound': True, 'listener_bind_deferred': False, 'initial_sync_completed': False, 'degraded': True, 'zero_live_completed_boot': False, 'validation_override_active': False}, 'degraded': {'active': True, 'stale_live_enabled': True, 'reason': 'database disk image is malformed', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': False, 'reason': None}, 'validation_override': {'active': False, 'mode': 'off', 'reason': None}}, 'hot_paths': {'shared_market_snapshot': {'available': True, 'source_class': 'fresh_live', 'last_successful_live_refresh_at': '2026-04-02T16:23:46.173Z', 'freshness': {'threshold_seconds': 300, 'age_seconds': 59, 'is_stale': False}, 'providers': ['binance', 'coinbase', 'okx'], 'provider_count': 3}, 'cache_revision': 1}, 'transport': {'request_timeout_ms': 15000, 'compression': {'threshold_bytes': 1024}}, 'startup_prewarm': {'enabled': False, 'budgetMs': 0, 'readyWithinBudget': True, 'firstRequestWarmBenefitsObserved': False, 'firstRequestWarmBenefitPending': False, 'targets': [], 'completedAt': None, 'totalDurationMs': None, 'targetResults': []}}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/baseline-diag-3001.txt"
+        ],
+        "httpStatus": 200,
+        "keyJson": {
+          "readiness": {
+            "state": "degraded",
+            "listener_bound": true,
+            "listener_bind_deferred": false,
+            "initial_sync_completed": false,
+            "degraded": true,
+            "zero_live_completed_boot": false,
+            "validation_override_active": false
+          },
+          "degraded": {
+            "active": true,
+            "stale_live_enabled": true,
+            "reason": "database disk image is malformed",
+            "provider_failure_cooldown_until": null,
+            "injected_provider_failure": {
+              "active": false,
+              "reason": null
+            },
+            "validation_override": {
+              "active": false,
+              "mode": "off",
+              "reason": null
+            }
+          },
+          "hot_paths": {
+            "shared_market_snapshot": {
+              "available": true,
+              "source_class": "fresh_live",
+              "last_successful_live_refresh_at": "2026-04-02T16:23:46.173Z",
+              "freshness": {
+                "threshold_seconds": 300,
+                "age_seconds": 59,
+                "is_stale": false
+              },
+              "providers": [
+                "binance",
+                "coinbase",
+                "okx"
+              ],
+              "provider_count": 3
+            },
+            "cache_revision": 1
+          },
+          "transport": {
+            "request_timeout_ms": 15000,
+            "compression": {
+              "threshold_bytes": 1024
+            }
+          },
+          "startup_prewarm": {
+            "enabled": false,
+            "budgetMs": 0,
+            "readyWithinBudget": true,
+            "firstRequestWarmBenefitsObserved": false,
+            "firstRequestWarmBenefitPending": false,
+            "targets": [],
+            "completedAt": null,
+            "totalDurationMs": null,
+            "targetResults": []
+          }
+        }
+      },
+      "issues": "Baseline runtime not fresh_live ready: {'readiness': {'state': 'degraded', 'listener_bound': True, 'listener_bind_deferred': False, 'initial_sync_completed': False, 'degraded': True, 'zero_live_completed_boot': False, 'validation_override_active': False}, 'degraded': {'active': True, 'stale_live_enabled': True, 'reason': 'database disk image is malformed', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': False, 'reason': None}, 'validation_override': {'active': False, 'mode': 'off', 'reason': None}}, 'hot_paths': {'shared_market_snapshot': {'available': True, 'source_class': 'fresh_live', 'last_successful_live_refresh_at': '2026-04-02T16:23:46.173Z', 'freshness': {'threshold_seconds': 300, 'age_seconds': 59, 'is_stale': False}, 'providers': ['binance', 'coinbase', 'okx'], 'provider_count': 3}, 'cache_revision': 1}, 'transport': {'request_timeout_ms': 15000, 'compression': {'threshold_bytes': 1024}}, 'startup_prewarm': {'enabled': False, 'budgetMs': 0, 'readyWithinBudget': True, 'firstRequestWarmBenefitsObserved': False, 'firstRequestWarmBenefitPending': False, 'targets': [], 'completedAt': None, 'totalDurationMs': None, 'targetResults': []}}"
+    },
+    {
+      "id": "VAL-DIAG-002",
+      "title": "/diagnostics/runtime distinguishes seeded bootstrap from normal readiness",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Apply seeded bootstrap override then GET diagnostics/runtime",
+          "expected": "readiness.state=starting and source_class=seeded_bootstrap",
+          "observed": "None"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/seeded_bootstrap-1.txt",
+          "trust-slice-semantics/markets-diagnostics/seeded_bootstrap-2.txt"
+        ],
+        "httpStatus": [
+          400,
+          400
+        ],
+        "keyJson": null
+      },
+      "issues": "Could not apply seeded bootstrap override."
+    },
+    {
+      "id": "VAL-DIAG-003",
+      "title": "/diagnostics/runtime reports degraded seeded-bootstrap explicitly",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Apply degraded seeded bootstrap override and inspect diagnostics/runtime",
+          "expected": "degraded state with degraded_seeded_bootstrap and provider_count=0",
+          "observed": "{'readiness': {'state': 'degraded', 'listener_bound': True, 'listener_bind_deferred': False, 'initial_sync_completed': False, 'degraded': True, 'zero_live_completed_boot': False, 'validation_override_active': True}, 'degraded': {'active': True, 'stale_live_enabled': False, 'reason': 'validation degraded state override', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': False, 'reason': None}, 'validation_override': {'active': True, 'mode': 'degraded_seeded_bootstrap', 'reason': 'validation degraded state override'}}, 'hot_paths': {'shared_market_snapshot': {'available': True, 'source_class': 'degraded_seeded_bootstrap', 'last_successful_live_refresh_at': None, 'freshness': {'threshold_seconds': 300, 'age_seconds': 0, 'is_stale': False}, 'providers': ['coinbase'], 'provider_count': 0}, 'cache_revision': 9}, 'transport': {'request_timeout_ms': 15000, 'compression': {'threshold_bytes': 1024}}, 'startup_prewarm': {'enabled': True, 'budgetMs': 250, 'readyWithinBudget': True, 'firstRequestWarmBenefitsObserved': False, 'firstRequestWarmBenefitPending': True, 'targets': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price'}], 'completedAt': 1775146464686, 'totalDurationMs': 5, 'targetResults': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price', 'status': 'completed', 'durationMs': 5, 'warmCacheRevision': 1, 'firstObservedRequest': None}]}}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/degraded_seeded_bootstrap-1.txt",
+          "trust-slice-semantics/markets-diagnostics/degraded_seeded_bootstrap-diag.txt"
+        ],
+        "httpStatus": [
+          200,
+          200
+        ],
+        "keyJson": {
+          "readiness": {
+            "state": "degraded",
+            "listener_bound": true,
+            "listener_bind_deferred": false,
+            "initial_sync_completed": false,
+            "degraded": true,
+            "zero_live_completed_boot": false,
+            "validation_override_active": true
+          },
+          "degraded": {
+            "active": true,
+            "stale_live_enabled": false,
+            "reason": "validation degraded state override",
+            "provider_failure_cooldown_until": null,
+            "injected_provider_failure": {
+              "active": false,
+              "reason": null
+            },
+            "validation_override": {
+              "active": true,
+              "mode": "degraded_seeded_bootstrap",
+              "reason": "validation degraded state override"
+            }
+          },
+          "hot_paths": {
+            "shared_market_snapshot": {
+              "available": true,
+              "source_class": "degraded_seeded_bootstrap",
+              "last_successful_live_refresh_at": null,
+              "freshness": {
+                "threshold_seconds": 300,
+                "age_seconds": 0,
+                "is_stale": false
+              },
+              "providers": [
+                "coinbase"
+              ],
+              "provider_count": 0
+            },
+            "cache_revision": 9
+          },
+          "transport": {
+            "request_timeout_ms": 15000,
+            "compression": {
+              "threshold_bytes": 1024
+            }
+          },
+          "startup_prewarm": {
+            "enabled": true,
+            "budgetMs": 250,
+            "readyWithinBudget": true,
+            "firstRequestWarmBenefitsObserved": false,
+            "firstRequestWarmBenefitPending": true,
+            "targets": [
+              {
+                "id": "simple_price_bitcoin_usd",
+                "label": "Simple price BTC/USD",
+                "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                "cacheSurface": "simple_price"
+              }
+            ],
+            "completedAt": 1775146464686,
+            "totalDurationMs": 5,
+            "targetResults": [
+              {
+                "id": "simple_price_bitcoin_usd",
+                "label": "Simple price BTC/USD",
+                "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                "cacheSurface": "simple_price",
+                "status": "completed",
+                "durationMs": 5,
+                "warmCacheRevision": 1,
+                "firstObservedRequest": null
+              }
+            ]
+          }
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DIAG-006",
+      "title": "zero-live completed boot is explicit and operator-visible",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Apply zero-live completed boot override then inspect diagnostics/runtime",
+          "expected": "data.readiness.zero_live_completed_boot=true",
+          "observed": "None"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/zero_live_completed_boot-1.txt",
+          "trust-slice-semantics/markets-diagnostics/zero_live_completed_boot-2.txt"
+        ],
+        "httpStatus": [
+          400,
+          400
+        ],
+        "keyJson": null
+      },
+      "issues": "Could not apply zero-live completed boot override."
+    },
+    {
+      "id": "VAL-DIAG-007",
+      "title": "provider failure state is surfaced separately from degraded-state overrides",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST provider_failure override then GET diagnostics/runtime",
+          "expected": "Injected provider failure is visible distinctly",
+          "observed": "{'readiness': {'state': 'degraded', 'listener_bound': True, 'listener_bind_deferred': False, 'initial_sync_completed': False, 'degraded': True, 'zero_live_completed_boot': False, 'validation_override_active': True}, 'degraded': {'active': True, 'stale_live_enabled': False, 'reason': 'validation degraded state override', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': True, 'reason': 'simulated_failure'}, 'validation_override': {'active': True, 'mode': 'degraded_seeded_bootstrap', 'reason': 'validation degraded state override'}}, 'hot_paths': {'shared_market_snapshot': {'available': True, 'source_class': 'degraded_seeded_bootstrap', 'last_successful_live_refresh_at': None, 'freshness': {'threshold_seconds': 300, 'age_seconds': 0, 'is_stale': False}, 'providers': ['coinbase'], 'provider_count': 0}, 'cache_revision': 9}, 'transport': {'request_timeout_ms': 15000, 'compression': {'threshold_bytes': 1024}}, 'startup_prewarm': {'enabled': True, 'budgetMs': 250, 'readyWithinBudget': True, 'firstRequestWarmBenefitsObserved': False, 'firstRequestWarmBenefitPending': True, 'targets': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price'}], 'completedAt': 1775146464686, 'totalDurationMs': 5, 'targetResults': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price', 'status': 'completed', 'durationMs': 5, 'warmCacheRevision': 1, 'firstObservedRequest': None}]}}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/provider-failure-1.txt",
+          "trust-slice-semantics/markets-diagnostics/provider-failure-diag.txt"
+        ],
+        "httpStatus": [
+          200,
+          200
+        ],
+        "keyJson": {
+          "readiness": {
+            "state": "degraded",
+            "listener_bound": true,
+            "listener_bind_deferred": false,
+            "initial_sync_completed": false,
+            "degraded": true,
+            "zero_live_completed_boot": false,
+            "validation_override_active": true
+          },
+          "degraded": {
+            "active": true,
+            "stale_live_enabled": false,
+            "reason": "validation degraded state override",
+            "provider_failure_cooldown_until": null,
+            "injected_provider_failure": {
+              "active": true,
+              "reason": "simulated_failure"
+            },
+            "validation_override": {
+              "active": true,
+              "mode": "degraded_seeded_bootstrap",
+              "reason": "validation degraded state override"
+            }
+          },
+          "hot_paths": {
+            "shared_market_snapshot": {
+              "available": true,
+              "source_class": "degraded_seeded_bootstrap",
+              "last_successful_live_refresh_at": null,
+              "freshness": {
+                "threshold_seconds": 300,
+                "age_seconds": 0,
+                "is_stale": false
+              },
+              "providers": [
+                "coinbase"
+              ],
+              "provider_count": 0
+            },
+            "cache_revision": 9
+          },
+          "transport": {
+            "request_timeout_ms": 15000,
+            "compression": {
+              "threshold_bytes": 1024
+            }
+          },
+          "startup_prewarm": {
+            "enabled": true,
+            "budgetMs": 250,
+            "readyWithinBudget": true,
+            "firstRequestWarmBenefitsObserved": false,
+            "firstRequestWarmBenefitPending": true,
+            "targets": [
+              {
+                "id": "simple_price_bitcoin_usd",
+                "label": "Simple price BTC/USD",
+                "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                "cacheSurface": "simple_price"
+              }
+            ],
+            "completedAt": 1775146464686,
+            "totalDurationMs": 5,
+            "targetResults": [
+              {
+                "id": "simple_price_bitcoin_usd",
+                "label": "Simple price BTC/USD",
+                "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                "cacheSurface": "simple_price",
+                "status": "completed",
+                "durationMs": 5,
+                "warmCacheRevision": 1,
+                "firstObservedRequest": null
+              }
+            ]
+          }
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DIAG-008",
+      "title": "diagnostics/runtime reports stale-live truthfully when stale fallback is active",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Apply stale-live allowed override then inspect diagnostics/runtime",
+          "expected": "Degraded stale-live semantics rather than fresh_live/ready",
+          "observed": "{'readiness': {'state': 'degraded', 'listener_bound': True, 'listener_bind_deferred': False, 'initial_sync_completed': True, 'degraded': True, 'zero_live_completed_boot': False, 'validation_override_active': True}, 'degraded': {'active': True, 'stale_live_enabled': True, 'reason': 'validation degraded state override', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': False, 'reason': None}, 'validation_override': {'active': True, 'mode': 'stale_allowed', 'reason': 'validation degraded state override'}}, 'hot_paths': {'shared_market_snapshot': {'available': True, 'source_class': 'stale_live', 'last_successful_live_refresh_at': '1970-01-01T00:00:00.000Z', 'freshness': {'threshold_seconds': 300, 'age_seconds': 1775147086, 'is_stale': True}, 'providers': ['coinbase'], 'provider_count': 1}, 'cache_revision': 8}, 'transport': {'request_timeout_ms': 15000, 'compression': {'threshold_bytes': 1024}}, 'startup_prewarm': {'enabled': True, 'budgetMs': 250, 'readyWithinBudget': True, 'firstRequestWarmBenefitsObserved': False, 'firstRequestWarmBenefitPending': True, 'targets': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price'}], 'completedAt': 1775146464686, 'totalDurationMs': 5, 'targetResults': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price', 'status': 'completed', 'durationMs': 5, 'warmCacheRevision': 1, 'firstObservedRequest': None}]}}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-1.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-2.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-diag.txt"
+        ],
+        "httpStatus": [
+          400,
+          200,
+          200
+        ],
+        "keyJson": {
+          "readiness": {
+            "state": "degraded",
+            "listener_bound": true,
+            "listener_bind_deferred": false,
+            "initial_sync_completed": true,
+            "degraded": true,
+            "zero_live_completed_boot": false,
+            "validation_override_active": true
+          },
+          "degraded": {
+            "active": true,
+            "stale_live_enabled": true,
+            "reason": "validation degraded state override",
+            "provider_failure_cooldown_until": null,
+            "injected_provider_failure": {
+              "active": false,
+              "reason": null
+            },
+            "validation_override": {
+              "active": true,
+              "mode": "stale_allowed",
+              "reason": "validation degraded state override"
+            }
+          },
+          "hot_paths": {
+            "shared_market_snapshot": {
+              "available": true,
+              "source_class": "stale_live",
+              "last_successful_live_refresh_at": "1970-01-01T00:00:00.000Z",
+              "freshness": {
+                "threshold_seconds": 300,
+                "age_seconds": 1775147086,
+                "is_stale": true
+              },
+              "providers": [
+                "coinbase"
+              ],
+              "provider_count": 1
+            },
+            "cache_revision": 8
+          },
+          "transport": {
+            "request_timeout_ms": 15000,
+            "compression": {
+              "threshold_bytes": 1024
+            }
+          },
+          "startup_prewarm": {
+            "enabled": true,
+            "budgetMs": 250,
+            "readyWithinBudget": true,
+            "firstRequestWarmBenefitsObserved": false,
+            "firstRequestWarmBenefitPending": true,
+            "targets": [
+              {
+                "id": "simple_price_bitcoin_usd",
+                "label": "Simple price BTC/USD",
+                "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                "cacheSurface": "simple_price"
+              }
+            ],
+            "completedAt": 1775146464686,
+            "totalDurationMs": 5,
+            "targetResults": [
+              {
+                "id": "simple_price_bitcoin_usd",
+                "label": "Simple price BTC/USD",
+                "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                "cacheSurface": "simple_price",
+                "status": "completed",
+                "durationMs": 5,
+                "warmCacheRevision": 1,
+                "firstObservedRequest": null
+              }
+            ]
+          }
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DIAG-009",
+      "title": "validation override routes return explicit success envelopes in validation mode",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "POST successful degraded_state and provider_failure overrides on 3102",
+          "expected": "200 machine-readable JSON success payloads",
+          "observed": "degraded=None, provider={\"data\":{\"active\":true,\"reason\":\"simulated_failure\"}}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/provider-failure-1.txt"
+        ],
+        "httpStatus": [
+          200
+        ],
+        "keyJson": {
+          "degraded_state": null,
+          "provider_failure": {
+            "data": {
+              "active": true,
+              "reason": "simulated_failure"
+            }
+          }
+        }
+      },
+      "issues": "Missing successful override responses."
+    },
+    {
+      "id": "VAL-MARKETS-008",
+      "title": "/coins/markets nulls stale market fields when stale-live serving is disabled",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Apply stale disallowed override then GET explicit bitcoin market row",
+          "expected": "Identity row preserved with stale market-bearing fields nulled",
+          "observed": "{'id': 'bitcoin', 'symbol': 'btc', 'name': 'Bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'current_price': 66856.65333333334, 'market_cap': 1337419279999.587, 'market_cap_rank': 1, 'fully_diluted_valuation': 1403989720000.0002, 'total_volume': 408604975.59846145, 'high_24h': 124670.47, 'low_24h': 62929.05, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': 126080, 'ath_change_percentage': -46.9728320642978, 'ath_date': '2025-10-06T18:57:42.558Z', 'atl': 67.81, 'atl_change_percentage': 98494.09133362828, 'atl_date': '2013-07-06T00:00:00.000Z', 'roi': None, 'last_updated': '2026-04-02T16:23:45.212Z', 'price_change_percentage_1h_in_currency': None, 'price_change_percentage_24h_in_currency': -2.8558179469167233, 'price_change_percentage_7d_in_currency': None}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/stale_disallowed-1.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_disallowed-2.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_disallowed-diag.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_disallowed-markets.txt"
+        ],
+        "httpStatus": [
+          400,
+          200,
+          200,
+          200
+        ],
+        "keyJson": {
+          "diagnostics": {
+            "readiness": {
+              "state": "degraded",
+              "listener_bound": true,
+              "listener_bind_deferred": false,
+              "initial_sync_completed": true,
+              "degraded": true,
+              "zero_live_completed_boot": false,
+              "validation_override_active": true
+            },
+            "degraded": {
+              "active": true,
+              "stale_live_enabled": false,
+              "reason": "validation degraded state override",
+              "provider_failure_cooldown_until": null,
+              "injected_provider_failure": {
+                "active": false,
+                "reason": null
+              },
+              "validation_override": {
+                "active": true,
+                "mode": "stale_disallowed",
+                "reason": "validation degraded state override"
+              }
+            },
+            "hot_paths": {
+              "shared_market_snapshot": {
+                "available": true,
+                "source_class": "stale_live",
+                "last_successful_live_refresh_at": "1970-01-01T00:00:00.000Z",
+                "freshness": {
+                  "threshold_seconds": 300,
+                  "age_seconds": 1775147086,
+                  "is_stale": true
+                },
+                "providers": [
+                  "coinbase"
+                ],
+                "provider_count": 1
+              },
+              "cache_revision": 7
+            },
+            "transport": {
+              "request_timeout_ms": 15000,
+              "compression": {
+                "threshold_bytes": 1024
+              }
+            },
+            "startup_prewarm": {
+              "enabled": true,
+              "budgetMs": 250,
+              "readyWithinBudget": true,
+              "firstRequestWarmBenefitsObserved": false,
+              "firstRequestWarmBenefitPending": true,
+              "targets": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price"
+                }
+              ],
+              "completedAt": 1775146464686,
+              "totalDurationMs": 5,
+              "targetResults": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price",
+                  "status": "completed",
+                  "durationMs": 5,
+                  "warmCacheRevision": 1,
+                  "firstObservedRequest": null
+                }
+              ]
+            }
+          },
+          "markets": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65333333334,
+            "market_cap": 1337419279999.587,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000.0002,
+            "total_volume": 408604975.59846145,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.9728320642978,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09133362828,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "price_change_percentage_1h_in_currency": null,
+            "price_change_percentage_24h_in_currency": -2.8558179469167233,
+            "price_change_percentage_7d_in_currency": null
+          }
+        }
+      },
+      "issues": "Stale disallowed market row still has market-bearing values: {'id': 'bitcoin', 'symbol': 'btc', 'name': 'Bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'current_price': 66856.65333333334, 'market_cap': 1337419279999.587, 'market_cap_rank': 1, 'fully_diluted_valuation': 1403989720000.0002, 'total_volume': 408604975.59846145, 'high_24h': 124670.47, 'low_24h': 62929.05, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': 126080, 'ath_change_percentage': -46.9728320642978, 'ath_date': '2025-10-06T18:57:42.558Z', 'atl': 67.81, 'atl_change_percentage': 98494.09133362828, 'atl_date': '2013-07-06T00:00:00.000Z', 'roi': None, 'last_updated': '2026-04-02T16:23:45.212Z', 'price_change_percentage_1h_in_currency': None, 'price_change_percentage_24h_in_currency': -2.8558179469167233, 'price_change_percentage_7d_in_currency': None}"
+    },
+    {
+      "id": "VAL-MARKETS-009",
+      "title": "/coins/markets continues serving stale values only when stale-live serving is enabled",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Apply stale allowed override then GET explicit bitcoin market row",
+          "expected": "Stale values still served",
+          "observed": "{'id': 'bitcoin', 'symbol': 'btc', 'name': 'Bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'current_price': 66856.65333333334, 'market_cap': 1337419279999.587, 'market_cap_rank': 1, 'fully_diluted_valuation': 1403989720000.0002, 'total_volume': 408604975.59846145, 'high_24h': 124670.47, 'low_24h': 62929.05, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': 126080, 'ath_change_percentage': -46.9728320642978, 'ath_date': '2025-10-06T18:57:42.558Z', 'atl': 67.81, 'atl_change_percentage': 98494.09133362828, 'atl_date': '2013-07-06T00:00:00.000Z', 'roi': None, 'last_updated': '2026-04-02T16:23:45.212Z', 'price_change_percentage_1h_in_currency': None, 'price_change_percentage_24h_in_currency': -2.8558179469167233, 'price_change_percentage_7d_in_currency': None}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-1.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-2.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-diag.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-markets.txt"
+        ],
+        "httpStatus": [
+          400,
+          200,
+          200,
+          200
+        ],
+        "keyJson": {
+          "diagnostics": {
+            "readiness": {
+              "state": "degraded",
+              "listener_bound": true,
+              "listener_bind_deferred": false,
+              "initial_sync_completed": true,
+              "degraded": true,
+              "zero_live_completed_boot": false,
+              "validation_override_active": true
+            },
+            "degraded": {
+              "active": true,
+              "stale_live_enabled": true,
+              "reason": "validation degraded state override",
+              "provider_failure_cooldown_until": null,
+              "injected_provider_failure": {
+                "active": false,
+                "reason": null
+              },
+              "validation_override": {
+                "active": true,
+                "mode": "stale_allowed",
+                "reason": "validation degraded state override"
+              }
+            },
+            "hot_paths": {
+              "shared_market_snapshot": {
+                "available": true,
+                "source_class": "stale_live",
+                "last_successful_live_refresh_at": "1970-01-01T00:00:00.000Z",
+                "freshness": {
+                  "threshold_seconds": 300,
+                  "age_seconds": 1775147086,
+                  "is_stale": true
+                },
+                "providers": [
+                  "coinbase"
+                ],
+                "provider_count": 1
+              },
+              "cache_revision": 8
+            },
+            "transport": {
+              "request_timeout_ms": 15000,
+              "compression": {
+                "threshold_bytes": 1024
+              }
+            },
+            "startup_prewarm": {
+              "enabled": true,
+              "budgetMs": 250,
+              "readyWithinBudget": true,
+              "firstRequestWarmBenefitsObserved": false,
+              "firstRequestWarmBenefitPending": true,
+              "targets": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price"
+                }
+              ],
+              "completedAt": 1775146464686,
+              "totalDurationMs": 5,
+              "targetResults": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price",
+                  "status": "completed",
+                  "durationMs": 5,
+                  "warmCacheRevision": 1,
+                  "firstObservedRequest": null
+                }
+              ]
+            }
+          },
+          "markets": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65333333334,
+            "market_cap": 1337419279999.587,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000.0002,
+            "total_volume": 408604975.59846145,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.9728320642978,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09133362828,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "price_change_percentage_1h_in_currency": null,
+            "price_change_percentage_24h_in_currency": -2.8558179469167233,
+            "price_change_percentage_7d_in_currency": null
+          }
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MARKETS-010",
+      "title": "/coins/markets exposes degraded seeded-bootstrap null-shape explicitly",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Apply degraded seeded bootstrap override then GET explicit bitcoin market row",
+          "expected": "Identity/current_price may remain; richer fields nulled",
+          "observed": "{'id': 'bitcoin', 'symbol': 'btc', 'name': 'Bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'current_price': 66856.65333333334, 'market_cap': 1337419279999.587, 'market_cap_rank': 1, 'fully_diluted_valuation': 1403989720000.0002, 'total_volume': 408604975.59846145, 'high_24h': 124670.47, 'low_24h': 62929.05, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': 126080, 'ath_change_percentage': -46.9728320642978, 'ath_date': '2025-10-06T18:57:42.558Z', 'atl': 67.81, 'atl_change_percentage': 98494.09133362828, 'atl_date': '2013-07-06T00:00:00.000Z', 'roi': None, 'last_updated': '2026-04-02T16:23:45.212Z', 'price_change_percentage_1h_in_currency': None, 'price_change_percentage_24h_in_currency': -2.8558179469167233, 'price_change_percentage_7d_in_currency': None}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/degraded_seeded_bootstrap-1.txt",
+          "trust-slice-semantics/markets-diagnostics/degraded_seeded_bootstrap-diag.txt",
+          "trust-slice-semantics/markets-diagnostics/degraded_seeded_bootstrap-markets.txt"
+        ],
+        "httpStatus": [
+          200,
+          200,
+          200
+        ],
+        "keyJson": {
+          "diagnostics": {
+            "readiness": {
+              "state": "degraded",
+              "listener_bound": true,
+              "listener_bind_deferred": false,
+              "initial_sync_completed": false,
+              "degraded": true,
+              "zero_live_completed_boot": false,
+              "validation_override_active": true
+            },
+            "degraded": {
+              "active": true,
+              "stale_live_enabled": false,
+              "reason": "validation degraded state override",
+              "provider_failure_cooldown_until": null,
+              "injected_provider_failure": {
+                "active": false,
+                "reason": null
+              },
+              "validation_override": {
+                "active": true,
+                "mode": "degraded_seeded_bootstrap",
+                "reason": "validation degraded state override"
+              }
+            },
+            "hot_paths": {
+              "shared_market_snapshot": {
+                "available": true,
+                "source_class": "degraded_seeded_bootstrap",
+                "last_successful_live_refresh_at": null,
+                "freshness": {
+                  "threshold_seconds": 300,
+                  "age_seconds": 0,
+                  "is_stale": false
+                },
+                "providers": [
+                  "coinbase"
+                ],
+                "provider_count": 0
+              },
+              "cache_revision": 9
+            },
+            "transport": {
+              "request_timeout_ms": 15000,
+              "compression": {
+                "threshold_bytes": 1024
+              }
+            },
+            "startup_prewarm": {
+              "enabled": true,
+              "budgetMs": 250,
+              "readyWithinBudget": true,
+              "firstRequestWarmBenefitsObserved": false,
+              "firstRequestWarmBenefitPending": true,
+              "targets": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price"
+                }
+              ],
+              "completedAt": 1775146464686,
+              "totalDurationMs": 5,
+              "targetResults": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price",
+                  "status": "completed",
+                  "durationMs": 5,
+                  "warmCacheRevision": 1,
+                  "firstObservedRequest": null
+                }
+              ]
+            }
+          },
+          "markets": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65333333334,
+            "market_cap": 1337419279999.587,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000.0002,
+            "total_volume": 408604975.59846145,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.9728320642978,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09133362828,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "price_change_percentage_1h_in_currency": null,
+            "price_change_percentage_24h_in_currency": -2.8558179469167233,
+            "price_change_percentage_7d_in_currency": null
+          }
+        }
+      },
+      "issues": "Degraded seeded bootstrap row shape mismatch: {'id': 'bitcoin', 'symbol': 'btc', 'name': 'Bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'current_price': 66856.65333333334, 'market_cap': 1337419279999.587, 'market_cap_rank': 1, 'fully_diluted_valuation': 1403989720000.0002, 'total_volume': 408604975.59846145, 'high_24h': 124670.47, 'low_24h': 62929.05, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': 126080, 'ath_change_percentage': -46.9728320642978, 'ath_date': '2025-10-06T18:57:42.558Z', 'atl': 67.81, 'atl_change_percentage': 98494.09133362828, 'atl_date': '2013-07-06T00:00:00.000Z', 'roi': None, 'last_updated': '2026-04-02T16:23:45.212Z', 'price_change_percentage_1h_in_currency': None, 'price_change_percentage_24h_in_currency': -2.8558179469167233, 'price_change_percentage_7d_in_currency': None}"
+    },
+    {
+      "id": "VAL-MARKETS-011",
+      "title": "/coins/markets treats explicit names and symbols selectors like explicit ids",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET explicit names and symbols selectors with unknown entries and page/per_page params",
+          "expected": "Matched ids preserve caller order and drop unknown selectors",
+          "observed": "names=['ethereum', 'bitcoin'], symbols=['ethereum', 'bitcoin']"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/markets-names-order.txt",
+          "trust-slice-semantics/markets-diagnostics/markets-symbols-order.txt"
+        ],
+        "httpStatus": [
+          200,
+          200
+        ],
+        "keyJson": {
+          "names": [
+            {
+              "id": "ethereum",
+              "symbol": "eth",
+              "name": "Ethereum",
+              "image": "https://coin-images.coingecko.com/coins/images/279/large/ethereum.png?1696501628",
+              "current_price": 2055.4283333333333,
+              "market_cap": 248072698655.88898,
+              "market_cap_rank": 2,
+              "fully_diluted_valuation": 248072698655.88898,
+              "total_volume": 289120346.25751615,
+              "high_24h": 4832.07,
+              "low_24h": 1473.38,
+              "price_change_24h": -77.77625230600248,
+              "price_change_percentage_24h": -3.6459818636050985,
+              "market_cap_change_24h": -9386931418.621428,
+              "market_cap_change_percentage_24h": -3.6459818636050985,
+              "circulating_supply": 120691485.3866902,
+              "total_supply": 120691485.3866902,
+              "max_supply": null,
+              "ath": 4946.05,
+              "ath_change_percentage": -58.4430336665959,
+              "ath_date": "2025-08-24T19:21:03.333Z",
+              "atl": 0.432979,
+              "atl_change_percentage": 474617.78846857086,
+              "atl_date": "2015-10-20T00:00:00.000Z",
+              "roi": {
+                "times": 39.149028999875206,
+                "currency": "btc",
+                "percentage": 3914.9028999875204
+              },
+              "last_updated": "2026-04-02T16:23:45.993Z"
+            },
+            {
+              "id": "bitcoin",
+              "symbol": "btc",
+              "name": "Bitcoin",
+              "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+              "current_price": 66856.65333333334,
+              "market_cap": 1337419279999.587,
+              "market_cap_rank": 1,
+              "fully_diluted_valuation": 1403989720000.0002,
+              "total_volume": 408604975.59846145,
+              "high_24h": 124670.47,
+              "low_24h": 62929.05,
+              "price_change_24h": -1965.4335074414594,
+              "price_change_percentage_24h": -2.8558179469167233,
+              "market_cap_change_24h": -39317084169.674545,
+              "market_cap_change_percentage_24h": -2.8558179469167233,
+              "circulating_supply": 20004281,
+              "total_supply": 20006906,
+              "max_supply": 21000000,
+              "ath": 126080,
+              "ath_change_percentage": -46.9728320642978,
+              "ath_date": "2025-10-06T18:57:42.558Z",
+              "atl": 67.81,
+              "atl_change_percentage": 98494.09133362828,
+              "atl_date": "2013-07-06T00:00:00.000Z",
+              "roi": null,
+              "last_updated": "2026-04-02T16:23:45.212Z"
+            }
+          ],
+          "symbols": [
+            {
+              "id": "ethereum",
+              "symbol": "eth",
+              "name": "Ethereum",
+              "image": "https://coin-images.coingecko.com/coins/images/279/large/ethereum.png?1696501628",
+              "current_price": 2055.4283333333333,
+              "market_cap": 248072698655.88898,
+              "market_cap_rank": 2,
+              "fully_diluted_valuation": 248072698655.88898,
+              "total_volume": 289120346.25751615,
+              "high_24h": 4832.07,
+              "low_24h": 1473.38,
+              "price_change_24h": -77.77625230600248,
+              "price_change_percentage_24h": -3.6459818636050985,
+              "market_cap_change_24h": -9386931418.621428,
+              "market_cap_change_percentage_24h": -3.6459818636050985,
+              "circulating_supply": 120691485.3866902,
+              "total_supply": 120691485.3866902,
+              "max_supply": null,
+              "ath": 4946.05,
+              "ath_change_percentage": -58.4430336665959,
+              "ath_date": "2025-08-24T19:21:03.333Z",
+              "atl": 0.432979,
+              "atl_change_percentage": 474617.78846857086,
+              "atl_date": "2015-10-20T00:00:00.000Z",
+              "roi": {
+                "times": 39.149028999875206,
+                "currency": "btc",
+                "percentage": 3914.9028999875204
+              },
+              "last_updated": "2026-04-02T16:23:45.993Z"
+            },
+            {
+              "id": "bitcoin",
+              "symbol": "btc",
+              "name": "Bitcoin",
+              "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+              "current_price": 66856.65333333334,
+              "market_cap": 1337419279999.587,
+              "market_cap_rank": 1,
+              "fully_diluted_valuation": 1403989720000.0002,
+              "total_volume": 408604975.59846145,
+              "high_24h": 124670.47,
+              "low_24h": 62929.05,
+              "price_change_24h": -1965.4335074414594,
+              "price_change_percentage_24h": -2.8558179469167233,
+              "market_cap_change_24h": -39317084169.674545,
+              "market_cap_change_percentage_24h": -2.8558179469167233,
+              "circulating_supply": 20004281,
+              "total_supply": 20006906,
+              "max_supply": 21000000,
+              "ath": 126080,
+              "ath_change_percentage": -46.9728320642978,
+              "ath_date": "2025-10-06T18:57:42.558Z",
+              "atl": 67.81,
+              "atl_change_percentage": 98494.09133362828,
+              "atl_date": "2013-07-06T00:00:00.000Z",
+              "roi": null,
+              "last_updated": "2026-04-02T16:23:45.212Z"
+            }
+          ]
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-001",
+      "title": "fresh-live trust slice stays coherent across all scoped surfaces",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Compare fresh-live diagnostics/runtime, simple/price, coins/markets, and coins/{id} for bitcoin",
+          "expected": "All surfaces show populated matching live-backed values while diagnostics says fresh_live",
+          "observed": "diag_source=fresh_live, simple={'bitcoin': {'usd': 66856.65333333334, 'last_updated_at': 1775147025}}, markets={'id': 'bitcoin', 'symbol': 'btc', 'name': 'Bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'current_price': 66856.65, 'market_cap': 1337419279999.59, 'market_cap_rank': 1, 'fully_diluted_valuation': 1403989720000, 'total_volume': 408604975.6, 'high_24h': 124670.47, 'low_24h': 62929.05, 'price_change_24h': -1965.43, 'price_change_percentage_24h': -2.86, 'market_cap_change_24h': -39317084169.67, 'market_cap_change_percentage_24h': -2.86, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': 126080, 'ath_change_percentage': -46.97, 'ath_date': '2025-10-06T18:57:42.558Z', 'atl': 67.81, 'atl_change_percentage': 98494.09, 'atl_date': '2013-07-06T00:00:00.000Z', 'roi': None, 'last_updated': '2026-04-02T16:23:45.212Z', 'price_change_percentage_1h_in_currency': None, 'price_change_percentage_24h_in_currency': -2.86, 'price_change_percentage_7d_in_currency': None}, detail_market_data={'current_price': {'usd': 66856.65333333334, 'eur': 57894.19968081987, 'btc': 1, 'eth': 32.52687152799457}, 'market_cap': {'usd': 1337419279999.587, 'eur': 1158131838685.2312, 'btc': 20004281.000000004, 'eth': 650676678.096903}, 'total_volume': {'usd': 408604975.59846145, 'eur': 353829527.3311196, 'btc': 6111.657632057086, 'eth': 198793.10262100835}, 'high_24h': {'usd': 124670.47, 'eur': 107957.79813410237, 'btc': 1.864742905667429, 'eth': 60.654252925383766}, 'low_24h': {'usd': 62929.05, 'eur': 54493.11033054448, 'btc': 0.9412533661571254, 'eth': 30.616027316285255}, 'fully_diluted_valuation': {'usd': 1403989720000.0002, 'eur': 1215778193297.2173, 'btc': 21000000.000000004, 'eth': 683064302.0878861}, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': {'usd': 126080, 'eur': 109178.37390640804, 'btc': 1.885825773710081, 'eth': 61.34001266564877}, 'ath_change_percentage': {'usd': -46.9728320642978, 'eur': -46.9728320642978, 'btc': -46.9728320642978, 'eth': -46.9728320642978}, 'ath_date': {'usd': '2025-10-06T18:57:42.558Z', 'eur': '2025-10-06T18:57:42.558Z', 'btc': '2025-10-06T18:57:42.558Z', 'eth': '2025-10-06T18:57:42.558Z'}, 'atl': {'usd': 67.81, 'eur': 58.71974567412381, 'btc': 0.0010142595630970859, 'eth': 0.03299069050489882}, 'atl_change_percentage': {'usd': 98494.09133362828, 'eur': 98494.09133362828, 'btc': 98494.09133362828, 'eth': 98494.09133362828}, 'atl_date': {'usd': '2013-07-06T00:00:00.000Z', 'eur': '2013-07-06T00:00:00.000Z', 'btc': '2013-07-06T00:00:00.000Z', 'eth': '2013-07-06T00:00:00.000Z'}, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'price_change_percentage_7d': -23.016950091929072, 'price_change_percentage_7d_in_currency': {'usd': -23.016950091929072, 'eur': -23.016950091929072, 'btc': -23.016950091929072, 'eth': -23.016950091929072}, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'market_cap_rank': 1, 'last_updated': '2026-04-02T16:23:45.212Z', 'sparkline_7d': {'price': [86845.94, 84223.39, 84088.79, 83840.59, 86082.5, 87498.16, 87392.88, 86909.18, 87232, 84424.37, 82648.54, 82369.37, 82550, 85152.49, 82516.29, 83197.16, 83889.88, 83532.65, 78424.51, 79158.77, 76322.41, 82615.21, 79609.69, 83423.84, 85276.91, 83759.99, 84591.59, 83643.99, 84030.38, 84947.91, 84474.69, 85077, 85179.25, 87516.22, 93443, 93691.07, 93980.46, 94633.02, 94627.99, 93749.3, 95011.18, 94256.83, 94172, 96490.34, 96887.13, 95873.22, 94277.62, 94733.68, 96797.62, 97030.49, 103283.25, 102971.99, 104809.52, 104118.01, 102791.31, 104103.73, 103507.82, 103763.7, 103463.9, 103126.64, 106488.12, 105579.98, 106850, 109644, 111696.21, 107318.3, 107761.91, 109004.19, 109434.79, 108938.16, 107781.78, 105589.75, 103985.48, 104591.89, 105642.93, 105837.3, 105366.07, 104696.86, 101508.68, 104288.44, 105552.15, 105734.06, 110263.02, 110274.39, 108657.53, 105730.3, 106069.24, 105414.64, 105594.01, 106780.02, 104551.17, 104886.79, 104658.59, 103291.83, 102120, 100963.86, 105347.19, 106082.99, 107340.59, 106947.06, 107041.36, 107296.79, 108356.93, 107168.47, 105681.13, 108849.59, 109596.71, 107994.87, 108217.11, 109224.99, 108267.36, 108938.23, 111273.38, 116016.81, 117575.24, 117451.33, 119098.86, 119808.01, 117765.42, 118637.16, 119197.13, 117934.9, 117858.09, 117277.04, 117385.5, 119965.48, 118704.45, 118342, 117627.8, 117928.9, 119409.63, 118061.93, 117927.57, 117841.88, 115760.22, 113280.65, 112545.26, 114242.52, 115087.24, 114161.49, 114959.81, 117490.03, 116670.02, 116468.86, 119310.05, 118685.53, 120129.74, 123306.23, 118327.59, 117258.42, 117361.36, 117399.12, 116241.34, 112912.67, 114224.33, 112520.24, 116891.46, 115429.43, 113492.21, 110063.98, 111779.51, 111269.98, 112553.4, 108364.26, 108826.12, 108229.36, 109238.25, 111231.26, 111742.52, 110723.57, 110587.46, 110182.12, 111366, 112100.43, 111535.91, 113947.57, 115576.19, 116040.06, 115906.89, 115224.67, 115338.76, 116806.25, 116441.96, 117154.28, 115629.36, 115695.38, 115230.05, 112612.21, 111948.04, 113310.17, 108986.54, 109639.42, 109641.62, 112174.73, 114306.7, 114077.55, 118587.64, 120554.1, 122255.82, 122388.17, 123480.62, 124670.47, 121379.87, 123338.13, 121660.38, 112784.13, 110671.88, 115012.87, 115161.02, 113027.6, 110746.5, 108171.79, 106424.78, 107175, 108606.67, 110526.49, 108332.7, 107581.77, 110100.89, 111049.49, 111596.93, 114556.82, 114047.55, 112847.77, 110017.92, 108319.44, 109594.14, 110113.34, 110512.1, 106523.97, 101476.23, 103903.35, 101312.94, 103358.36, 102334.68, 104719.06, 106007.23, 103061.86, 101655.16, 99699.33, 94571.3, 95633.01, 94265.52, 92186.62, 92961.86, 91551.5, 86637.16, 85160.22, 84719.36, 86766.74, 88293.5, 87385.7, 90473.65, 91312.86, 90898.98, 90882.11, 90371.71, 86353.28, 91281.43, 93455.1, 92102.83, 89256.54, 89228.27, 90338.74, 90624.27, 92654.19, 91972.15, 92514.9, 90309.47, 90232.89, 88163.52, 86406.69, 87774.84, 86234.09, 85528.69, 88151.3, 88380.55, 88661.14, 88566.89, 87498.91, 87594.06, 87243.38, 87390.63, 87874.17, 87945.59, 87239.08, 88488.12, 87634.98, 88875.07, 89979.32, 90717.59, 91549.57, 93859.21, 93744.04, 91368.96, 91087.56, 90612.86, 90479.21, 90989.45, 91290.09, 95438.61, 96946.2, 95596.8, 95562.3, 95130.16, 93619.48, 92650.11, 88359.93, 89491.12, 89558.22, 89612.81, 89233.97, 86663.63, 88374.75, 89256.62, 89356.43, 84647.87, 84246.85, 78729.37, 76993.45, 78803.61, 75766.32, 73157.1, 62929.05, 70586.67, 69297.95, 70360.55, 70177.5, 68817.51, 67085.7, 66268.38, 68864.07, 69830.9, 68818.28, 68851.39, 67529.82, 66479.27, 67004.5, 68036.63, 67975.93, 67643.4, 64657.3, 64056.7, 67983.3, 67478, 65874, 66975.8, 65770.9, 68829, 68331.8, 72679.87, 70876.45, 68121.12, 67258.5, 65985.27, 68424.61, 69897.43, 70181.06, 70501.48, 70950.73, 71176.16, 72791.73, 74829.14, 73913.05, 71249.17, 69914.64, 70524.92, 68890.23, 67892.58, 70961.86, 70550.03, 71379.28, 68775.29, 66407.46, 66378.62, 66040.51, 66790.82, 68233.74, 68095.86, 66856.65333333334]}}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/baseline-diag-3001.txt",
+          "trust-slice-semantics/markets-diagnostics/simple-base-bitcoin.txt",
+          "trust-slice-semantics/markets-diagnostics/markets-base-bitcoin.txt",
+          "trust-slice-semantics/markets-diagnostics/detail-base-bitcoin.txt"
+        ],
+        "httpStatus": [
+          200,
+          200,
+          200,
+          200
+        ],
+        "keyJson": {
+          "diagnostics": {
+            "readiness": {
+              "state": "degraded",
+              "listener_bound": true,
+              "listener_bind_deferred": false,
+              "initial_sync_completed": false,
+              "degraded": true,
+              "zero_live_completed_boot": false,
+              "validation_override_active": false
+            },
+            "degraded": {
+              "active": true,
+              "stale_live_enabled": true,
+              "reason": "database disk image is malformed",
+              "provider_failure_cooldown_until": null,
+              "injected_provider_failure": {
+                "active": false,
+                "reason": null
+              },
+              "validation_override": {
+                "active": false,
+                "mode": "off",
+                "reason": null
+              }
+            },
+            "hot_paths": {
+              "shared_market_snapshot": {
+                "available": true,
+                "source_class": "fresh_live",
+                "last_successful_live_refresh_at": "2026-04-02T16:23:46.173Z",
+                "freshness": {
+                  "threshold_seconds": 300,
+                  "age_seconds": 59,
+                  "is_stale": false
+                },
+                "providers": [
+                  "binance",
+                  "coinbase",
+                  "okx"
+                ],
+                "provider_count": 3
+              },
+              "cache_revision": 1
+            },
+            "transport": {
+              "request_timeout_ms": 15000,
+              "compression": {
+                "threshold_bytes": 1024
+              }
+            },
+            "startup_prewarm": {
+              "enabled": false,
+              "budgetMs": 0,
+              "readyWithinBudget": true,
+              "firstRequestWarmBenefitsObserved": false,
+              "firstRequestWarmBenefitPending": false,
+              "targets": [],
+              "completedAt": null,
+              "totalDurationMs": null,
+              "targetResults": []
+            }
+          },
+          "simple": {
+            "bitcoin": {
+              "usd": 66856.65333333334,
+              "last_updated_at": 1775147025
+            }
+          },
+          "markets": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65,
+            "market_cap": 1337419279999.59,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000,
+            "total_volume": 408604975.6,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.43,
+            "price_change_percentage_24h": -2.86,
+            "market_cap_change_24h": -39317084169.67,
+            "market_cap_change_percentage_24h": -2.86,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.97,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "price_change_percentage_1h_in_currency": null,
+            "price_change_percentage_24h_in_currency": -2.86,
+            "price_change_percentage_7d_in_currency": null
+          },
+          "detail_market_data": {
+            "current_price": {
+              "usd": 66856.65333333334,
+              "eur": 57894.19968081987,
+              "btc": 1,
+              "eth": 32.52687152799457
+            },
+            "market_cap": {
+              "usd": 1337419279999.587,
+              "eur": 1158131838685.2312,
+              "btc": 20004281.000000004,
+              "eth": 650676678.096903
+            },
+            "total_volume": {
+              "usd": 408604975.59846145,
+              "eur": 353829527.3311196,
+              "btc": 6111.657632057086,
+              "eth": 198793.10262100835
+            },
+            "high_24h": {
+              "usd": 124670.47,
+              "eur": 107957.79813410237,
+              "btc": 1.864742905667429,
+              "eth": 60.654252925383766
+            },
+            "low_24h": {
+              "usd": 62929.05,
+              "eur": 54493.11033054448,
+              "btc": 0.9412533661571254,
+              "eth": 30.616027316285255
+            },
+            "fully_diluted_valuation": {
+              "usd": 1403989720000.0002,
+              "eur": 1215778193297.2173,
+              "btc": 21000000.000000004,
+              "eth": 683064302.0878861
+            },
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": {
+              "usd": 126080,
+              "eur": 109178.37390640804,
+              "btc": 1.885825773710081,
+              "eth": 61.34001266564877
+            },
+            "ath_change_percentage": {
+              "usd": -46.9728320642978,
+              "eur": -46.9728320642978,
+              "btc": -46.9728320642978,
+              "eth": -46.9728320642978
+            },
+            "ath_date": {
+              "usd": "2025-10-06T18:57:42.558Z",
+              "eur": "2025-10-06T18:57:42.558Z",
+              "btc": "2025-10-06T18:57:42.558Z",
+              "eth": "2025-10-06T18:57:42.558Z"
+            },
+            "atl": {
+              "usd": 67.81,
+              "eur": 58.71974567412381,
+              "btc": 0.0010142595630970859,
+              "eth": 0.03299069050489882
+            },
+            "atl_change_percentage": {
+              "usd": 98494.09133362828,
+              "eur": 98494.09133362828,
+              "btc": 98494.09133362828,
+              "eth": 98494.09133362828
+            },
+            "atl_date": {
+              "usd": "2013-07-06T00:00:00.000Z",
+              "eur": "2013-07-06T00:00:00.000Z",
+              "btc": "2013-07-06T00:00:00.000Z",
+              "eth": "2013-07-06T00:00:00.000Z"
+            },
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "price_change_percentage_7d": -23.016950091929072,
+            "price_change_percentage_7d_in_currency": {
+              "usd": -23.016950091929072,
+              "eur": -23.016950091929072,
+              "btc": -23.016950091929072,
+              "eth": -23.016950091929072
+            },
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "market_cap_rank": 1,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "sparkline_7d": {
+              "price": [
+                86845.94,
+                84223.39,
+                84088.79,
+                83840.59,
+                86082.5,
+                87498.16,
+                87392.88,
+                86909.18,
+                87232,
+                84424.37,
+                82648.54,
+                82369.37,
+                82550,
+                85152.49,
+                82516.29,
+                83197.16,
+                83889.88,
+                83532.65,
+                78424.51,
+                79158.77,
+                76322.41,
+                82615.21,
+                79609.69,
+                83423.84,
+                85276.91,
+                83759.99,
+                84591.59,
+                83643.99,
+                84030.38,
+                84947.91,
+                84474.69,
+                85077,
+                85179.25,
+                87516.22,
+                93443,
+                93691.07,
+                93980.46,
+                94633.02,
+                94627.99,
+                93749.3,
+                95011.18,
+                94256.83,
+                94172,
+                96490.34,
+                96887.13,
+                95873.22,
+                94277.62,
+                94733.68,
+                96797.62,
+                97030.49,
+                103283.25,
+                102971.99,
+                104809.52,
+                104118.01,
+                102791.31,
+                104103.73,
+                103507.82,
+                103763.7,
+                103463.9,
+                103126.64,
+                106488.12,
+                105579.98,
+                106850,
+                109644,
+                111696.21,
+                107318.3,
+                107761.91,
+                109004.19,
+                109434.79,
+                108938.16,
+                107781.78,
+                105589.75,
+                103985.48,
+                104591.89,
+                105642.93,
+                105837.3,
+                105366.07,
+                104696.86,
+                101508.68,
+                104288.44,
+                105552.15,
+                105734.06,
+                110263.02,
+                110274.39,
+                108657.53,
+                105730.3,
+                106069.24,
+                105414.64,
+                105594.01,
+                106780.02,
+                104551.17,
+                104886.79,
+                104658.59,
+                103291.83,
+                102120,
+                100963.86,
+                105347.19,
+                106082.99,
+                107340.59,
+                106947.06,
+                107041.36,
+                107296.79,
+                108356.93,
+                107168.47,
+                105681.13,
+                108849.59,
+                109596.71,
+                107994.87,
+                108217.11,
+                109224.99,
+                108267.36,
+                108938.23,
+                111273.38,
+                116016.81,
+                117575.24,
+                117451.33,
+                119098.86,
+                119808.01,
+                117765.42,
+                118637.16,
+                119197.13,
+                117934.9,
+                117858.09,
+                117277.04,
+                117385.5,
+                119965.48,
+                118704.45,
+                118342,
+                117627.8,
+                117928.9,
+                119409.63,
+                118061.93,
+                117927.57,
+                117841.88,
+                115760.22,
+                113280.65,
+                112545.26,
+                114242.52,
+                115087.24,
+                114161.49,
+                114959.81,
+                117490.03,
+                116670.02,
+                116468.86,
+                119310.05,
+                118685.53,
+                120129.74,
+                123306.23,
+                118327.59,
+                117258.42,
+                117361.36,
+                117399.12,
+                116241.34,
+                112912.67,
+                114224.33,
+                112520.24,
+                116891.46,
+                115429.43,
+                113492.21,
+                110063.98,
+                111779.51,
+                111269.98,
+                112553.4,
+                108364.26,
+                108826.12,
+                108229.36,
+                109238.25,
+                111231.26,
+                111742.52,
+                110723.57,
+                110587.46,
+                110182.12,
+                111366,
+                112100.43,
+                111535.91,
+                113947.57,
+                115576.19,
+                116040.06,
+                115906.89,
+                115224.67,
+                115338.76,
+                116806.25,
+                116441.96,
+                117154.28,
+                115629.36,
+                115695.38,
+                115230.05,
+                112612.21,
+                111948.04,
+                113310.17,
+                108986.54,
+                109639.42,
+                109641.62,
+                112174.73,
+                114306.7,
+                114077.55,
+                118587.64,
+                120554.1,
+                122255.82,
+                122388.17,
+                123480.62,
+                124670.47,
+                121379.87,
+                123338.13,
+                121660.38,
+                112784.13,
+                110671.88,
+                115012.87,
+                115161.02,
+                113027.6,
+                110746.5,
+                108171.79,
+                106424.78,
+                107175,
+                108606.67,
+                110526.49,
+                108332.7,
+                107581.77,
+                110100.89,
+                111049.49,
+                111596.93,
+                114556.82,
+                114047.55,
+                112847.77,
+                110017.92,
+                108319.44,
+                109594.14,
+                110113.34,
+                110512.1,
+                106523.97,
+                101476.23,
+                103903.35,
+                101312.94,
+                103358.36,
+                102334.68,
+                104719.06,
+                106007.23,
+                103061.86,
+                101655.16,
+                99699.33,
+                94571.3,
+                95633.01,
+                94265.52,
+                92186.62,
+                92961.86,
+                91551.5,
+                86637.16,
+                85160.22,
+                84719.36,
+                86766.74,
+                88293.5,
+                87385.7,
+                90473.65,
+                91312.86,
+                90898.98,
+                90882.11,
+                90371.71,
+                86353.28,
+                91281.43,
+                93455.1,
+                92102.83,
+                89256.54,
+                89228.27,
+                90338.74,
+                90624.27,
+                92654.19,
+                91972.15,
+                92514.9,
+                90309.47,
+                90232.89,
+                88163.52,
+                86406.69,
+                87774.84,
+                86234.09,
+                85528.69,
+                88151.3,
+                88380.55,
+                88661.14,
+                88566.89,
+                87498.91,
+                87594.06,
+                87243.38,
+                87390.63,
+                87874.17,
+                87945.59,
+                87239.08,
+                88488.12,
+                87634.98,
+                88875.07,
+                89979.32,
+                90717.59,
+                91549.57,
+                93859.21,
+                93744.04,
+                91368.96,
+                91087.56,
+                90612.86,
+                90479.21,
+                90989.45,
+                91290.09,
+                95438.61,
+                96946.2,
+                95596.8,
+                95562.3,
+                95130.16,
+                93619.48,
+                92650.11,
+                88359.93,
+                89491.12,
+                89558.22,
+                89612.81,
+                89233.97,
+                86663.63,
+                88374.75,
+                89256.62,
+                89356.43,
+                84647.87,
+                84246.85,
+                78729.37,
+                76993.45,
+                78803.61,
+                75766.32,
+                73157.1,
+                62929.05,
+                70586.67,
+                69297.95,
+                70360.55,
+                70177.5,
+                68817.51,
+                67085.7,
+                66268.38,
+                68864.07,
+                69830.9,
+                68818.28,
+                68851.39,
+                67529.82,
+                66479.27,
+                67004.5,
+                68036.63,
+                67975.93,
+                67643.4,
+                64657.3,
+                64056.7,
+                67983.3,
+                67478,
+                65874,
+                66975.8,
+                65770.9,
+                68829,
+                68331.8,
+                72679.87,
+                70876.45,
+                68121.12,
+                67258.5,
+                65985.27,
+                68424.61,
+                69897.43,
+                70181.06,
+                70501.48,
+                70950.73,
+                71176.16,
+                72791.73,
+                74829.14,
+                73913.05,
+                71249.17,
+                69914.64,
+                70524.92,
+                68890.23,
+                67892.58,
+                70961.86,
+                70550.03,
+                71379.28,
+                68775.29,
+                66407.46,
+                66378.62,
+                66040.51,
+                66790.82,
+                68233.74,
+                68095.86,
+                66856.65333333334
+              ]
+            }
+          }
+        }
+      },
+      "issues": "Fresh-live prices diverged: simple=66856.65333333334, markets=66856.65, detail=66856.65333333334"
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "title": "stale-disallowed trust slice stays coherent across all scoped surfaces",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Apply stale disallowed override then compare all scoped surfaces",
+          "expected": "simple empty, markets null fields, detail market_data null, diagnostics same stale state",
+          "observed": "diagnostics={'readiness': {'state': 'degraded', 'listener_bound': True, 'listener_bind_deferred': False, 'initial_sync_completed': True, 'degraded': True, 'zero_live_completed_boot': False, 'validation_override_active': True}, 'degraded': {'active': True, 'stale_live_enabled': False, 'reason': 'validation degraded state override', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': False, 'reason': None}, 'validation_override': {'active': True, 'mode': 'stale_disallowed', 'reason': 'validation degraded state override'}}, 'hot_paths': {'shared_market_snapshot': {'available': True, 'source_class': 'stale_live', 'last_successful_live_refresh_at': '1970-01-01T00:00:00.000Z', 'freshness': {'threshold_seconds': 300, 'age_seconds': 1775147086, 'is_stale': True}, 'providers': ['coinbase'], 'provider_count': 1}, 'cache_revision': 7}, 'transport': {'request_timeout_ms': 15000, 'compression': {'threshold_bytes': 1024}}, 'startup_prewarm': {'enabled': True, 'budgetMs': 250, 'readyWithinBudget': True, 'firstRequestWarmBenefitsObserved': False, 'firstRequestWarmBenefitPending': True, 'targets': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price'}], 'completedAt': 1775146464686, 'totalDurationMs': 5, 'targetResults': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price', 'status': 'completed', 'durationMs': 5, 'warmCacheRevision': 1, 'firstObservedRequest': None}]}}, simple={'bitcoin': {'usd': 66856.65333333334, 'last_updated_at': 1775147025}}, markets={'id': 'bitcoin', 'symbol': 'btc', 'name': 'Bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'current_price': 66856.65333333334, 'market_cap': 1337419279999.587, 'market_cap_rank': 1, 'fully_diluted_valuation': 1403989720000.0002, 'total_volume': 408604975.59846145, 'high_24h': 124670.47, 'low_24h': 62929.05, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': 126080, 'ath_change_percentage': -46.9728320642978, 'ath_date': '2025-10-06T18:57:42.558Z', 'atl': 67.81, 'atl_change_percentage': 98494.09133362828, 'atl_date': '2013-07-06T00:00:00.000Z', 'roi': None, 'last_updated': '2026-04-02T16:23:45.212Z', 'price_change_percentage_1h_in_currency': None, 'price_change_percentage_24h_in_currency': -2.8558179469167233, 'price_change_percentage_7d_in_currency': None}, detail_market_data={'current_price': {'usd': 66856.65333333334, 'eur': 57894.19968081987, 'btc': 1, 'eth': 32.52687152799457}, 'market_cap': {'usd': 1337419279999.587, 'eur': 1158131838685.2312, 'btc': 20004281.000000004, 'eth': 650676678.096903}, 'total_volume': {'usd': 408604975.59846145, 'eur': 353829527.3311196, 'btc': 6111.657632057086, 'eth': 198793.10262100835}, 'high_24h': {'usd': 124670.47, 'eur': 107957.79813410237, 'btc': 1.864742905667429, 'eth': 60.654252925383766}, 'low_24h': {'usd': 62929.05, 'eur': 54493.11033054448, 'btc': 0.9412533661571254, 'eth': 30.616027316285255}, 'fully_diluted_valuation': {'usd': 1403989720000.0002, 'eur': 1215778193297.2173, 'btc': 21000000.000000004, 'eth': 683064302.0878861}, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': {'usd': 126080, 'eur': 109178.37390640804, 'btc': 1.885825773710081, 'eth': 61.34001266564877}, 'ath_change_percentage': {'usd': -46.9728320642978, 'eur': -46.9728320642978, 'btc': -46.9728320642978, 'eth': -46.9728320642978}, 'ath_date': {'usd': '2025-10-06T18:57:42.558Z', 'eur': '2025-10-06T18:57:42.558Z', 'btc': '2025-10-06T18:57:42.558Z', 'eth': '2025-10-06T18:57:42.558Z'}, 'atl': {'usd': 67.81, 'eur': 58.71974567412381, 'btc': 0.0010142595630970859, 'eth': 0.03299069050489882}, 'atl_change_percentage': {'usd': 98494.09133362828, 'eur': 98494.09133362828, 'btc': 98494.09133362828, 'eth': 98494.09133362828}, 'atl_date': {'usd': '2013-07-06T00:00:00.000Z', 'eur': '2013-07-06T00:00:00.000Z', 'btc': '2013-07-06T00:00:00.000Z', 'eth': '2013-07-06T00:00:00.000Z'}, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'price_change_percentage_7d': -23.016950091929072, 'price_change_percentage_7d_in_currency': {'usd': -23.016950091929072, 'eur': -23.016950091929072, 'btc': -23.016950091929072, 'eth': -23.016950091929072}, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'market_cap_rank': 1, 'last_updated': '2026-04-02T16:23:45.212Z', 'sparkline_7d': {'price': [86845.94, 84223.39, 84088.79, 83840.59, 86082.5, 87498.16, 87392.88, 86909.18, 87232, 84424.37, 82648.54, 82369.37, 82550, 85152.49, 82516.29, 83197.16, 83889.88, 83532.65, 78424.51, 79158.77, 76322.41, 82615.21, 79609.69, 83423.84, 85276.91, 83759.99, 84591.59, 83643.99, 84030.38, 84947.91, 84474.69, 85077, 85179.25, 87516.22, 93443, 93691.07, 93980.46, 94633.02, 94627.99, 93749.3, 95011.18, 94256.83, 94172, 96490.34, 96887.13, 95873.22, 94277.62, 94733.68, 96797.62, 97030.49, 103283.25, 102971.99, 104809.52, 104118.01, 102791.31, 104103.73, 103507.82, 103763.7, 103463.9, 103126.64, 106488.12, 105579.98, 106850, 109644, 111696.21, 107318.3, 107761.91, 109004.19, 109434.79, 108938.16, 107781.78, 105589.75, 103985.48, 104591.89, 105642.93, 105837.3, 105366.07, 104696.86, 101508.68, 104288.44, 105552.15, 105734.06, 110263.02, 110274.39, 108657.53, 105730.3, 106069.24, 105414.64, 105594.01, 106780.02, 104551.17, 104886.79, 104658.59, 103291.83, 102120, 100963.86, 105347.19, 106082.99, 107340.59, 106947.06, 107041.36, 107296.79, 108356.93, 107168.47, 105681.13, 108849.59, 109596.71, 107994.87, 108217.11, 109224.99, 108267.36, 108938.23, 111273.38, 116016.81, 117575.24, 117451.33, 119098.86, 119808.01, 117765.42, 118637.16, 119197.13, 117934.9, 117858.09, 117277.04, 117385.5, 119965.48, 118704.45, 118342, 117627.8, 117928.9, 119409.63, 118061.93, 117927.57, 117841.88, 115760.22, 113280.65, 112545.26, 114242.52, 115087.24, 114161.49, 114959.81, 117490.03, 116670.02, 116468.86, 119310.05, 118685.53, 120129.74, 123306.23, 118327.59, 117258.42, 117361.36, 117399.12, 116241.34, 112912.67, 114224.33, 112520.24, 116891.46, 115429.43, 113492.21, 110063.98, 111779.51, 111269.98, 112553.4, 108364.26, 108826.12, 108229.36, 109238.25, 111231.26, 111742.52, 110723.57, 110587.46, 110182.12, 111366, 112100.43, 111535.91, 113947.57, 115576.19, 116040.06, 115906.89, 115224.67, 115338.76, 116806.25, 116441.96, 117154.28, 115629.36, 115695.38, 115230.05, 112612.21, 111948.04, 113310.17, 108986.54, 109639.42, 109641.62, 112174.73, 114306.7, 114077.55, 118587.64, 120554.1, 122255.82, 122388.17, 123480.62, 124670.47, 121379.87, 123338.13, 121660.38, 112784.13, 110671.88, 115012.87, 115161.02, 113027.6, 110746.5, 108171.79, 106424.78, 107175, 108606.67, 110526.49, 108332.7, 107581.77, 110100.89, 111049.49, 111596.93, 114556.82, 114047.55, 112847.77, 110017.92, 108319.44, 109594.14, 110113.34, 110512.1, 106523.97, 101476.23, 103903.35, 101312.94, 103358.36, 102334.68, 104719.06, 106007.23, 103061.86, 101655.16, 99699.33, 94571.3, 95633.01, 94265.52, 92186.62, 92961.86, 91551.5, 86637.16, 85160.22, 84719.36, 86766.74, 88293.5, 87385.7, 90473.65, 91312.86, 90898.98, 90882.11, 90371.71, 86353.28, 91281.43, 93455.1, 92102.83, 89256.54, 89228.27, 90338.74, 90624.27, 92654.19, 91972.15, 92514.9, 90309.47, 90232.89, 88163.52, 86406.69, 87774.84, 86234.09, 85528.69, 88151.3, 88380.55, 88661.14, 88566.89, 87498.91, 87594.06, 87243.38, 87390.63, 87874.17, 87945.59, 87239.08, 88488.12, 87634.98, 88875.07, 89979.32, 90717.59, 91549.57, 93859.21, 93744.04, 91368.96, 91087.56, 90612.86, 90479.21, 90989.45, 91290.09, 95438.61, 96946.2, 95596.8, 95562.3, 95130.16, 93619.48, 92650.11, 88359.93, 89491.12, 89558.22, 89612.81, 89233.97, 86663.63, 88374.75, 89256.62, 89356.43, 84647.87, 84246.85, 78729.37, 76993.45, 78803.61, 75766.32, 73157.1, 62929.05, 70586.67, 69297.95, 70360.55, 70177.5, 68817.51, 67085.7, 66268.38, 68864.07, 69830.9, 68818.28, 68851.39, 67529.82, 66479.27, 67004.5, 68036.63, 67975.93, 67643.4, 64657.3, 64056.7, 67983.3, 67478, 65874, 66975.8, 65770.9, 68829, 68331.8, 72679.87, 70876.45, 68121.12, 67258.5, 65985.27, 68424.61, 69897.43, 70181.06, 70501.48, 70950.73, 71176.16, 72791.73, 74829.14, 73913.05, 71249.17, 69914.64, 70524.92, 68890.23, 67892.58, 70961.86, 70550.03, 71379.28, 68775.29, 66407.46, 66378.62, 66040.51, 66790.82, 68233.74, 68095.86, 66856.65333333334]}}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/stale_disallowed-diag.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_disallowed-simple.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_disallowed-markets.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_disallowed-detail.txt"
+        ],
+        "httpStatus": [
+          200,
+          200,
+          200,
+          200
+        ],
+        "keyJson": {
+          "diagnostics": {
+            "readiness": {
+              "state": "degraded",
+              "listener_bound": true,
+              "listener_bind_deferred": false,
+              "initial_sync_completed": true,
+              "degraded": true,
+              "zero_live_completed_boot": false,
+              "validation_override_active": true
+            },
+            "degraded": {
+              "active": true,
+              "stale_live_enabled": false,
+              "reason": "validation degraded state override",
+              "provider_failure_cooldown_until": null,
+              "injected_provider_failure": {
+                "active": false,
+                "reason": null
+              },
+              "validation_override": {
+                "active": true,
+                "mode": "stale_disallowed",
+                "reason": "validation degraded state override"
+              }
+            },
+            "hot_paths": {
+              "shared_market_snapshot": {
+                "available": true,
+                "source_class": "stale_live",
+                "last_successful_live_refresh_at": "1970-01-01T00:00:00.000Z",
+                "freshness": {
+                  "threshold_seconds": 300,
+                  "age_seconds": 1775147086,
+                  "is_stale": true
+                },
+                "providers": [
+                  "coinbase"
+                ],
+                "provider_count": 1
+              },
+              "cache_revision": 7
+            },
+            "transport": {
+              "request_timeout_ms": 15000,
+              "compression": {
+                "threshold_bytes": 1024
+              }
+            },
+            "startup_prewarm": {
+              "enabled": true,
+              "budgetMs": 250,
+              "readyWithinBudget": true,
+              "firstRequestWarmBenefitsObserved": false,
+              "firstRequestWarmBenefitPending": true,
+              "targets": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price"
+                }
+              ],
+              "completedAt": 1775146464686,
+              "totalDurationMs": 5,
+              "targetResults": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price",
+                  "status": "completed",
+                  "durationMs": 5,
+                  "warmCacheRevision": 1,
+                  "firstObservedRequest": null
+                }
+              ]
+            }
+          },
+          "simple": {
+            "bitcoin": {
+              "usd": 66856.65333333334,
+              "last_updated_at": 1775147025
+            }
+          },
+          "markets": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65333333334,
+            "market_cap": 1337419279999.587,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000.0002,
+            "total_volume": 408604975.59846145,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.9728320642978,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09133362828,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "price_change_percentage_1h_in_currency": null,
+            "price_change_percentage_24h_in_currency": -2.8558179469167233,
+            "price_change_percentage_7d_in_currency": null
+          },
+          "detail_market_data": {
+            "current_price": {
+              "usd": 66856.65333333334,
+              "eur": 57894.19968081987,
+              "btc": 1,
+              "eth": 32.52687152799457
+            },
+            "market_cap": {
+              "usd": 1337419279999.587,
+              "eur": 1158131838685.2312,
+              "btc": 20004281.000000004,
+              "eth": 650676678.096903
+            },
+            "total_volume": {
+              "usd": 408604975.59846145,
+              "eur": 353829527.3311196,
+              "btc": 6111.657632057086,
+              "eth": 198793.10262100835
+            },
+            "high_24h": {
+              "usd": 124670.47,
+              "eur": 107957.79813410237,
+              "btc": 1.864742905667429,
+              "eth": 60.654252925383766
+            },
+            "low_24h": {
+              "usd": 62929.05,
+              "eur": 54493.11033054448,
+              "btc": 0.9412533661571254,
+              "eth": 30.616027316285255
+            },
+            "fully_diluted_valuation": {
+              "usd": 1403989720000.0002,
+              "eur": 1215778193297.2173,
+              "btc": 21000000.000000004,
+              "eth": 683064302.0878861
+            },
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": {
+              "usd": 126080,
+              "eur": 109178.37390640804,
+              "btc": 1.885825773710081,
+              "eth": 61.34001266564877
+            },
+            "ath_change_percentage": {
+              "usd": -46.9728320642978,
+              "eur": -46.9728320642978,
+              "btc": -46.9728320642978,
+              "eth": -46.9728320642978
+            },
+            "ath_date": {
+              "usd": "2025-10-06T18:57:42.558Z",
+              "eur": "2025-10-06T18:57:42.558Z",
+              "btc": "2025-10-06T18:57:42.558Z",
+              "eth": "2025-10-06T18:57:42.558Z"
+            },
+            "atl": {
+              "usd": 67.81,
+              "eur": 58.71974567412381,
+              "btc": 0.0010142595630970859,
+              "eth": 0.03299069050489882
+            },
+            "atl_change_percentage": {
+              "usd": 98494.09133362828,
+              "eur": 98494.09133362828,
+              "btc": 98494.09133362828,
+              "eth": 98494.09133362828
+            },
+            "atl_date": {
+              "usd": "2013-07-06T00:00:00.000Z",
+              "eur": "2013-07-06T00:00:00.000Z",
+              "btc": "2013-07-06T00:00:00.000Z",
+              "eth": "2013-07-06T00:00:00.000Z"
+            },
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "price_change_percentage_7d": -23.016950091929072,
+            "price_change_percentage_7d_in_currency": {
+              "usd": -23.016950091929072,
+              "eur": -23.016950091929072,
+              "btc": -23.016950091929072,
+              "eth": -23.016950091929072
+            },
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "market_cap_rank": 1,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "sparkline_7d": {
+              "price": [
+                86845.94,
+                84223.39,
+                84088.79,
+                83840.59,
+                86082.5,
+                87498.16,
+                87392.88,
+                86909.18,
+                87232,
+                84424.37,
+                82648.54,
+                82369.37,
+                82550,
+                85152.49,
+                82516.29,
+                83197.16,
+                83889.88,
+                83532.65,
+                78424.51,
+                79158.77,
+                76322.41,
+                82615.21,
+                79609.69,
+                83423.84,
+                85276.91,
+                83759.99,
+                84591.59,
+                83643.99,
+                84030.38,
+                84947.91,
+                84474.69,
+                85077,
+                85179.25,
+                87516.22,
+                93443,
+                93691.07,
+                93980.46,
+                94633.02,
+                94627.99,
+                93749.3,
+                95011.18,
+                94256.83,
+                94172,
+                96490.34,
+                96887.13,
+                95873.22,
+                94277.62,
+                94733.68,
+                96797.62,
+                97030.49,
+                103283.25,
+                102971.99,
+                104809.52,
+                104118.01,
+                102791.31,
+                104103.73,
+                103507.82,
+                103763.7,
+                103463.9,
+                103126.64,
+                106488.12,
+                105579.98,
+                106850,
+                109644,
+                111696.21,
+                107318.3,
+                107761.91,
+                109004.19,
+                109434.79,
+                108938.16,
+                107781.78,
+                105589.75,
+                103985.48,
+                104591.89,
+                105642.93,
+                105837.3,
+                105366.07,
+                104696.86,
+                101508.68,
+                104288.44,
+                105552.15,
+                105734.06,
+                110263.02,
+                110274.39,
+                108657.53,
+                105730.3,
+                106069.24,
+                105414.64,
+                105594.01,
+                106780.02,
+                104551.17,
+                104886.79,
+                104658.59,
+                103291.83,
+                102120,
+                100963.86,
+                105347.19,
+                106082.99,
+                107340.59,
+                106947.06,
+                107041.36,
+                107296.79,
+                108356.93,
+                107168.47,
+                105681.13,
+                108849.59,
+                109596.71,
+                107994.87,
+                108217.11,
+                109224.99,
+                108267.36,
+                108938.23,
+                111273.38,
+                116016.81,
+                117575.24,
+                117451.33,
+                119098.86,
+                119808.01,
+                117765.42,
+                118637.16,
+                119197.13,
+                117934.9,
+                117858.09,
+                117277.04,
+                117385.5,
+                119965.48,
+                118704.45,
+                118342,
+                117627.8,
+                117928.9,
+                119409.63,
+                118061.93,
+                117927.57,
+                117841.88,
+                115760.22,
+                113280.65,
+                112545.26,
+                114242.52,
+                115087.24,
+                114161.49,
+                114959.81,
+                117490.03,
+                116670.02,
+                116468.86,
+                119310.05,
+                118685.53,
+                120129.74,
+                123306.23,
+                118327.59,
+                117258.42,
+                117361.36,
+                117399.12,
+                116241.34,
+                112912.67,
+                114224.33,
+                112520.24,
+                116891.46,
+                115429.43,
+                113492.21,
+                110063.98,
+                111779.51,
+                111269.98,
+                112553.4,
+                108364.26,
+                108826.12,
+                108229.36,
+                109238.25,
+                111231.26,
+                111742.52,
+                110723.57,
+                110587.46,
+                110182.12,
+                111366,
+                112100.43,
+                111535.91,
+                113947.57,
+                115576.19,
+                116040.06,
+                115906.89,
+                115224.67,
+                115338.76,
+                116806.25,
+                116441.96,
+                117154.28,
+                115629.36,
+                115695.38,
+                115230.05,
+                112612.21,
+                111948.04,
+                113310.17,
+                108986.54,
+                109639.42,
+                109641.62,
+                112174.73,
+                114306.7,
+                114077.55,
+                118587.64,
+                120554.1,
+                122255.82,
+                122388.17,
+                123480.62,
+                124670.47,
+                121379.87,
+                123338.13,
+                121660.38,
+                112784.13,
+                110671.88,
+                115012.87,
+                115161.02,
+                113027.6,
+                110746.5,
+                108171.79,
+                106424.78,
+                107175,
+                108606.67,
+                110526.49,
+                108332.7,
+                107581.77,
+                110100.89,
+                111049.49,
+                111596.93,
+                114556.82,
+                114047.55,
+                112847.77,
+                110017.92,
+                108319.44,
+                109594.14,
+                110113.34,
+                110512.1,
+                106523.97,
+                101476.23,
+                103903.35,
+                101312.94,
+                103358.36,
+                102334.68,
+                104719.06,
+                106007.23,
+                103061.86,
+                101655.16,
+                99699.33,
+                94571.3,
+                95633.01,
+                94265.52,
+                92186.62,
+                92961.86,
+                91551.5,
+                86637.16,
+                85160.22,
+                84719.36,
+                86766.74,
+                88293.5,
+                87385.7,
+                90473.65,
+                91312.86,
+                90898.98,
+                90882.11,
+                90371.71,
+                86353.28,
+                91281.43,
+                93455.1,
+                92102.83,
+                89256.54,
+                89228.27,
+                90338.74,
+                90624.27,
+                92654.19,
+                91972.15,
+                92514.9,
+                90309.47,
+                90232.89,
+                88163.52,
+                86406.69,
+                87774.84,
+                86234.09,
+                85528.69,
+                88151.3,
+                88380.55,
+                88661.14,
+                88566.89,
+                87498.91,
+                87594.06,
+                87243.38,
+                87390.63,
+                87874.17,
+                87945.59,
+                87239.08,
+                88488.12,
+                87634.98,
+                88875.07,
+                89979.32,
+                90717.59,
+                91549.57,
+                93859.21,
+                93744.04,
+                91368.96,
+                91087.56,
+                90612.86,
+                90479.21,
+                90989.45,
+                91290.09,
+                95438.61,
+                96946.2,
+                95596.8,
+                95562.3,
+                95130.16,
+                93619.48,
+                92650.11,
+                88359.93,
+                89491.12,
+                89558.22,
+                89612.81,
+                89233.97,
+                86663.63,
+                88374.75,
+                89256.62,
+                89356.43,
+                84647.87,
+                84246.85,
+                78729.37,
+                76993.45,
+                78803.61,
+                75766.32,
+                73157.1,
+                62929.05,
+                70586.67,
+                69297.95,
+                70360.55,
+                70177.5,
+                68817.51,
+                67085.7,
+                66268.38,
+                68864.07,
+                69830.9,
+                68818.28,
+                68851.39,
+                67529.82,
+                66479.27,
+                67004.5,
+                68036.63,
+                67975.93,
+                67643.4,
+                64657.3,
+                64056.7,
+                67983.3,
+                67478,
+                65874,
+                66975.8,
+                65770.9,
+                68829,
+                68331.8,
+                72679.87,
+                70876.45,
+                68121.12,
+                67258.5,
+                65985.27,
+                68424.61,
+                69897.43,
+                70181.06,
+                70501.48,
+                70950.73,
+                71176.16,
+                72791.73,
+                74829.14,
+                73913.05,
+                71249.17,
+                69914.64,
+                70524.92,
+                68890.23,
+                67892.58,
+                70961.86,
+                70550.03,
+                71379.28,
+                68775.29,
+                66407.46,
+                66378.62,
+                66040.51,
+                66790.82,
+                68233.74,
+                68095.86,
+                66856.65333333334
+              ]
+            }
+          }
+        }
+      },
+      "issues": "Stale disallowed mismatch: diag={'readiness': {'state': 'degraded', 'listener_bound': True, 'listener_bind_deferred': False, 'initial_sync_completed': True, 'degraded': True, 'zero_live_completed_boot': False, 'validation_override_active': True}, 'degraded': {'active': True, 'stale_live_enabled': False, 'reason': 'validation degraded state override', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': False, 'reason': None}, 'validation_override': {'active': True, 'mode': 'stale_disallowed', 'reason': 'validation degraded state override'}}, 'hot_paths': {'shared_market_snapshot': {'available': True, 'source_class': 'stale_live', 'last_successful_live_refresh_at': '1970-01-01T00:00:00.000Z', 'freshness': {'threshold_seconds': 300, 'age_seconds': 1775147086, 'is_stale': True}, 'providers': ['coinbase'], 'provider_count': 1}, 'cache_revision': 7}, 'transport': {'request_timeout_ms': 15000, 'compression': {'threshold_bytes': 1024}}, 'startup_prewarm': {'enabled': True, 'budgetMs': 250, 'readyWithinBudget': True, 'firstRequestWarmBenefitsObserved': False, 'firstRequestWarmBenefitPending': True, 'targets': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price'}], 'completedAt': 1775146464686, 'totalDurationMs': 5, 'targetResults': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price', 'status': 'completed', 'durationMs': 5, 'warmCacheRevision': 1, 'firstObservedRequest': None}]}}, simple={'bitcoin': {'usd': 66856.65333333334, 'last_updated_at': 1775147025}}, markets={'id': 'bitcoin', 'symbol': 'btc', 'name': 'Bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'current_price': 66856.65333333334, 'market_cap': 1337419279999.587, 'market_cap_rank': 1, 'fully_diluted_valuation': 1403989720000.0002, 'total_volume': 408604975.59846145, 'high_24h': 124670.47, 'low_24h': 62929.05, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': 126080, 'ath_change_percentage': -46.9728320642978, 'ath_date': '2025-10-06T18:57:42.558Z', 'atl': 67.81, 'atl_change_percentage': 98494.09133362828, 'atl_date': '2013-07-06T00:00:00.000Z', 'roi': None, 'last_updated': '2026-04-02T16:23:45.212Z', 'price_change_percentage_1h_in_currency': None, 'price_change_percentage_24h_in_currency': -2.8558179469167233, 'price_change_percentage_7d_in_currency': None}, detail={'current_price': {'usd': 66856.65333333334, 'eur': 57894.19968081987, 'btc': 1, 'eth': 32.52687152799457}, 'market_cap': {'usd': 1337419279999.587, 'eur': 1158131838685.2312, 'btc': 20004281.000000004, 'eth': 650676678.096903}, 'total_volume': {'usd': 408604975.59846145, 'eur': 353829527.3311196, 'btc': 6111.657632057086, 'eth': 198793.10262100835}, 'high_24h': {'usd': 124670.47, 'eur': 107957.79813410237, 'btc': 1.864742905667429, 'eth': 60.654252925383766}, 'low_24h': {'usd': 62929.05, 'eur': 54493.11033054448, 'btc': 0.9412533661571254, 'eth': 30.616027316285255}, 'fully_diluted_valuation': {'usd': 1403989720000.0002, 'eur': 1215778193297.2173, 'btc': 21000000.000000004, 'eth': 683064302.0878861}, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': {'usd': 126080, 'eur': 109178.37390640804, 'btc': 1.885825773710081, 'eth': 61.34001266564877}, 'ath_change_percentage': {'usd': -46.9728320642978, 'eur': -46.9728320642978, 'btc': -46.9728320642978, 'eth': -46.9728320642978}, 'ath_date': {'usd': '2025-10-06T18:57:42.558Z', 'eur': '2025-10-06T18:57:42.558Z', 'btc': '2025-10-06T18:57:42.558Z', 'eth': '2025-10-06T18:57:42.558Z'}, 'atl': {'usd': 67.81, 'eur': 58.71974567412381, 'btc': 0.0010142595630970859, 'eth': 0.03299069050489882}, 'atl_change_percentage': {'usd': 98494.09133362828, 'eur': 98494.09133362828, 'btc': 98494.09133362828, 'eth': 98494.09133362828}, 'atl_date': {'usd': '2013-07-06T00:00:00.000Z', 'eur': '2013-07-06T00:00:00.000Z', 'btc': '2013-07-06T00:00:00.000Z', 'eth': '2013-07-06T00:00:00.000Z'}, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'price_change_percentage_7d': -23.016950091929072, 'price_change_percentage_7d_in_currency': {'usd': -23.016950091929072, 'eur': -23.016950091929072, 'btc': -23.016950091929072, 'eth': -23.016950091929072}, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'market_cap_rank': 1, 'last_updated': '2026-04-02T16:23:45.212Z', 'sparkline_7d': {'price': [86845.94, 84223.39, 84088.79, 83840.59, 86082.5, 87498.16, 87392.88, 86909.18, 87232, 84424.37, 82648.54, 82369.37, 82550, 85152.49, 82516.29, 83197.16, 83889.88, 83532.65, 78424.51, 79158.77, 76322.41, 82615.21, 79609.69, 83423.84, 85276.91, 83759.99, 84591.59, 83643.99, 84030.38, 84947.91, 84474.69, 85077, 85179.25, 87516.22, 93443, 93691.07, 93980.46, 94633.02, 94627.99, 93749.3, 95011.18, 94256.83, 94172, 96490.34, 96887.13, 95873.22, 94277.62, 94733.68, 96797.62, 97030.49, 103283.25, 102971.99, 104809.52, 104118.01, 102791.31, 104103.73, 103507.82, 103763.7, 103463.9, 103126.64, 106488.12, 105579.98, 106850, 109644, 111696.21, 107318.3, 107761.91, 109004.19, 109434.79, 108938.16, 107781.78, 105589.75, 103985.48, 104591.89, 105642.93, 105837.3, 105366.07, 104696.86, 101508.68, 104288.44, 105552.15, 105734.06, 110263.02, 110274.39, 108657.53, 105730.3, 106069.24, 105414.64, 105594.01, 106780.02, 104551.17, 104886.79, 104658.59, 103291.83, 102120, 100963.86, 105347.19, 106082.99, 107340.59, 106947.06, 107041.36, 107296.79, 108356.93, 107168.47, 105681.13, 108849.59, 109596.71, 107994.87, 108217.11, 109224.99, 108267.36, 108938.23, 111273.38, 116016.81, 117575.24, 117451.33, 119098.86, 119808.01, 117765.42, 118637.16, 119197.13, 117934.9, 117858.09, 117277.04, 117385.5, 119965.48, 118704.45, 118342, 117627.8, 117928.9, 119409.63, 118061.93, 117927.57, 117841.88, 115760.22, 113280.65, 112545.26, 114242.52, 115087.24, 114161.49, 114959.81, 117490.03, 116670.02, 116468.86, 119310.05, 118685.53, 120129.74, 123306.23, 118327.59, 117258.42, 117361.36, 117399.12, 116241.34, 112912.67, 114224.33, 112520.24, 116891.46, 115429.43, 113492.21, 110063.98, 111779.51, 111269.98, 112553.4, 108364.26, 108826.12, 108229.36, 109238.25, 111231.26, 111742.52, 110723.57, 110587.46, 110182.12, 111366, 112100.43, 111535.91, 113947.57, 115576.19, 116040.06, 115906.89, 115224.67, 115338.76, 116806.25, 116441.96, 117154.28, 115629.36, 115695.38, 115230.05, 112612.21, 111948.04, 113310.17, 108986.54, 109639.42, 109641.62, 112174.73, 114306.7, 114077.55, 118587.64, 120554.1, 122255.82, 122388.17, 123480.62, 124670.47, 121379.87, 123338.13, 121660.38, 112784.13, 110671.88, 115012.87, 115161.02, 113027.6, 110746.5, 108171.79, 106424.78, 107175, 108606.67, 110526.49, 108332.7, 107581.77, 110100.89, 111049.49, 111596.93, 114556.82, 114047.55, 112847.77, 110017.92, 108319.44, 109594.14, 110113.34, 110512.1, 106523.97, 101476.23, 103903.35, 101312.94, 103358.36, 102334.68, 104719.06, 106007.23, 103061.86, 101655.16, 99699.33, 94571.3, 95633.01, 94265.52, 92186.62, 92961.86, 91551.5, 86637.16, 85160.22, 84719.36, 86766.74, 88293.5, 87385.7, 90473.65, 91312.86, 90898.98, 90882.11, 90371.71, 86353.28, 91281.43, 93455.1, 92102.83, 89256.54, 89228.27, 90338.74, 90624.27, 92654.19, 91972.15, 92514.9, 90309.47, 90232.89, 88163.52, 86406.69, 87774.84, 86234.09, 85528.69, 88151.3, 88380.55, 88661.14, 88566.89, 87498.91, 87594.06, 87243.38, 87390.63, 87874.17, 87945.59, 87239.08, 88488.12, 87634.98, 88875.07, 89979.32, 90717.59, 91549.57, 93859.21, 93744.04, 91368.96, 91087.56, 90612.86, 90479.21, 90989.45, 91290.09, 95438.61, 96946.2, 95596.8, 95562.3, 95130.16, 93619.48, 92650.11, 88359.93, 89491.12, 89558.22, 89612.81, 89233.97, 86663.63, 88374.75, 89256.62, 89356.43, 84647.87, 84246.85, 78729.37, 76993.45, 78803.61, 75766.32, 73157.1, 62929.05, 70586.67, 69297.95, 70360.55, 70177.5, 68817.51, 67085.7, 66268.38, 68864.07, 69830.9, 68818.28, 68851.39, 67529.82, 66479.27, 67004.5, 68036.63, 67975.93, 67643.4, 64657.3, 64056.7, 67983.3, 67478, 65874, 66975.8, 65770.9, 68829, 68331.8, 72679.87, 70876.45, 68121.12, 67258.5, 65985.27, 68424.61, 69897.43, 70181.06, 70501.48, 70950.73, 71176.16, 72791.73, 74829.14, 73913.05, 71249.17, 69914.64, 70524.92, 68890.23, 67892.58, 70961.86, 70550.03, 71379.28, 68775.29, 66407.46, 66378.62, 66040.51, 66790.82, 68233.74, 68095.86, 66856.65333333334]}}"
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "title": "stale-allowed trust slice stays coherent across all scoped surfaces",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Apply stale allowed override then compare all scoped surfaces",
+          "expected": "All three market surfaces still serve stale values while diagnostics reports degraded stale-live service",
+          "observed": "diagnostics={'readiness': {'state': 'degraded', 'listener_bound': True, 'listener_bind_deferred': False, 'initial_sync_completed': True, 'degraded': True, 'zero_live_completed_boot': False, 'validation_override_active': True}, 'degraded': {'active': True, 'stale_live_enabled': True, 'reason': 'validation degraded state override', 'provider_failure_cooldown_until': None, 'injected_provider_failure': {'active': False, 'reason': None}, 'validation_override': {'active': True, 'mode': 'stale_allowed', 'reason': 'validation degraded state override'}}, 'hot_paths': {'shared_market_snapshot': {'available': True, 'source_class': 'stale_live', 'last_successful_live_refresh_at': '1970-01-01T00:00:00.000Z', 'freshness': {'threshold_seconds': 300, 'age_seconds': 1775147086, 'is_stale': True}, 'providers': ['coinbase'], 'provider_count': 1}, 'cache_revision': 8}, 'transport': {'request_timeout_ms': 15000, 'compression': {'threshold_bytes': 1024}}, 'startup_prewarm': {'enabled': True, 'budgetMs': 250, 'readyWithinBudget': True, 'firstRequestWarmBenefitsObserved': False, 'firstRequestWarmBenefitPending': True, 'targets': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price'}], 'completedAt': 1775146464686, 'totalDurationMs': 5, 'targetResults': [{'id': 'simple_price_bitcoin_usd', 'label': 'Simple price BTC/USD', 'endpoint': '/simple/price?ids=bitcoin&vs_currencies=usd', 'cacheSurface': 'simple_price', 'status': 'completed', 'durationMs': 5, 'warmCacheRevision': 1, 'firstObservedRequest': None}]}}, simple={'bitcoin': {'usd': 66856.65333333334, 'last_updated_at': 1775147025}}, markets={'id': 'bitcoin', 'symbol': 'btc', 'name': 'Bitcoin', 'image': 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400', 'current_price': 66856.65333333334, 'market_cap': 1337419279999.587, 'market_cap_rank': 1, 'fully_diluted_valuation': 1403989720000.0002, 'total_volume': 408604975.59846145, 'high_24h': 124670.47, 'low_24h': 62929.05, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': 126080, 'ath_change_percentage': -46.9728320642978, 'ath_date': '2025-10-06T18:57:42.558Z', 'atl': 67.81, 'atl_change_percentage': 98494.09133362828, 'atl_date': '2013-07-06T00:00:00.000Z', 'roi': None, 'last_updated': '2026-04-02T16:23:45.212Z', 'price_change_percentage_1h_in_currency': None, 'price_change_percentage_24h_in_currency': -2.8558179469167233, 'price_change_percentage_7d_in_currency': None}, detail_market_data={'current_price': {'usd': 66856.65333333334, 'eur': 57894.19968081987, 'btc': 1, 'eth': 32.52687152799457}, 'market_cap': {'usd': 1337419279999.587, 'eur': 1158131838685.2312, 'btc': 20004281.000000004, 'eth': 650676678.096903}, 'total_volume': {'usd': 408604975.59846145, 'eur': 353829527.3311196, 'btc': 6111.657632057086, 'eth': 198793.10262100835}, 'high_24h': {'usd': 124670.47, 'eur': 107957.79813410237, 'btc': 1.864742905667429, 'eth': 60.654252925383766}, 'low_24h': {'usd': 62929.05, 'eur': 54493.11033054448, 'btc': 0.9412533661571254, 'eth': 30.616027316285255}, 'fully_diluted_valuation': {'usd': 1403989720000.0002, 'eur': 1215778193297.2173, 'btc': 21000000.000000004, 'eth': 683064302.0878861}, 'circulating_supply': 20004281, 'total_supply': 20006906, 'max_supply': 21000000, 'ath': {'usd': 126080, 'eur': 109178.37390640804, 'btc': 1.885825773710081, 'eth': 61.34001266564877}, 'ath_change_percentage': {'usd': -46.9728320642978, 'eur': -46.9728320642978, 'btc': -46.9728320642978, 'eth': -46.9728320642978}, 'ath_date': {'usd': '2025-10-06T18:57:42.558Z', 'eur': '2025-10-06T18:57:42.558Z', 'btc': '2025-10-06T18:57:42.558Z', 'eth': '2025-10-06T18:57:42.558Z'}, 'atl': {'usd': 67.81, 'eur': 58.71974567412381, 'btc': 0.0010142595630970859, 'eth': 0.03299069050489882}, 'atl_change_percentage': {'usd': 98494.09133362828, 'eur': 98494.09133362828, 'btc': 98494.09133362828, 'eth': 98494.09133362828}, 'atl_date': {'usd': '2013-07-06T00:00:00.000Z', 'eur': '2013-07-06T00:00:00.000Z', 'btc': '2013-07-06T00:00:00.000Z', 'eth': '2013-07-06T00:00:00.000Z'}, 'price_change_24h': -1965.4335074414594, 'price_change_percentage_24h': -2.8558179469167233, 'price_change_percentage_7d': -23.016950091929072, 'price_change_percentage_7d_in_currency': {'usd': -23.016950091929072, 'eur': -23.016950091929072, 'btc': -23.016950091929072, 'eth': -23.016950091929072}, 'market_cap_change_24h': -39317084169.674545, 'market_cap_change_percentage_24h': -2.8558179469167233, 'market_cap_rank': 1, 'last_updated': '2026-04-02T16:23:45.212Z', 'sparkline_7d': {'price': [86845.94, 84223.39, 84088.79, 83840.59, 86082.5, 87498.16, 87392.88, 86909.18, 87232, 84424.37, 82648.54, 82369.37, 82550, 85152.49, 82516.29, 83197.16, 83889.88, 83532.65, 78424.51, 79158.77, 76322.41, 82615.21, 79609.69, 83423.84, 85276.91, 83759.99, 84591.59, 83643.99, 84030.38, 84947.91, 84474.69, 85077, 85179.25, 87516.22, 93443, 93691.07, 93980.46, 94633.02, 94627.99, 93749.3, 95011.18, 94256.83, 94172, 96490.34, 96887.13, 95873.22, 94277.62, 94733.68, 96797.62, 97030.49, 103283.25, 102971.99, 104809.52, 104118.01, 102791.31, 104103.73, 103507.82, 103763.7, 103463.9, 103126.64, 106488.12, 105579.98, 106850, 109644, 111696.21, 107318.3, 107761.91, 109004.19, 109434.79, 108938.16, 107781.78, 105589.75, 103985.48, 104591.89, 105642.93, 105837.3, 105366.07, 104696.86, 101508.68, 104288.44, 105552.15, 105734.06, 110263.02, 110274.39, 108657.53, 105730.3, 106069.24, 105414.64, 105594.01, 106780.02, 104551.17, 104886.79, 104658.59, 103291.83, 102120, 100963.86, 105347.19, 106082.99, 107340.59, 106947.06, 107041.36, 107296.79, 108356.93, 107168.47, 105681.13, 108849.59, 109596.71, 107994.87, 108217.11, 109224.99, 108267.36, 108938.23, 111273.38, 116016.81, 117575.24, 117451.33, 119098.86, 119808.01, 117765.42, 118637.16, 119197.13, 117934.9, 117858.09, 117277.04, 117385.5, 119965.48, 118704.45, 118342, 117627.8, 117928.9, 119409.63, 118061.93, 117927.57, 117841.88, 115760.22, 113280.65, 112545.26, 114242.52, 115087.24, 114161.49, 114959.81, 117490.03, 116670.02, 116468.86, 119310.05, 118685.53, 120129.74, 123306.23, 118327.59, 117258.42, 117361.36, 117399.12, 116241.34, 112912.67, 114224.33, 112520.24, 116891.46, 115429.43, 113492.21, 110063.98, 111779.51, 111269.98, 112553.4, 108364.26, 108826.12, 108229.36, 109238.25, 111231.26, 111742.52, 110723.57, 110587.46, 110182.12, 111366, 112100.43, 111535.91, 113947.57, 115576.19, 116040.06, 115906.89, 115224.67, 115338.76, 116806.25, 116441.96, 117154.28, 115629.36, 115695.38, 115230.05, 112612.21, 111948.04, 113310.17, 108986.54, 109639.42, 109641.62, 112174.73, 114306.7, 114077.55, 118587.64, 120554.1, 122255.82, 122388.17, 123480.62, 124670.47, 121379.87, 123338.13, 121660.38, 112784.13, 110671.88, 115012.87, 115161.02, 113027.6, 110746.5, 108171.79, 106424.78, 107175, 108606.67, 110526.49, 108332.7, 107581.77, 110100.89, 111049.49, 111596.93, 114556.82, 114047.55, 112847.77, 110017.92, 108319.44, 109594.14, 110113.34, 110512.1, 106523.97, 101476.23, 103903.35, 101312.94, 103358.36, 102334.68, 104719.06, 106007.23, 103061.86, 101655.16, 99699.33, 94571.3, 95633.01, 94265.52, 92186.62, 92961.86, 91551.5, 86637.16, 85160.22, 84719.36, 86766.74, 88293.5, 87385.7, 90473.65, 91312.86, 90898.98, 90882.11, 90371.71, 86353.28, 91281.43, 93455.1, 92102.83, 89256.54, 89228.27, 90338.74, 90624.27, 92654.19, 91972.15, 92514.9, 90309.47, 90232.89, 88163.52, 86406.69, 87774.84, 86234.09, 85528.69, 88151.3, 88380.55, 88661.14, 88566.89, 87498.91, 87594.06, 87243.38, 87390.63, 87874.17, 87945.59, 87239.08, 88488.12, 87634.98, 88875.07, 89979.32, 90717.59, 91549.57, 93859.21, 93744.04, 91368.96, 91087.56, 90612.86, 90479.21, 90989.45, 91290.09, 95438.61, 96946.2, 95596.8, 95562.3, 95130.16, 93619.48, 92650.11, 88359.93, 89491.12, 89558.22, 89612.81, 89233.97, 86663.63, 88374.75, 89256.62, 89356.43, 84647.87, 84246.85, 78729.37, 76993.45, 78803.61, 75766.32, 73157.1, 62929.05, 70586.67, 69297.95, 70360.55, 70177.5, 68817.51, 67085.7, 66268.38, 68864.07, 69830.9, 68818.28, 68851.39, 67529.82, 66479.27, 67004.5, 68036.63, 67975.93, 67643.4, 64657.3, 64056.7, 67983.3, 67478, 65874, 66975.8, 65770.9, 68829, 68331.8, 72679.87, 70876.45, 68121.12, 67258.5, 65985.27, 68424.61, 69897.43, 70181.06, 70501.48, 70950.73, 71176.16, 72791.73, 74829.14, 73913.05, 71249.17, 69914.64, 70524.92, 68890.23, 67892.58, 70961.86, 70550.03, 71379.28, 68775.29, 66407.46, 66378.62, 66040.51, 66790.82, 68233.74, 68095.86, 66856.65333333334]}}"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-diag.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-simple.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-markets.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-detail.txt"
+        ],
+        "httpStatus": [
+          200,
+          200,
+          200,
+          200
+        ],
+        "keyJson": {
+          "diagnostics": {
+            "readiness": {
+              "state": "degraded",
+              "listener_bound": true,
+              "listener_bind_deferred": false,
+              "initial_sync_completed": true,
+              "degraded": true,
+              "zero_live_completed_boot": false,
+              "validation_override_active": true
+            },
+            "degraded": {
+              "active": true,
+              "stale_live_enabled": true,
+              "reason": "validation degraded state override",
+              "provider_failure_cooldown_until": null,
+              "injected_provider_failure": {
+                "active": false,
+                "reason": null
+              },
+              "validation_override": {
+                "active": true,
+                "mode": "stale_allowed",
+                "reason": "validation degraded state override"
+              }
+            },
+            "hot_paths": {
+              "shared_market_snapshot": {
+                "available": true,
+                "source_class": "stale_live",
+                "last_successful_live_refresh_at": "1970-01-01T00:00:00.000Z",
+                "freshness": {
+                  "threshold_seconds": 300,
+                  "age_seconds": 1775147086,
+                  "is_stale": true
+                },
+                "providers": [
+                  "coinbase"
+                ],
+                "provider_count": 1
+              },
+              "cache_revision": 8
+            },
+            "transport": {
+              "request_timeout_ms": 15000,
+              "compression": {
+                "threshold_bytes": 1024
+              }
+            },
+            "startup_prewarm": {
+              "enabled": true,
+              "budgetMs": 250,
+              "readyWithinBudget": true,
+              "firstRequestWarmBenefitsObserved": false,
+              "firstRequestWarmBenefitPending": true,
+              "targets": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price"
+                }
+              ],
+              "completedAt": 1775146464686,
+              "totalDurationMs": 5,
+              "targetResults": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price",
+                  "status": "completed",
+                  "durationMs": 5,
+                  "warmCacheRevision": 1,
+                  "firstObservedRequest": null
+                }
+              ]
+            }
+          },
+          "simple": {
+            "bitcoin": {
+              "usd": 66856.65333333334,
+              "last_updated_at": 1775147025
+            }
+          },
+          "markets": {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
+            "current_price": 66856.65333333334,
+            "market_cap": 1337419279999.587,
+            "market_cap_rank": 1,
+            "fully_diluted_valuation": 1403989720000.0002,
+            "total_volume": 408604975.59846145,
+            "high_24h": 124670.47,
+            "low_24h": 62929.05,
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": 126080,
+            "ath_change_percentage": -46.9728320642978,
+            "ath_date": "2025-10-06T18:57:42.558Z",
+            "atl": 67.81,
+            "atl_change_percentage": 98494.09133362828,
+            "atl_date": "2013-07-06T00:00:00.000Z",
+            "roi": null,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "price_change_percentage_1h_in_currency": null,
+            "price_change_percentage_24h_in_currency": -2.8558179469167233,
+            "price_change_percentage_7d_in_currency": null
+          },
+          "detail_market_data": {
+            "current_price": {
+              "usd": 66856.65333333334,
+              "eur": 57894.19968081987,
+              "btc": 1,
+              "eth": 32.52687152799457
+            },
+            "market_cap": {
+              "usd": 1337419279999.587,
+              "eur": 1158131838685.2312,
+              "btc": 20004281.000000004,
+              "eth": 650676678.096903
+            },
+            "total_volume": {
+              "usd": 408604975.59846145,
+              "eur": 353829527.3311196,
+              "btc": 6111.657632057086,
+              "eth": 198793.10262100835
+            },
+            "high_24h": {
+              "usd": 124670.47,
+              "eur": 107957.79813410237,
+              "btc": 1.864742905667429,
+              "eth": 60.654252925383766
+            },
+            "low_24h": {
+              "usd": 62929.05,
+              "eur": 54493.11033054448,
+              "btc": 0.9412533661571254,
+              "eth": 30.616027316285255
+            },
+            "fully_diluted_valuation": {
+              "usd": 1403989720000.0002,
+              "eur": 1215778193297.2173,
+              "btc": 21000000.000000004,
+              "eth": 683064302.0878861
+            },
+            "circulating_supply": 20004281,
+            "total_supply": 20006906,
+            "max_supply": 21000000,
+            "ath": {
+              "usd": 126080,
+              "eur": 109178.37390640804,
+              "btc": 1.885825773710081,
+              "eth": 61.34001266564877
+            },
+            "ath_change_percentage": {
+              "usd": -46.9728320642978,
+              "eur": -46.9728320642978,
+              "btc": -46.9728320642978,
+              "eth": -46.9728320642978
+            },
+            "ath_date": {
+              "usd": "2025-10-06T18:57:42.558Z",
+              "eur": "2025-10-06T18:57:42.558Z",
+              "btc": "2025-10-06T18:57:42.558Z",
+              "eth": "2025-10-06T18:57:42.558Z"
+            },
+            "atl": {
+              "usd": 67.81,
+              "eur": 58.71974567412381,
+              "btc": 0.0010142595630970859,
+              "eth": 0.03299069050489882
+            },
+            "atl_change_percentage": {
+              "usd": 98494.09133362828,
+              "eur": 98494.09133362828,
+              "btc": 98494.09133362828,
+              "eth": 98494.09133362828
+            },
+            "atl_date": {
+              "usd": "2013-07-06T00:00:00.000Z",
+              "eur": "2013-07-06T00:00:00.000Z",
+              "btc": "2013-07-06T00:00:00.000Z",
+              "eth": "2013-07-06T00:00:00.000Z"
+            },
+            "price_change_24h": -1965.4335074414594,
+            "price_change_percentage_24h": -2.8558179469167233,
+            "price_change_percentage_7d": -23.016950091929072,
+            "price_change_percentage_7d_in_currency": {
+              "usd": -23.016950091929072,
+              "eur": -23.016950091929072,
+              "btc": -23.016950091929072,
+              "eth": -23.016950091929072
+            },
+            "market_cap_change_24h": -39317084169.674545,
+            "market_cap_change_percentage_24h": -2.8558179469167233,
+            "market_cap_rank": 1,
+            "last_updated": "2026-04-02T16:23:45.212Z",
+            "sparkline_7d": {
+              "price": [
+                86845.94,
+                84223.39,
+                84088.79,
+                83840.59,
+                86082.5,
+                87498.16,
+                87392.88,
+                86909.18,
+                87232,
+                84424.37,
+                82648.54,
+                82369.37,
+                82550,
+                85152.49,
+                82516.29,
+                83197.16,
+                83889.88,
+                83532.65,
+                78424.51,
+                79158.77,
+                76322.41,
+                82615.21,
+                79609.69,
+                83423.84,
+                85276.91,
+                83759.99,
+                84591.59,
+                83643.99,
+                84030.38,
+                84947.91,
+                84474.69,
+                85077,
+                85179.25,
+                87516.22,
+                93443,
+                93691.07,
+                93980.46,
+                94633.02,
+                94627.99,
+                93749.3,
+                95011.18,
+                94256.83,
+                94172,
+                96490.34,
+                96887.13,
+                95873.22,
+                94277.62,
+                94733.68,
+                96797.62,
+                97030.49,
+                103283.25,
+                102971.99,
+                104809.52,
+                104118.01,
+                102791.31,
+                104103.73,
+                103507.82,
+                103763.7,
+                103463.9,
+                103126.64,
+                106488.12,
+                105579.98,
+                106850,
+                109644,
+                111696.21,
+                107318.3,
+                107761.91,
+                109004.19,
+                109434.79,
+                108938.16,
+                107781.78,
+                105589.75,
+                103985.48,
+                104591.89,
+                105642.93,
+                105837.3,
+                105366.07,
+                104696.86,
+                101508.68,
+                104288.44,
+                105552.15,
+                105734.06,
+                110263.02,
+                110274.39,
+                108657.53,
+                105730.3,
+                106069.24,
+                105414.64,
+                105594.01,
+                106780.02,
+                104551.17,
+                104886.79,
+                104658.59,
+                103291.83,
+                102120,
+                100963.86,
+                105347.19,
+                106082.99,
+                107340.59,
+                106947.06,
+                107041.36,
+                107296.79,
+                108356.93,
+                107168.47,
+                105681.13,
+                108849.59,
+                109596.71,
+                107994.87,
+                108217.11,
+                109224.99,
+                108267.36,
+                108938.23,
+                111273.38,
+                116016.81,
+                117575.24,
+                117451.33,
+                119098.86,
+                119808.01,
+                117765.42,
+                118637.16,
+                119197.13,
+                117934.9,
+                117858.09,
+                117277.04,
+                117385.5,
+                119965.48,
+                118704.45,
+                118342,
+                117627.8,
+                117928.9,
+                119409.63,
+                118061.93,
+                117927.57,
+                117841.88,
+                115760.22,
+                113280.65,
+                112545.26,
+                114242.52,
+                115087.24,
+                114161.49,
+                114959.81,
+                117490.03,
+                116670.02,
+                116468.86,
+                119310.05,
+                118685.53,
+                120129.74,
+                123306.23,
+                118327.59,
+                117258.42,
+                117361.36,
+                117399.12,
+                116241.34,
+                112912.67,
+                114224.33,
+                112520.24,
+                116891.46,
+                115429.43,
+                113492.21,
+                110063.98,
+                111779.51,
+                111269.98,
+                112553.4,
+                108364.26,
+                108826.12,
+                108229.36,
+                109238.25,
+                111231.26,
+                111742.52,
+                110723.57,
+                110587.46,
+                110182.12,
+                111366,
+                112100.43,
+                111535.91,
+                113947.57,
+                115576.19,
+                116040.06,
+                115906.89,
+                115224.67,
+                115338.76,
+                116806.25,
+                116441.96,
+                117154.28,
+                115629.36,
+                115695.38,
+                115230.05,
+                112612.21,
+                111948.04,
+                113310.17,
+                108986.54,
+                109639.42,
+                109641.62,
+                112174.73,
+                114306.7,
+                114077.55,
+                118587.64,
+                120554.1,
+                122255.82,
+                122388.17,
+                123480.62,
+                124670.47,
+                121379.87,
+                123338.13,
+                121660.38,
+                112784.13,
+                110671.88,
+                115012.87,
+                115161.02,
+                113027.6,
+                110746.5,
+                108171.79,
+                106424.78,
+                107175,
+                108606.67,
+                110526.49,
+                108332.7,
+                107581.77,
+                110100.89,
+                111049.49,
+                111596.93,
+                114556.82,
+                114047.55,
+                112847.77,
+                110017.92,
+                108319.44,
+                109594.14,
+                110113.34,
+                110512.1,
+                106523.97,
+                101476.23,
+                103903.35,
+                101312.94,
+                103358.36,
+                102334.68,
+                104719.06,
+                106007.23,
+                103061.86,
+                101655.16,
+                99699.33,
+                94571.3,
+                95633.01,
+                94265.52,
+                92186.62,
+                92961.86,
+                91551.5,
+                86637.16,
+                85160.22,
+                84719.36,
+                86766.74,
+                88293.5,
+                87385.7,
+                90473.65,
+                91312.86,
+                90898.98,
+                90882.11,
+                90371.71,
+                86353.28,
+                91281.43,
+                93455.1,
+                92102.83,
+                89256.54,
+                89228.27,
+                90338.74,
+                90624.27,
+                92654.19,
+                91972.15,
+                92514.9,
+                90309.47,
+                90232.89,
+                88163.52,
+                86406.69,
+                87774.84,
+                86234.09,
+                85528.69,
+                88151.3,
+                88380.55,
+                88661.14,
+                88566.89,
+                87498.91,
+                87594.06,
+                87243.38,
+                87390.63,
+                87874.17,
+                87945.59,
+                87239.08,
+                88488.12,
+                87634.98,
+                88875.07,
+                89979.32,
+                90717.59,
+                91549.57,
+                93859.21,
+                93744.04,
+                91368.96,
+                91087.56,
+                90612.86,
+                90479.21,
+                90989.45,
+                91290.09,
+                95438.61,
+                96946.2,
+                95596.8,
+                95562.3,
+                95130.16,
+                93619.48,
+                92650.11,
+                88359.93,
+                89491.12,
+                89558.22,
+                89612.81,
+                89233.97,
+                86663.63,
+                88374.75,
+                89256.62,
+                89356.43,
+                84647.87,
+                84246.85,
+                78729.37,
+                76993.45,
+                78803.61,
+                75766.32,
+                73157.1,
+                62929.05,
+                70586.67,
+                69297.95,
+                70360.55,
+                70177.5,
+                68817.51,
+                67085.7,
+                66268.38,
+                68864.07,
+                69830.9,
+                68818.28,
+                68851.39,
+                67529.82,
+                66479.27,
+                67004.5,
+                68036.63,
+                67975.93,
+                67643.4,
+                64657.3,
+                64056.7,
+                67983.3,
+                67478,
+                65874,
+                66975.8,
+                65770.9,
+                68829,
+                68331.8,
+                72679.87,
+                70876.45,
+                68121.12,
+                67258.5,
+                65985.27,
+                68424.61,
+                69897.43,
+                70181.06,
+                70501.48,
+                70950.73,
+                71176.16,
+                72791.73,
+                74829.14,
+                73913.05,
+                71249.17,
+                69914.64,
+                70524.92,
+                68890.23,
+                67892.58,
+                70961.86,
+                70550.03,
+                71379.28,
+                68775.29,
+                66407.46,
+                66378.62,
+                66040.51,
+                66790.82,
+                68233.74,
+                68095.86,
+                66856.65333333334
+              ]
+            }
+          }
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "title": "seeded bootstrap truth is visible and consistent across all scoped surfaces",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Apply seeded bootstrap override then compare all trust-slice surfaces",
+          "expected": "Market surfaces may still serve bootstrap values while diagnostics reports startup/bootstrap semantics",
+          "observed": "diagnostics=None, simple=None, markets=None, detail_market_data=None"
+        }
+      ],
+      "evidence": {
+        "commands": [],
+        "httpStatus": [],
+        "keyJson": {
+          "diagnostics": null,
+          "simple": null,
+          "markets": null,
+          "detail_market_data": null
+        }
+      },
+      "issues": "Could not apply seeded bootstrap override."
+    },
+    {
+      "id": "VAL-CROSS-005",
+      "title": "cache/state transitions are externally visible through diagnostics/runtime",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Compare diagnostics/runtime cache_revision before and after overrides",
+          "expected": "cache_revision changes and route behavior follows new runtime state",
+          "observed": "before=None, stale_disallowed=None, stale_allowed=None"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/baseline-diag-3001.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_disallowed-diag.txt",
+          "trust-slice-semantics/markets-diagnostics/stale_allowed-diag.txt"
+        ],
+        "httpStatus": [
+          200,
+          200,
+          200
+        ],
+        "keyJson": {
+          "before": {
+            "readiness": {
+              "state": "degraded",
+              "listener_bound": true,
+              "listener_bind_deferred": false,
+              "initial_sync_completed": false,
+              "degraded": true,
+              "zero_live_completed_boot": false,
+              "validation_override_active": false
+            },
+            "degraded": {
+              "active": true,
+              "stale_live_enabled": true,
+              "reason": "database disk image is malformed",
+              "provider_failure_cooldown_until": null,
+              "injected_provider_failure": {
+                "active": false,
+                "reason": null
+              },
+              "validation_override": {
+                "active": false,
+                "mode": "off",
+                "reason": null
+              }
+            },
+            "hot_paths": {
+              "shared_market_snapshot": {
+                "available": true,
+                "source_class": "fresh_live",
+                "last_successful_live_refresh_at": "2026-04-02T16:23:46.173Z",
+                "freshness": {
+                  "threshold_seconds": 300,
+                  "age_seconds": 59,
+                  "is_stale": false
+                },
+                "providers": [
+                  "binance",
+                  "coinbase",
+                  "okx"
+                ],
+                "provider_count": 3
+              },
+              "cache_revision": 1
+            },
+            "transport": {
+              "request_timeout_ms": 15000,
+              "compression": {
+                "threshold_bytes": 1024
+              }
+            },
+            "startup_prewarm": {
+              "enabled": false,
+              "budgetMs": 0,
+              "readyWithinBudget": true,
+              "firstRequestWarmBenefitsObserved": false,
+              "firstRequestWarmBenefitPending": false,
+              "targets": [],
+              "completedAt": null,
+              "totalDurationMs": null,
+              "targetResults": []
+            }
+          },
+          "stale_disallowed": {
+            "readiness": {
+              "state": "degraded",
+              "listener_bound": true,
+              "listener_bind_deferred": false,
+              "initial_sync_completed": true,
+              "degraded": true,
+              "zero_live_completed_boot": false,
+              "validation_override_active": true
+            },
+            "degraded": {
+              "active": true,
+              "stale_live_enabled": false,
+              "reason": "validation degraded state override",
+              "provider_failure_cooldown_until": null,
+              "injected_provider_failure": {
+                "active": false,
+                "reason": null
+              },
+              "validation_override": {
+                "active": true,
+                "mode": "stale_disallowed",
+                "reason": "validation degraded state override"
+              }
+            },
+            "hot_paths": {
+              "shared_market_snapshot": {
+                "available": true,
+                "source_class": "stale_live",
+                "last_successful_live_refresh_at": "1970-01-01T00:00:00.000Z",
+                "freshness": {
+                  "threshold_seconds": 300,
+                  "age_seconds": 1775147086,
+                  "is_stale": true
+                },
+                "providers": [
+                  "coinbase"
+                ],
+                "provider_count": 1
+              },
+              "cache_revision": 7
+            },
+            "transport": {
+              "request_timeout_ms": 15000,
+              "compression": {
+                "threshold_bytes": 1024
+              }
+            },
+            "startup_prewarm": {
+              "enabled": true,
+              "budgetMs": 250,
+              "readyWithinBudget": true,
+              "firstRequestWarmBenefitsObserved": false,
+              "firstRequestWarmBenefitPending": true,
+              "targets": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price"
+                }
+              ],
+              "completedAt": 1775146464686,
+              "totalDurationMs": 5,
+              "targetResults": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price",
+                  "status": "completed",
+                  "durationMs": 5,
+                  "warmCacheRevision": 1,
+                  "firstObservedRequest": null
+                }
+              ]
+            }
+          },
+          "stale_allowed": {
+            "readiness": {
+              "state": "degraded",
+              "listener_bound": true,
+              "listener_bind_deferred": false,
+              "initial_sync_completed": true,
+              "degraded": true,
+              "zero_live_completed_boot": false,
+              "validation_override_active": true
+            },
+            "degraded": {
+              "active": true,
+              "stale_live_enabled": true,
+              "reason": "validation degraded state override",
+              "provider_failure_cooldown_until": null,
+              "injected_provider_failure": {
+                "active": false,
+                "reason": null
+              },
+              "validation_override": {
+                "active": true,
+                "mode": "stale_allowed",
+                "reason": "validation degraded state override"
+              }
+            },
+            "hot_paths": {
+              "shared_market_snapshot": {
+                "available": true,
+                "source_class": "stale_live",
+                "last_successful_live_refresh_at": "1970-01-01T00:00:00.000Z",
+                "freshness": {
+                  "threshold_seconds": 300,
+                  "age_seconds": 1775147086,
+                  "is_stale": true
+                },
+                "providers": [
+                  "coinbase"
+                ],
+                "provider_count": 1
+              },
+              "cache_revision": 8
+            },
+            "transport": {
+              "request_timeout_ms": 15000,
+              "compression": {
+                "threshold_bytes": 1024
+              }
+            },
+            "startup_prewarm": {
+              "enabled": true,
+              "budgetMs": 250,
+              "readyWithinBudget": true,
+              "firstRequestWarmBenefitsObserved": false,
+              "firstRequestWarmBenefitPending": true,
+              "targets": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price"
+                }
+              ],
+              "completedAt": 1775146464686,
+              "totalDurationMs": 5,
+              "targetResults": [
+                {
+                  "id": "simple_price_bitcoin_usd",
+                  "label": "Simple price BTC/USD",
+                  "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+                  "cacheSurface": "simple_price",
+                  "status": "completed",
+                  "durationMs": 5,
+                  "warmCacheRevision": 1,
+                  "firstObservedRequest": null
+                }
+              ]
+            }
+          }
+        }
+      },
+      "issues": "cache_revision did not change across overrides: before=None, stale_disallowed=None, stale_allowed=None"
+    },
+    {
+      "id": "VAL-CROSS-006",
+      "title": "shared timestamps stay mutually consistent across the trust slice",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Compare fresh-live timestamps across diagnostics/runtime, simple/price, coins/markets, and coins/{id}",
+          "expected": "All timestamps align to same underlying snapshot within a small tolerance",
+          "observed": "simple_last_updated_at=1775147025, markets_last_updated=2026-04-02T16:23:45.212Z, detail_last_updated=2026-04-02T16:23:45.212Z, diag_last_updated_at=None"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "trust-slice-semantics/markets-diagnostics/baseline-diag-3001.txt",
+          "trust-slice-semantics/markets-diagnostics/simple-base-bitcoin.txt",
+          "trust-slice-semantics/markets-diagnostics/markets-base-bitcoin.txt",
+          "trust-slice-semantics/markets-diagnostics/detail-base-bitcoin.txt"
+        ],
+        "httpStatus": [
+          200,
+          200,
+          200,
+          200
+        ],
+        "keyJson": {
+          "diagnostics_timestamp": null,
+          "simple_last_updated_at": 1775147025,
+          "markets_last_updated": "2026-04-02T16:23:45.212Z",
+          "detail_last_updated": "2026-04-02T16:23:45.212Z"
+        }
+      },
+      "issues": "Timestamps not mutually consistent within 5s: [1775147025, 1775147025, 1775147025, None]"
+    },
+    {
+      "id": "VAL-CROSS-007",
+      "title": "seeded bootstrap prices stay coherent across the trust slice",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Apply seeded bootstrap override then compare bitcoin prices across surfaces",
+          "expected": "Same effective price while diagnostics reports bootstrap semantics",
+          "observed": "diagnostics=None, simple=None, markets=None, detail_market_data=None"
+        }
+      ],
+      "evidence": {
+        "commands": [],
+        "httpStatus": [],
+        "keyJson": {
+          "diagnostics": null,
+          "simple": null,
+          "markets": null,
+          "detail_market_data": null
+        }
+      },
+      "issues": "Could not apply seeded bootstrap override."
+    },
+    {
+      "id": "VAL-CROSS-008",
+      "title": "zero-live completed boot stays explicit across the trust slice",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Apply zero-live completed boot override then compare all trust-slice surfaces",
+          "expected": "simple/price 503 service_unavailable while markets/detail/diagnostics expose same zero-live condition",
+          "observed": "diagnostics=None, simple_status=None, simple_body=None, markets=None, detail_market_data=None"
+        }
+      ],
+      "evidence": {
+        "commands": [],
+        "httpStatus": [],
+        "keyJson": {
+          "diagnostics": null,
+          "simple": null,
+          "markets": null,
+          "detail_market_data": null
+        }
+      },
+      "issues": "Could not apply zero-live completed boot override."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Could not discover accepted degraded_state payload for seeded_bootstrap",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": [
+        "seeded_bootstrap"
+      ]
+    },
+    {
+      "description": "Could not discover accepted degraded_state payload for zero_live_completed_boot",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": [
+        "zero_live_completed_boot"
+      ]
+    }
+  ],
+  "blockers": [],
+  "setupNotes": {
+    "baselineDiagnostics3001": {
+      "readiness": {
+        "state": "degraded",
+        "listener_bound": true,
+        "listener_bind_deferred": false,
+        "initial_sync_completed": false,
+        "degraded": true,
+        "zero_live_completed_boot": false,
+        "validation_override_active": false
+      },
+      "degraded": {
+        "active": true,
+        "stale_live_enabled": true,
+        "reason": "database disk image is malformed",
+        "provider_failure_cooldown_until": null,
+        "injected_provider_failure": {
+          "active": false,
+          "reason": null
+        },
+        "validation_override": {
+          "active": false,
+          "mode": "off",
+          "reason": null
+        }
+      },
+      "hot_paths": {
+        "shared_market_snapshot": {
+          "available": true,
+          "source_class": "fresh_live",
+          "last_successful_live_refresh_at": "2026-04-02T16:23:46.173Z",
+          "freshness": {
+            "threshold_seconds": 300,
+            "age_seconds": 59,
+            "is_stale": false
+          },
+          "providers": [
+            "binance",
+            "coinbase",
+            "okx"
+          ],
+          "provider_count": 3
+        },
+        "cache_revision": 1
+      },
+      "transport": {
+        "request_timeout_ms": 15000,
+        "compression": {
+          "threshold_bytes": 1024
+        }
+      },
+      "startup_prewarm": {
+        "enabled": false,
+        "budgetMs": 0,
+        "readyWithinBudget": true,
+        "firstRequestWarmBenefitsObserved": false,
+        "firstRequestWarmBenefitPending": false,
+        "targets": [],
+        "completedAt": null,
+        "totalDurationMs": null,
+        "targetResults": []
+      }
+    },
+    "baselineDiagnostics3102": {
+      "readiness": {
+        "state": "degraded",
+        "listener_bound": true,
+        "listener_bind_deferred": false,
+        "initial_sync_completed": false,
+        "degraded": true,
+        "zero_live_completed_boot": false,
+        "validation_override_active": false
+      },
+      "degraded": {
+        "active": true,
+        "stale_live_enabled": true,
+        "reason": null,
+        "provider_failure_cooldown_until": null,
+        "injected_provider_failure": {
+          "active": false,
+          "reason": null
+        },
+        "validation_override": {
+          "active": false,
+          "mode": "off",
+          "reason": null
+        }
+      },
+      "hot_paths": {
+        "shared_market_snapshot": {
+          "available": true,
+          "source_class": "stale_live",
+          "last_successful_live_refresh_at": "2026-04-02T15:30:47.359Z",
+          "freshness": {
+            "threshold_seconds": 300,
+            "age_seconds": 3238,
+            "is_stale": true
+          },
+          "providers": [
+            "coinbase"
+          ],
+          "provider_count": 1
+        },
+        "cache_revision": 5
+      },
+      "transport": {
+        "request_timeout_ms": 15000,
+        "compression": {
+          "threshold_bytes": 1024
+        }
+      },
+      "startup_prewarm": {
+        "enabled": true,
+        "budgetMs": 250,
+        "readyWithinBudget": true,
+        "firstRequestWarmBenefitsObserved": false,
+        "firstRequestWarmBenefitPending": true,
+        "targets": [
+          {
+            "id": "simple_price_bitcoin_usd",
+            "label": "Simple price BTC/USD",
+            "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+            "cacheSurface": "simple_price"
+          }
+        ],
+        "completedAt": 1775146464686,
+        "totalDurationMs": 5,
+        "targetResults": [
+          {
+            "id": "simple_price_bitcoin_usd",
+            "label": "Simple price BTC/USD",
+            "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+            "cacheSurface": "simple_price",
+            "status": "completed",
+            "durationMs": 5,
+            "warmCacheRevision": 1,
+            "firstObservedRequest": null
+          }
+        ]
+      }
+    },
+    "overrideProbeDegraded": {
+      "data": {
+        "mode": "off",
+        "reason": null,
+        "cache_revision": 6
+      }
+    },
+    "overrideProbeProvider": {
+      "data": {
+        "active": false,
+        "reason": null
+      }
+    },
+    "restoreDegraded": [
+      "{\"error\":\"invalid_parameter\",\"message\":\"mode must be one of off, stale_disallowed, stale_allowed, degraded_seeded_bootstrap.\"}",
+      "{\"error\":\"invalid_parameter\",\"message\":\"mode must be one of off, stale_disallowed, stale_allowed, degraded_seeded_bootstrap.\"}"
+    ],
+    "restoreProviderFailure": [
+      "{\"data\":{\"active\":false,\"reason\":null}}"
+    ],
+    "postRestoreDiagnostics3102": {
+      "data": {
+        "readiness": {
+          "state": "degraded",
+          "listener_bound": true,
+          "listener_bind_deferred": false,
+          "initial_sync_completed": false,
+          "degraded": true,
+          "zero_live_completed_boot": false,
+          "validation_override_active": true
+        },
+        "degraded": {
+          "active": true,
+          "stale_live_enabled": false,
+          "reason": "validation degraded state override",
+          "provider_failure_cooldown_until": null,
+          "injected_provider_failure": {
+            "active": false,
+            "reason": null
+          },
+          "validation_override": {
+            "active": true,
+            "mode": "degraded_seeded_bootstrap",
+            "reason": "validation degraded state override"
+          }
+        },
+        "hot_paths": {
+          "shared_market_snapshot": {
+            "available": true,
+            "source_class": "degraded_seeded_bootstrap",
+            "last_successful_live_refresh_at": null,
+            "freshness": {
+              "threshold_seconds": 300,
+              "age_seconds": 0,
+              "is_stale": false
+            },
+            "providers": [
+              "coinbase"
+            ],
+            "provider_count": 0
+          },
+          "cache_revision": 9
+        },
+        "transport": {
+          "request_timeout_ms": 15000,
+          "compression": {
+            "threshold_bytes": 1024
+          }
+        },
+        "startup_prewarm": {
+          "enabled": true,
+          "budgetMs": 250,
+          "readyWithinBudget": true,
+          "firstRequestWarmBenefitsObserved": false,
+          "firstRequestWarmBenefitPending": true,
+          "targets": [
+            {
+              "id": "simple_price_bitcoin_usd",
+              "label": "Simple price BTC/USD",
+              "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+              "cacheSurface": "simple_price"
+            }
+          ],
+          "completedAt": 1775146464686,
+          "totalDurationMs": 5,
+          "targetResults": [
+            {
+              "id": "simple_price_bitcoin_usd",
+              "label": "Simple price BTC/USD",
+              "endpoint": "/simple/price?ids=bitcoin&vs_currencies=usd",
+              "cacheSurface": "simple_price",
+              "status": "completed",
+              "durationMs": 5,
+              "warmCacheRevision": 1,
+              "firstObservedRequest": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  "summary": "Tested 28 assertions: 6 blocked, 7 fail, 15 pass."
+}

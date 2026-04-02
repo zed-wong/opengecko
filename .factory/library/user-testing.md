@@ -73,3 +73,9 @@ Reasoning: use at most 70% of observed headroom and avoid SQLite/process content
 - During the trust-slice-semantics milestone, treat `commands.test` as the required scrutiny gate.
 - During the regression-gate-restoration milestone, use `commands.full_test` as the required repository gate before declaring the mission complete.
 - If endpoint smoke scripts are used, ensure the `3001` API service is already healthy and record the exact `BASE_URL`.
+
+## Flow Validator Guidance: api-curl
+- Use the shared mission API at `http://localhost:3001` for normal route checks and the shared validation API at `http://localhost:3102` only for override setup or validation-only route checks.
+- Do not start or stop services from subagents; the parent validator owns service lifecycle.
+- Avoid mutating global override state unless your assigned assertions explicitly require it, and restore neutral state when your flow finishes.
+- Save exact curl commands, HTTP statuses, and key JSON evidence in your flow report.
