@@ -1,4 +1,4 @@
-import { existsSync, unlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, unlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { createDatabase } from '../db/client';
@@ -545,6 +545,30 @@ export function resolvePersistentSnapshotDatabaseUrl(runtimeDatabaseUrl: string,
   return hasUsableLiveSnapshots(DEFAULT_PERSISTENT_DATABASE_URL) ? DEFAULT_PERSISTENT_DATABASE_URL : null;
 }
 
+function restoreRuntimeDatabaseFromPersistentSnapshot(
+  runtimeDatabaseUrl: string,
+  persistentSnapshotDatabaseUrl: string,
+) {
+  if (runtimeDatabaseUrl === ':memory:' || persistentSnapshotDatabaseUrl === ':memory:') {
+    return false;
+  }
+
+  if (runtimeDatabaseUrl === persistentSnapshotDatabaseUrl) {
+    return false;
+  }
+
+  const resolvedRuntimeDatabaseUrl = resolve(process.cwd(), runtimeDatabaseUrl);
+  const resolvedPersistentSnapshotDatabaseUrl = resolve(process.cwd(), persistentSnapshotDatabaseUrl);
+
+  if (!existsSync(resolvedPersistentSnapshotDatabaseUrl)) {
+    return false;
+  }
+
+  removeCorruptSqliteArtifacts(runtimeDatabaseUrl);
+  copyFileSync(resolvedPersistentSnapshotDatabaseUrl, resolvedRuntimeDatabaseUrl);
+  return true;
+}
+
 function seedPersistentBootstrapSnapshots(
   database: Database,
   marketDataRuntimeState: MarketDataRuntimeState,
@@ -588,6 +612,7 @@ export function resolveSeededBootstrapContext(
     : null;
 
   if (persistentSnapshotDatabaseUrl) {
+    restoreRuntimeDatabaseFromPersistentSnapshot(config.databaseUrl, persistentSnapshotDatabaseUrl);
     seedPersistentBootstrapSnapshots(
       database,
       marketDataRuntimeState,
