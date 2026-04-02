@@ -6173,20 +6173,20 @@ describe('OpenGecko app scaffold', () => {
         expect(canonicalMarketsResponse.statusCode).toBe(200);
         const canonicalMarketsBody = canonicalMarketsResponse.json();
         expect(canonicalMarketsBody).toMatchObject([
-          expect.objectContaining({ id: 'bitcoin', market_cap_rank: 1 }),
-          expect.objectContaining({ id: 'ethereum', market_cap_rank: 2 }),
-          expect.objectContaining({ id: 'solana' }),
+          expect.objectContaining({ id: 'bitcoin', market_cap_rank: null }),
+          expect.objectContaining({ id: 'ethereum', market_cap_rank: null }),
+          expect.objectContaining({ id: 'solana', market_cap_rank: null }),
         ]);
         expect(canonicalMarketsResponse.json()).toEqual(expect.arrayContaining([
           expect.objectContaining({
             id: 'solana',
             current_price: expect.any(Number),
             market_cap: null,
-            total_volume: expect.any(Number),
+            total_volume: null,
           }),
         ]));
-        const solanaVolume = canonicalMarketsResponse.json().find((row: { id?: string; total_volume?: number }) => row.id === 'solana')?.total_volume;
-        expect(solanaVolume).toBeGreaterThan(0);
+        const solanaVolume = canonicalMarketsResponse.json().find((row: { id?: string; total_volume?: number | null }) => row.id === 'solana')?.total_volume;
+        expect(solanaVolume).toBeNull();
 
         const [simplePriceResponse, tokenPriceResponse, diagnosticsResponse] = await Promise.all([
           validationApp.inject({
@@ -6440,10 +6440,11 @@ describe('OpenGecko app scaffold', () => {
             symbol: 'btc',
             current_price: expect.any(Number),
             market_cap: null,
-            total_volume: expect.any(Number),
-            price_change_24h: expect.any(Number),
-            price_change_percentage_24h: expect.any(Number),
-            last_updated: expect.any(String),
+            market_cap_rank: null,
+            total_volume: null,
+            price_change_24h: null,
+            price_change_percentage_24h: null,
+            last_updated: null,
           }),
         ]);
         expect(coinDetailResponse.statusCode).toBe(200);
@@ -6730,7 +6731,7 @@ describe('OpenGecko app scaffold', () => {
           },
           hot_paths: {
             shared_market_snapshot: {
-              source_class: 'fresh_live',
+              source_class: 'stale_live',
               provider_count: expect.any(Number),
             },
           },

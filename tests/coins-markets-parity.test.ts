@@ -89,7 +89,7 @@ describe('coins markets parity', () => {
   });
 
 
-  it('serializes numeric canonical rank and 24h change fields for seeded bootstrap rows', async () => {
+  it('null-shapes bootstrap-only market completeness fields for seeded bootstrap rows', async () => {
     const validationApp = buildApp({
       config: {
         databaseUrl: ':memory:',
@@ -110,18 +110,23 @@ describe('coins markets parity', () => {
       expect(response.statusCode).toBe(200);
 
       const body = response.json();
-      expect(body[0].market_cap_rank).toBe(1);
-      expect(body[1].market_cap_rank).toBe(2);
-      expect(typeof body[2].market_cap_rank).toBe('number');
-      expect(body[2].market_cap_rank).toBeGreaterThan(0);
-      expect(body[0].price_change_percentage_24h_in_currency).toBeTypeOf('number');
-      expect(body[1].price_change_percentage_24h_in_currency).toBeTypeOf('number');
-      expect(body[2].price_change_percentage_24h_in_currency).toBeTypeOf('number');
+      for (const row of body) {
+        expect(row.market_cap_rank).toBeNull();
+        expect(row.total_volume).toBeNull();
+        expect(row.high_24h).toBeNull();
+        expect(row.low_24h).toBeNull();
+        expect(row.ath).toBeNull();
+        expect(row.atl).toBeNull();
+        expect(row.last_updated).toBeNull();
+        expect(row.price_change_24h).toBeNull();
+        expect(row.price_change_percentage_24h).toBeNull();
+        expect(row.price_change_percentage_24h_in_currency).toBeNull();
+      }
     } finally {
       await validationApp.close();
     }
   });
-  it('keeps sampled canonical market rows close to the stored upstream artifact for names, images, and populated market metadata', async () => {
+  it('keeps seeded bootstrap market rows limited to bootstrap-safe identity and price fields', async () => {
     const validationApp = buildApp({
       config: {
         databaseUrl: ':memory:',
@@ -148,16 +153,19 @@ describe('coins markets parity', () => {
         image: expect.stringContaining('bitcoin'),
         current_price: expect.any(Number),
         market_cap: null,
-        total_volume: expect.any(Number),
-        high_24h: expect.any(Number),
-        low_24h: expect.any(Number),
-        price_change_24h: expect.any(Number),
-        price_change_percentage_24h: expect.any(Number),
+        market_cap_rank: null,
+        total_volume: null,
+        high_24h: null,
+        low_24h: null,
+        price_change_24h: null,
+        price_change_percentage_24h: null,
         market_cap_change_24h: null,
         market_cap_change_percentage_24h: null,
-        last_updated: expect.any(String),
+        ath: null,
+        atl: null,
+        last_updated: null,
       });
-      expect(body[0].price_change_percentage_24h_in_currency).toBeTypeOf('number');
+      expect(body[0].price_change_percentage_24h_in_currency).toBeNull();
       expect(body[0].price_change_percentage_7d_in_currency).toBeNull();
       expect(body[1]).toMatchObject({
         id: 'ethereum',
@@ -168,16 +176,19 @@ describe('coins markets parity', () => {
         }),
         current_price: expect.any(Number),
         market_cap: null,
-        total_volume: expect.any(Number),
-        high_24h: expect.any(Number),
-        low_24h: expect.any(Number),
-        price_change_24h: expect.any(Number),
-        price_change_percentage_24h: expect.any(Number),
+        market_cap_rank: null,
+        total_volume: null,
+        high_24h: null,
+        low_24h: null,
+        price_change_24h: null,
+        price_change_percentage_24h: null,
         market_cap_change_24h: null,
         market_cap_change_percentage_24h: null,
-        last_updated: expect.any(String),
+        ath: null,
+        atl: null,
+        last_updated: null,
       });
-      expect(body[1].price_change_percentage_24h_in_currency).toBeTypeOf('number');
+      expect(body[1].price_change_percentage_24h_in_currency).toBeNull();
       expect(body[1].price_change_percentage_7d_in_currency).toBeNull();
       expect(body[2]).toMatchObject({
         id: 'solana',
@@ -185,21 +196,26 @@ describe('coins markets parity', () => {
         image: expect.stringContaining('solana'),
         current_price: expect.any(Number),
         market_cap: null,
-        total_volume: expect.any(Number),
-        high_24h: expect.any(Number),
-        low_24h: expect.any(Number),
+        market_cap_rank: null,
+        total_volume: null,
+        high_24h: null,
+        low_24h: null,
+        price_change_24h: null,
+        price_change_percentage_24h: null,
         market_cap_change_24h: null,
         market_cap_change_percentage_24h: null,
-        last_updated: expect.any(String),
+        ath: null,
+        atl: null,
+        last_updated: null,
       });
-      expect(body[2].price_change_percentage_24h_in_currency).toBeTypeOf('number');
+      expect(body[2].price_change_percentage_24h_in_currency).toBeNull();
       expect(body[2].price_change_percentage_7d_in_currency).toBeNull();
     } finally {
       await validationApp.close();
     }
   });
 
-  it('preserves imported live snapshot ownership during seeded bootstrap serialization', async () => {
+  it('preserves imported live snapshot ownership while null-shaping seeded bootstrap completeness fields', async () => {
     const validationApp = buildApp({
       config: {
         databaseUrl: ':memory:',
@@ -232,12 +248,15 @@ describe('coins markets parity', () => {
         image: expect.stringContaining('bitcoin'),
         current_price: expect.any(Number),
         market_cap: null,
-        total_volume: expect.any(Number),
-        price_change_24h: expect.any(Number),
-        price_change_percentage_24h: expect.any(Number),
+        market_cap_rank: null,
+        total_volume: null,
+        price_change_24h: null,
+        price_change_percentage_24h: null,
         market_cap_change_24h: null,
         market_cap_change_percentage_24h: null,
-        last_updated: expect.any(String),
+        ath: null,
+        atl: null,
+        last_updated: null,
       });
       expect(body[1]).toMatchObject({
         id: 'ethereum',
@@ -245,12 +264,15 @@ describe('coins markets parity', () => {
         image: expect.stringContaining('ethereum'),
         current_price: expect.any(Number),
         market_cap: null,
-        total_volume: expect.any(Number),
-        price_change_24h: expect.any(Number),
-        price_change_percentage_24h: expect.any(Number),
+        market_cap_rank: null,
+        total_volume: null,
+        price_change_24h: null,
+        price_change_percentage_24h: null,
         market_cap_change_24h: null,
         market_cap_change_percentage_24h: null,
-        last_updated: expect.any(String),
+        ath: null,
+        atl: null,
+        last_updated: null,
       });
       expect(body[2]).toMatchObject({
         id: 'solana',
@@ -258,10 +280,13 @@ describe('coins markets parity', () => {
         image: expect.stringContaining('solana'),
         current_price: expect.any(Number),
         market_cap: null,
-        total_volume: expect.any(Number),
+        market_cap_rank: null,
+        total_volume: null,
         market_cap_change_24h: null,
         market_cap_change_percentage_24h: null,
-        last_updated: expect.any(String),
+        ath: null,
+        atl: null,
+        last_updated: null,
       });
 
       expect(diagnosticsResponse.statusCode).toBe(200);

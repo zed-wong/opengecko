@@ -234,9 +234,10 @@ export function buildMarketRow(
     ? null
     : snapshot?.priceChangePercentage24h ?? null;
   const useCanonicalBootstrapSnapshotValues = importedLiveBootstrapSnapshot;
-  const useDegradedNullShape = degradedMarketSnapshot || validationStaleDisallowed;
+  const useSeededBootstrapNullShape = useCanonicalBootstrapSnapshotValues;
+  const useDegradedNullShape = degradedMarketSnapshot || validationStaleDisallowed || useSeededBootstrapNullShape;
   const useChartDerivedSeriesForChangeWindows = shouldUseChartDerivedSeries && !useCanonicalBootstrapSnapshotValues;
-  const resolvedMarketCapRank = useDegradedNullShape
+  const resolvedMarketCapRank = (degradedMarketSnapshot || validationStaleDisallowed || useSeededBootstrapNullShape)
     ? null
     : snapshot?.marketCapRank ?? row.coin.marketCapRank ?? Number.MAX_SAFE_INTEGER;
 
