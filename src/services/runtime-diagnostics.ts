@@ -86,7 +86,7 @@ export function buildRuntimeDiagnostics(
       : validationOverride.mode === 'seeded_bootstrap'
         ? latestSnapshotOwnership === 'live'
         : validationOverride.mode === 'degraded_seeded_bootstrap'
-          ? true
+          ? false
           : runtimeState.allowStaleLiveService;
   const effectiveFailureReason = validationOverride.reason ?? runtimeState.syncFailureReason;
   const effectiveSeededBootstrapFallbackActive = validationOverride.mode === 'degraded_seeded_bootstrap'

@@ -293,7 +293,7 @@ describe('coin detail parity', () => {
         },
         degraded: {
           active: true,
-          stale_live_enabled: true,
+          stale_live_enabled: false,
           validation_override: {
             active: true,
             mode: 'degraded_seeded_bootstrap',
