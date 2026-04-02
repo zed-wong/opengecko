@@ -2244,8 +2244,9 @@ describe('OpenGecko app scaffold', () => {
 
   it('documents exchange data divergences in docs analysis', async () => {
     const { existsSync, readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
 
-    const filePath = '/home/whoami/dev/openGecko/docs/analysis/exchange-divergences.md';
+    const filePath = resolve(process.cwd(), 'docs/analysis/exchange-divergences.md');
     expect(existsSync(filePath)).toBe(true);
 
     const contents = readFileSync(filePath, 'utf8');
