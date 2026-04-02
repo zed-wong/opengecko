@@ -144,7 +144,10 @@ export function getSimplePriceAvailabilityFailure(
   if (
     runtimeState.initialSyncCompleted
     && runtimeState.initialSyncCompletedWithoutUsableLiveSnapshots
-    && !hasAnyLiveSnapshot(database)
+    && (
+      runtimeState.validationOverride?.mode === 'zero_live_completed_boot'
+      || !hasAnyLiveSnapshot(database)
+    )
   ) {
     return {
       statusCode: 503,

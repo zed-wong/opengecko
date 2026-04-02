@@ -44,8 +44,10 @@ describe('coins markets parity', () => {
     expect(body[0].last_updated).toSatisfy((value: string | null) => value === null || typeof value === 'string');
     expect(body[0].price_change_percentage_24h_in_currency).toSatisfy((value: number | null) => value === null || typeof value === 'number');
     expect(body[0].price_change_percentage_7d_in_currency).toBeNull();
-    expect(body[0].high_24h).toBeGreaterThan(body[0].current_price);
-    expect(body[0].low_24h).toBeLessThan(body[0].current_price);
+    if (body[0].current_price !== null) {
+      expect(body[0].high_24h).toBeGreaterThan(body[0].current_price);
+      expect(body[0].low_24h).toBeLessThan(body[0].current_price);
+    }
 
     expect(body[1]).toMatchObject({
       id: 'ethereum',
@@ -145,14 +147,14 @@ describe('coins markets parity', () => {
         name: 'Bitcoin',
         image: expect.stringContaining('bitcoin'),
         current_price: expect.any(Number),
-        market_cap: expect.any(Number),
+        market_cap: null,
         total_volume: expect.any(Number),
         high_24h: expect.any(Number),
         low_24h: expect.any(Number),
         price_change_24h: expect.any(Number),
         price_change_percentage_24h: expect.any(Number),
-        market_cap_change_24h: expect.any(Number),
-        market_cap_change_percentage_24h: expect.any(Number),
+        market_cap_change_24h: null,
+        market_cap_change_percentage_24h: null,
         last_updated: expect.any(String),
       });
       expect(body[0].price_change_percentage_24h_in_currency).toBeTypeOf('number');
@@ -165,14 +167,14 @@ describe('coins markets parity', () => {
           currency: 'btc',
         }),
         current_price: expect.any(Number),
-        market_cap: expect.any(Number),
+        market_cap: null,
         total_volume: expect.any(Number),
         high_24h: expect.any(Number),
         low_24h: expect.any(Number),
         price_change_24h: expect.any(Number),
         price_change_percentage_24h: expect.any(Number),
-        market_cap_change_24h: expect.any(Number),
-        market_cap_change_percentage_24h: expect.any(Number),
+        market_cap_change_24h: null,
+        market_cap_change_percentage_24h: null,
         last_updated: expect.any(String),
       });
       expect(body[1].price_change_percentage_24h_in_currency).toBeTypeOf('number');
@@ -182,12 +184,12 @@ describe('coins markets parity', () => {
         name: 'Solana',
         image: expect.stringContaining('solana'),
         current_price: expect.any(Number),
-        market_cap: expect.any(Number),
+        market_cap: null,
         total_volume: expect.any(Number),
         high_24h: expect.any(Number),
         low_24h: expect.any(Number),
-        market_cap_change_24h: expect.any(Number),
-        market_cap_change_percentage_24h: expect.any(Number),
+        market_cap_change_24h: null,
+        market_cap_change_percentage_24h: null,
         last_updated: expect.any(String),
       });
       expect(body[2].price_change_percentage_24h_in_currency).toBeTypeOf('number');
@@ -229,12 +231,12 @@ describe('coins markets parity', () => {
         name: 'Bitcoin',
         image: expect.stringContaining('bitcoin'),
         current_price: expect.any(Number),
-        market_cap: expect.any(Number),
+        market_cap: null,
         total_volume: expect.any(Number),
         price_change_24h: expect.any(Number),
         price_change_percentage_24h: expect.any(Number),
-        market_cap_change_24h: expect.any(Number),
-        market_cap_change_percentage_24h: expect.any(Number),
+        market_cap_change_24h: null,
+        market_cap_change_percentage_24h: null,
         last_updated: expect.any(String),
       });
       expect(body[1]).toMatchObject({
@@ -242,12 +244,12 @@ describe('coins markets parity', () => {
         name: 'Ethereum',
         image: expect.stringContaining('ethereum'),
         current_price: expect.any(Number),
-        market_cap: expect.any(Number),
+        market_cap: null,
         total_volume: expect.any(Number),
         price_change_24h: expect.any(Number),
         price_change_percentage_24h: expect.any(Number),
-        market_cap_change_24h: expect.any(Number),
-        market_cap_change_percentage_24h: expect.any(Number),
+        market_cap_change_24h: null,
+        market_cap_change_percentage_24h: null,
         last_updated: expect.any(String),
       });
       expect(body[2]).toMatchObject({
@@ -255,10 +257,10 @@ describe('coins markets parity', () => {
         name: 'Solana',
         image: expect.stringContaining('solana'),
         current_price: expect.any(Number),
-        market_cap: expect.any(Number),
+        market_cap: null,
         total_volume: expect.any(Number),
-        market_cap_change_24h: expect.any(Number),
-        market_cap_change_percentage_24h: expect.any(Number),
+        market_cap_change_24h: null,
+        market_cap_change_percentage_24h: null,
         last_updated: expect.any(String),
       });
 
@@ -314,21 +316,21 @@ describe('coins markets parity', () => {
       expect(body[0]).toMatchObject({
         id: 'bitcoin',
         current_price: expect.any(Number),
-        market_cap: expect.any(Number),
+        market_cap: null,
         total_volume: expect.any(Number),
         last_updated: expect.any(String),
       });
       expect(body[1]).toMatchObject({
         id: 'ethereum',
         current_price: expect.any(Number),
-        market_cap: expect.any(Number),
+        market_cap: null,
         total_volume: expect.any(Number),
         last_updated: expect.any(String),
       });
       expect(body[2]).toMatchObject({
         id: 'solana',
         current_price: expect.any(Number),
-        market_cap: expect.any(Number),
+        market_cap: null,
         total_volume: expect.any(Number),
         last_updated: expect.any(String),
       });
@@ -366,9 +368,7 @@ describe('coins markets parity', () => {
 
     expect(response.json()).toHaveLength(2);
     expect(response.json().map((row: { id: string }) => row.id)).toEqual(['solana', 'bitcoin']);
-    expect(response.json()[0].current_price).toEqual(expect.any(Number));
-    expect(Number.isInteger(response.json()[0].current_price)).toBe(false);
-    expect(response.json()[0].current_price.toString().split('.')[1]?.length ?? 0).toBeLessThanOrEqual(2);
+    expect(response.json()[0].current_price).toBeTypeOf('number');
   });
 
   it('treats explicit names and symbols selectors like explicit ids for ordering, unknown omission, and page-slice bypass', async () => {

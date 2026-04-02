@@ -6579,8 +6579,11 @@ describe('OpenGecko app scaffold', () => {
         }),
       ]);
 
-      expect(simplePriceResponse.statusCode).toBe(200);
-      expect(simplePriceResponse.json()).toEqual({});
+      expect(simplePriceResponse.statusCode).toBe(503);
+      expect(simplePriceResponse.json()).toEqual({
+        error: 'service_unavailable',
+        message: 'No usable live market snapshots are available for simple/price.',
+      });
       expect(zeroLiveDiagnostics.statusCode).toBe(200);
       expect(zeroLiveDiagnostics.json().data).toMatchObject({
         readiness: {
@@ -6650,7 +6653,7 @@ describe('OpenGecko app scaffold', () => {
           }),
         ]);
 
-        expect(simplePriceResponse.statusCode).toBe(503);
+        expect(simplePriceResponse.statusCode).toBe(200);
         expect(marketsResponse.statusCode).toBe(200);
         expect(detailResponse.statusCode).toBe(200);
         expect(diagnosticsResponse.statusCode).toBe(200);
@@ -6693,13 +6696,13 @@ describe('OpenGecko app scaffold', () => {
       expect(diagnosticsResponse.json()).toMatchObject({
         data: {
           readiness: {
-            state: 'ready',
+            state: 'degraded',
             initial_sync_completed: true,
             listener_bound: true,
           },
           degraded: {
-            active: false,
-            stale_live_enabled: false,
+            active: true,
+            stale_live_enabled: true,
             reason: null,
             validation_override: {
               active: false,
@@ -6709,17 +6712,18 @@ describe('OpenGecko app scaffold', () => {
           },
           hot_paths: {
             shared_market_snapshot: {
-              source_class: 'unavailable',
+              source_class: 'stale_live',
               provider_count: expect.any(Number),
             },
           },
         },
       });
 
-      expect(simplePriceResponse.statusCode).toBe(503);
-      expect(simplePriceResponse.json()).toEqual({
-        error: 'service_unavailable',
-        message: 'No usable live market snapshots are available for simple/price.',
+      expect(simplePriceResponse.statusCode).toBe(200);
+      expect(simplePriceResponse.json()).toMatchObject({
+        bitcoin: {
+          usd: expect.any(Number),
+        },
       });
 
       expect(marketsResponse.statusCode).toBe(200);
@@ -6727,10 +6731,10 @@ describe('OpenGecko app scaffold', () => {
         expect.arrayContaining([
           expect.objectContaining({
             id: 'bitcoin',
-            current_price: null,
+            current_price: expect.any(Number),
             market_cap: null,
-            total_volume: null,
-            last_updated: null,
+            total_volume: expect.any(Number),
+            last_updated: expect.any(String),
           }),
         ]),
       );
@@ -6738,7 +6742,18 @@ describe('OpenGecko app scaffold', () => {
       expect(detailResponse.statusCode).toBe(200);
       expect(detailResponse.json()).toMatchObject({
         id: 'bitcoin',
-        market_data: null,
+        market_data: {
+          current_price: {
+            usd: expect.any(Number),
+          },
+          market_cap: {
+            usd: null,
+          },
+          total_volume: {
+            usd: expect.any(Number),
+          },
+          last_updated: expect.any(String),
+        },
       });
     } finally {
       await liveHostOverrideApp.close();
