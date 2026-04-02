@@ -4,8 +4,9 @@ describe('defillama provider', () => {
   const originalBaseUrl = process.env.DEFILLAMA_BASE_URL;
   const originalYieldsBaseUrl = process.env.DEFILLAMA_YIELDS_BASE_URL;
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
+    vi.resetModules();
     if (originalBaseUrl === undefined) {
       delete process.env.DEFILLAMA_BASE_URL;
     } else {
@@ -17,6 +18,9 @@ describe('defillama provider', () => {
     } else {
       process.env.DEFILLAMA_YIELDS_BASE_URL = originalYieldsBaseUrl;
     }
+
+    const module = await import('../src/providers/defillama');
+    module.clearDefillamaTokensCache();
   });
 
   it('fetches protocol and pool data from split configured hosts', async () => {
@@ -174,7 +178,7 @@ describe('defillama provider', () => {
     expect(fetchMock).toHaveBeenCalledWith('https://api.llama.fi/overview/dexs/Ethereum', expect.any(Object));
   });
 
-  it('defaults pool discovery to the public yields host while leaving other requests on api.llama.fi', async () => {
+  it('defaults protocol discovery to api.llama.fi and pool discovery to the public yields host when no overrides are set', async () => {
     delete process.env.DEFILLAMA_BASE_URL;
     delete process.env.DEFILLAMA_YIELDS_BASE_URL;
     const fetchMock = vi.fn()
