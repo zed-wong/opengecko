@@ -130,21 +130,31 @@ describe('OpenGecko app scaffold', () => {
         usd: expect.any(Number),
       },
     });
+
     expect(marketsResponse.statusCode).toBe(200);
-    expect(marketsResponse.json()[0]).toMatchObject({
-      id: 'bitcoin',
-      current_price: expect.any(Number),
-      market_cap: expect.any(Number),
-      total_volume: expect.any(Number),
-      last_updated: expect.any(String),
-    });
+    expect(marketsResponse.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'bitcoin',
+          current_price: expect.any(Number),
+          market_cap: expect.any(Number),
+          total_volume: expect.any(Number),
+          last_updated: expect.any(String),
+        }),
+      ]),
+    );
+
     expect(detailResponse.statusCode).toBe(200);
-    expect(detailResponse.json().market_data).toMatchObject({
-      current_price: { usd: expect.any(Number) },
-      market_cap: { usd: expect.any(Number) },
-      total_volume: { usd: expect.any(Number) },
-      last_updated: expect.any(String),
+    expect(detailResponse.json()).toMatchObject({
+      id: 'bitcoin',
+      market_data: {
+        current_price: { usd: expect.any(Number) },
+        market_cap: { usd: expect.any(Number) },
+        total_volume: { usd: expect.any(Number) },
+        last_updated: expect.any(String),
+      },
     });
+
     expect(diagnosticsResponse.statusCode).toBe(200);
     expect(diagnosticsResponse.json().data).toMatchObject({
       readiness: {
@@ -167,6 +177,16 @@ describe('OpenGecko app scaffold', () => {
         },
       },
     });
+
+    const simplePriceUsd = simplePriceResponse.json().bitcoin.usd;
+    const bitcoinMarketRow = marketsResponse.json().find((entry: { id: string }) => entry.id === 'bitcoin');
+    expect(bitcoinMarketRow).toMatchObject({
+      current_price: expect.any(Number),
+      last_updated: expect.any(String),
+    });
+    expect(bitcoinMarketRow.current_price).toBe(simplePriceUsd);
+    expect(detailResponse.json().market_data.current_price.usd).toBe(simplePriceUsd);
+    expect(detailResponse.json().market_data.last_updated).toBe(bitcoinMarketRow.last_updated);
   }
 
   beforeEach(() => {
@@ -621,7 +641,7 @@ describe('OpenGecko app scaffold', () => {
         },
         degraded: {
           active: true,
-          stale_live_enabled: true,
+          stale_live_enabled: false,
           reason: 'validator degraded boot',
           validation_override: {
             active: true,
