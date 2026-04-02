@@ -1,0 +1,99 @@
+{
+  "groupId": "fresh-baseline-rerun",
+  "testedAt": "2026-04-02T20:04:53.903305Z",
+  "isolation": {
+    "surface": "mission-api",
+    "baseUrl": "http://127.0.0.1:3001",
+    "mode": "read-only curl testing",
+    "mutationPolicy": "No override state mutations performed"
+  },
+  "toolsUsed": [
+    "curl",
+    "python3"
+  ],
+  "assertionResults": [
+    {
+      "id": "VAL-DIAG-001",
+      "title": "/diagnostics/runtime reports ready fresh-live state truthfully",
+      "status": "pass",
+      "httpStatus": 200,
+      "curlCommands": [
+        "curl -sS -w \"\nHTTP_STATUS:%{http_code}\n\" \"http://127.0.0.1:3001/diagnostics/runtime\""
+      ],
+      "evidence": {
+        "readiness_state": "ready",
+        "degraded_active": false,
+        "shared_market_snapshot_available": true,
+        "source_class": "fresh_live",
+        "last_successful_live_refresh_at": "2026-04-02T20:04:08.579Z",
+        "age_seconds": 45
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-001",
+      "title": "fresh-live trust slice stays coherent across all scoped surfaces",
+      "status": "pass",
+      "httpStatuses": {
+        "diagnostics": 200,
+        "simple": 200,
+        "markets": 200,
+        "detail": 200
+      },
+      "curlCommands": [
+        "curl -sS -w \"\nHTTP_STATUS:%{http_code}\n\" \"http://127.0.0.1:3001/diagnostics/runtime\"",
+        "curl -sS -w \"\nHTTP_STATUS:%{http_code}\n\" \"http://127.0.0.1:3001/simple/price?ids=bitcoin&vs_currencies=usd&include_last_updated_at=true\"",
+        "curl -sS -w \"\nHTTP_STATUS:%{http_code}\n\" \"http://127.0.0.1:3001/coins/markets?vs_currency=usd&ids=bitcoin\"",
+        "curl -sS -w \"\nHTTP_STATUS:%{http_code}\n\" \"http://127.0.0.1:3001/coins/bitcoin\""
+      ],
+      "evidence": {
+        "source_class": "fresh_live",
+        "simple_price_usd": 66854.52,
+        "markets_current_price_usd": 66854.52,
+        "detail_current_price_usd": 66854.52,
+        "price_diff_abs": 0.0,
+        "price_tolerance": 6.685452e-05,
+        "markets_last_updated": "2026-04-02T20:03:59.001Z",
+        "detail_last_updated": "2026-04-02T20:03:59.001Z",
+        "simple_last_updated_at": 1775160239
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-006",
+      "title": "shared timestamps stay mutually consistent across the trust slice",
+      "status": "pass",
+      "httpStatuses": {
+        "diagnostics": 200,
+        "simple": 200,
+        "markets": 200,
+        "detail": 200
+      },
+      "curlCommands": [
+        "curl -sS -w \"\nHTTP_STATUS:%{http_code}\n\" \"http://127.0.0.1:3001/diagnostics/runtime\"",
+        "curl -sS -w \"\nHTTP_STATUS:%{http_code}\n\" \"http://127.0.0.1:3001/simple/price?ids=bitcoin&vs_currencies=usd&include_last_updated_at=true\"",
+        "curl -sS -w \"\nHTTP_STATUS:%{http_code}\n\" \"http://127.0.0.1:3001/coins/markets?vs_currency=usd&ids=bitcoin\"",
+        "curl -sS -w \"\nHTTP_STATUS:%{http_code}\n\" \"http://127.0.0.1:3001/coins/bitcoin\""
+      ],
+      "evidence": {
+        "diagnostics_last_successful_live_refresh_at": "2026-04-02T20:04:08.579Z",
+        "simple_last_updated_at": 1775160239,
+        "coins_markets_last_updated": "2026-04-02T20:03:59.001Z",
+        "coin_detail_market_data_last_updated": "2026-04-02T20:03:59.001Z",
+        "timestamp_deltas_seconds": {
+          "simple_vs_runtime_seconds": 9.578999996185303,
+          "markets_vs_runtime_seconds": 9.57800006866455,
+          "detail_vs_runtime_seconds": 9.57800006866455,
+          "markets_vs_detail_seconds": 0.0,
+          "simple_vs_markets_seconds": 0.0009999275207519531,
+          "simple_vs_detail_seconds": 0.0009999275207519531
+        },
+        "tolerance_seconds": 120
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 3 assertions against http://127.0.0.1:3001: 3 passed, 0 failed, 0 blocked."
+}

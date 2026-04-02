@@ -1,35 +1,20 @@
 {
   "milestone": "trust-slice-semantics",
-  "round": 3,
-  "status": "fail",
+  "round": 4,
+  "status": "pass",
   "assertionsSummary": {
-    "total": 6,
-    "passed": 2,
-    "failed": 4,
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
     "blocked": 0
   },
   "passedAssertions": [
-    "VAL-MARKETS-008",
-    "VAL-CROSS-002"
+    "VAL-MARKETS-010",
+    "VAL-DIAG-001",
+    "VAL-CROSS-001",
+    "VAL-CROSS-006"
   ],
-  "failedAssertions": [
-    {
-      "id": "VAL-MARKETS-010",
-      "reason": "Validation rerun still observed seeded_bootstrap /coins/markets leaking richer live-looking fields such as ath/atl, high_24h/low_24h, price_change_24h, total_volume, market_cap_rank, and last_updated instead of a degraded null-shape."
-    },
-    {
-      "id": "VAL-DIAG-001",
-      "reason": "Mission API on port 3001 was unreachable during rerun, so ready fresh-live baseline could not be confirmed."
-    },
-    {
-      "id": "VAL-CROSS-001",
-      "reason": "Mission API on port 3001 was unreachable during rerun, so fresh-live trust-slice coherence could not be confirmed."
-    },
-    {
-      "id": "VAL-CROSS-006",
-      "reason": "Mission API on port 3001 was unreachable during rerun, so timestamp coherence across the trust slice could not be exercised."
-    }
-  ],
+  "failedAssertions": [],
   "blockedAssertions": [],
   "appliedUpdates": [],
   "toolsUsed": [

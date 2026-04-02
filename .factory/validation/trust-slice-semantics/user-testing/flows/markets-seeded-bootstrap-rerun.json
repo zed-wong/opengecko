@@ -1,0 +1,165 @@
+{
+  "groupId": "markets-seeded-bootstrap-rerun",
+  "testedAt": "2026-04-02T20:06:52.255398+00:00",
+  "isolation": {
+    "repoRoot": "/home/whoami/dev/opengecko/openGecko",
+    "missionDir": "/home/whoami/.factory/missions/281d0e47-1a05-430f-ade5-e1117ca7ba0a",
+    "validationApi": "http://127.0.0.1:3102",
+    "scope": "validation-api only",
+    "overrideReset": "mode=off"
+  },
+  "toolsUsed": [
+    "curl",
+    "python3"
+  ],
+  "assertionResults": [
+    {
+      "id": "VAL-MARKETS-010",
+      "title": "/coins/markets exposes degraded seeded-bootstrap null-shape explicitly",
+      "status": "pass",
+      "summary": "Both seeded-bootstrap and degraded-seeded-bootstrap route responses kept bitcoin identity/current_price while richer live-looking fields stayed null, matching the diagnostics runtime semantics for bootstrap-shaped data.",
+      "steps": [
+        {
+          "action": "Read initial validation runtime state",
+          "command": "curl -sS -X GET 'http://127.0.0.1:3102/diagnostics/runtime'",
+          "expected": "Validation API available with bootstrap-compatible diagnostics context.",
+          "observed": "HTTP 200; runtime already exposed validation_override.mode=seeded_bootstrap and hot_paths.shared_market_snapshot.source_class=seeded_bootstrap."
+        },
+        {
+          "action": "Establish seeded_bootstrap override state",
+          "command": "curl -sS -X POST -H 'content-type: application/json' --data '{\"mode\":\"seeded_bootstrap\"}' 'http://127.0.0.1:3102/diagnostics/runtime/degraded_state'",
+          "expected": "HTTP 200 success envelope for seeded_bootstrap override.",
+          "observed": "HTTP 200; response data.mode=seeded_bootstrap, data.cache_revision=2."
+        },
+        {
+          "action": "Compare diagnostics semantics under seeded_bootstrap",
+          "command": "curl -sS -X GET 'http://127.0.0.1:3102/diagnostics/runtime'",
+          "expected": "Bootstrap semantics reported via diagnostics/runtime.",
+          "observed": "HTTP 200; readiness.state=starting, degraded.active=False, source_class=seeded_bootstrap, provider_count=1, last_successful_live_refresh_at present."
+        },
+        {
+          "action": "Exercise /coins/markets for bitcoin with price-change windows and sparkline under seeded_bootstrap",
+          "command": "curl -sS -X GET 'http://127.0.0.1:3102/coins/markets?vs_currency=usd&ids=bitcoin&price_change_percentage=1h,24h,7d,14d,30d,200d,1y&sparkline=true'",
+          "expected": "Identity fields and maybe current_price remain, but richer market fields stay absent/null when bootstrap semantics do not imply live completeness.",
+          "observed": "HTTP 200; bitcoin row returned with id/symbol/name/image/current_price=69134.40833333334 while market_cap, total_volume, market_cap_rank, high_24h, low_24h, ATH/ATL fields, last_updated, and all requested price_change_percentage_*_in_currency fields were null; sparkline_in_7d.price was an empty array."
+        },
+        {
+          "action": "Cross-check degraded seeded-bootstrap semantics explicitly",
+          "command": "curl -sS -X POST -H 'content-type: application/json' --data '{\"mode\":\"degraded_seeded_bootstrap\"}' 'http://127.0.0.1:3102/diagnostics/runtime/degraded_state' && curl -sS -X GET 'http://127.0.0.1:3102/diagnostics/runtime' && curl -sS -X GET 'http://127.0.0.1:3102/coins/markets?vs_currency=usd&ids=bitcoin&price_change_percentage=1h,24h,7d,14d,30d,200d,1y&sparkline=true'",
+          "expected": "Diagnostics/runtime should report degraded_seeded_bootstrap and /coins/markets should preserve the null-shaped richer fields.",
+          "observed": "Override POST returned HTTP 200 with data.mode=degraded_seeded_bootstrap and cache_revision=3. Diagnostics then reported readiness.state=degraded, degraded.active=True, source_class=degraded_seeded_bootstrap, provider_count=0, and last_successful_live_refresh_at=null. The bitcoin /coins/markets row still kept current_price while richer fields remained null; sparkline_in_7d.price contained bootstrap series values."
+        },
+        {
+          "action": "Reset override state to off",
+          "command": "curl -sS -X POST -H 'content-type: application/json' --data '{\"mode\":\"off\"}' 'http://127.0.0.1:3102/diagnostics/runtime/degraded_state'",
+          "expected": "Override cleared back to neutral state.",
+          "observed": "HTTP 200; response data.mode=off, data.cache_revision=4. Follow-up diagnostics showed validation_override.active=False."
+        }
+      ],
+      "commands": [
+        "curl -sS -X GET 'http://127.0.0.1:3102/diagnostics/runtime'",
+        "curl -sS -X POST -H 'content-type: application/json' --data '{\"mode\":\"seeded_bootstrap\"}' 'http://127.0.0.1:3102/diagnostics/runtime/degraded_state'",
+        "curl -sS -X GET 'http://127.0.0.1:3102/diagnostics/runtime'",
+        "curl -sS -X GET 'http://127.0.0.1:3102/coins/markets?vs_currency=usd&ids=bitcoin&price_change_percentage=1h,24h,7d,14d,30d,200d,1y&sparkline=true'",
+        "curl -sS -X POST -H 'content-type: application/json' --data '{\"mode\":\"degraded_seeded_bootstrap\"}' 'http://127.0.0.1:3102/diagnostics/runtime/degraded_state'",
+        "curl -sS -X GET 'http://127.0.0.1:3102/diagnostics/runtime'",
+        "curl -sS -X GET 'http://127.0.0.1:3102/coins/markets?vs_currency=usd&ids=bitcoin&price_change_percentage=1h,24h,7d,14d,30d,200d,1y&sparkline=true'",
+        "curl -sS -X POST -H 'content-type: application/json' --data '{\"mode\":\"off\"}' 'http://127.0.0.1:3102/diagnostics/runtime/degraded_state'",
+        "curl -sS -X GET 'http://127.0.0.1:3102/diagnostics/runtime'"
+      ],
+      "statuses": {
+        "diagnostics_before": 200,
+        "set_seeded_bootstrap": 200,
+        "diagnostics_seeded_bootstrap": 200,
+        "markets_bitcoin_seeded_bootstrap": 200,
+        "set_degraded_seeded_bootstrap": 200,
+        "diagnostics_degraded_seeded_bootstrap": 200,
+        "markets_bitcoin_degraded_seeded_bootstrap": 200,
+        "reset_off": 200,
+        "diagnostics_after_reset": 200
+      },
+      "diagnostics": {
+        "before": {
+          "readiness_state": "starting",
+          "degraded_active": false,
+          "validation_override_mode": "seeded_bootstrap",
+          "source_class": "seeded_bootstrap",
+          "provider_count": 1,
+          "last_successful_live_refresh_at": "2026-03-26T20:21:29.595Z",
+          "cache_revision": 1
+        },
+        "seeded_bootstrap": {
+          "readiness_state": "starting",
+          "degraded_active": false,
+          "validation_override_mode": "seeded_bootstrap",
+          "source_class": "seeded_bootstrap",
+          "provider_count": 1,
+          "last_successful_live_refresh_at": "2026-04-02T20:04:41.846Z",
+          "cache_revision": 2
+        },
+        "degraded_seeded_bootstrap": {
+          "readiness_state": "degraded",
+          "degraded_active": true,
+          "validation_override_mode": "degraded_seeded_bootstrap",
+          "source_class": "degraded_seeded_bootstrap",
+          "provider_count": 0,
+          "last_successful_live_refresh_at": null,
+          "cache_revision": 3
+        },
+        "after_reset": {
+          "readiness_state": "degraded",
+          "degraded_active": true,
+          "validation_override_mode": "off",
+          "source_class": "stale_live",
+          "provider_count": 1,
+          "last_successful_live_refresh_at": "2026-03-26T20:21:29.595Z",
+          "cache_revision": 4
+        }
+      },
+      "extractedKeyFields": {
+        "seeded_bootstrap_route_shape": {
+          "id": "bitcoin",
+          "current_price": 69134.40833333334,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "total_volume": null,
+          "high_24h": null,
+          "low_24h": null,
+          "ath": null,
+          "atl": null,
+          "last_updated": null,
+          "price_change_percentage_24h_in_currency": null,
+          "price_change_percentage_7d_in_currency": null,
+          "price_change_percentage_14d_in_currency": null,
+          "price_change_percentage_30d_in_currency": null,
+          "price_change_percentage_200d_in_currency": null,
+          "price_change_percentage_1y_in_currency": null,
+          "sparkline_price_points": 0
+        },
+        "degraded_seeded_bootstrap_route_shape": {
+          "id": "bitcoin",
+          "current_price": 69134.40833333334,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "total_volume": null,
+          "high_24h": null,
+          "low_24h": null,
+          "ath": null,
+          "atl": null,
+          "last_updated": null,
+          "price_change_percentage_24h_in_currency": null,
+          "price_change_percentage_7d_in_currency": null,
+          "price_change_percentage_14d_in_currency": null,
+          "price_change_percentage_30d_in_currency": null,
+          "price_change_percentage_200d_in_currency": null,
+          "price_change_percentage_1y_in_currency": null,
+          "sparkline_price_points": 7
+        }
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Validated VAL-MARKETS-010 on the live validation API. /coins/markets for bitcoin preserved identity/current_price while richer live-looking fields remained null under bootstrap-shaped semantics, and the override was restored to mode=off at the end."
+}
