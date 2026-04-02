@@ -20,6 +20,7 @@ We believe market data should be a public good, built from open sources:
 
 - **Exchange feeds** via [CCXT](https://github.com/ccxt/ccxt) — Binance, Coinbase, Kraken, OKX, and every exchange CCXT supports
 - **Token metadata** from [TrustWallet Assets](https://github.com/trustwallet/assets) — logos, contract addresses, chain mappings
+- **Image assets** from [OpenGecko Assets](https://github.com/opengecko/assets) — canonical, CDN-ready chain and token logos aggregated from multiple public sources
 - **On-chain data** via DEX aggregators and indexers
 - **Treasury disclosures** from public filings
 
@@ -38,7 +39,7 @@ The result: a decentralized, open market data layer that anyone can deploy, audi
 - **Deploy in one command** — `bun install && bun run dev`. SQLite under the hood. No external services required.
 - **60-second fresh data** — Hot market snapshots refresh continuously. No stale cache surprises.
 - **Fully auditable** — Every intentional divergence from CoinGecko is documented. No black-box surprises.
-- **Built on open data** — CCXT, TrustWallet, public on-chain sources. No proprietary data lock-in.
+- **Built on open data** — CCXT, TrustWallet, [OpenGecko Assets](https://github.com/opengecko/assets), public on-chain sources. No proprietary data lock-in.
 
 ## Quick Start
 

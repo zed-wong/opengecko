@@ -28,9 +28,9 @@ Use this tracker for current status, active priorities, completed milestones, an
 
 1. Restore the main Vitest suite to green so parity and milestone-sealing claims reflect actual repository state rather than planned state.
 2. Finish the active `platform-and-catalog-discovery` milestone by validating bounded `/search` families, canonical-platform alias continuity across token-list/contract routes, and the remaining `/global` breadth uplifts.
-3. Continue the `onchain-discovery-uplift` milestone, including deterministic invalid-params coverage and multi-network DeFiLlama-backed discovery hardening.
-4. Improve coin enrichment and chart fidelity while preserving the top-100-first OHLCV policy and honest fallback behavior.
-5. Keep derivatives, treasury, categories, and unresolved supply-chart surfaces honest and contract-compatible as accepted fixture families while tightening observability, cache invalidation, and runtime failure behavior.
+3. Continue hardening the `onchain-discovery-uplift` milestone, especially deterministic invalid-params coverage and cross-network behavior after the multi-network DeFiLlama rollout.
+4. Improve chart fidelity while preserving the top-100-first OHLCV policy and honest fallback behavior.
+5. Tighten observability, cache invalidation, and runtime failure behavior for accepted fixture families now that derivatives, treasury, categories, onchain analytics, and supply charts are explicitly documented as fixture-backed surfaces.
 
 ## Data Quality Summary (as of 2026-03-31 Phase 2 completion)
 
@@ -40,7 +40,7 @@ The system has 3 live data sources: **CCXT** (8 CEX, ticker/OHLCV/exchange metad
 |------|----------|-----------|-------------|
 | **Live** (~55%) | Real-time | `/simple/price`, `/simple/token_price`, `/exchange_rates` (currency-api), `/coins/markets`, `/asset_platforms` (canonical CCXT-discovered platforms), `/exchanges` metadata, `/exchanges/{id}/tickers` (live CCXT ticker ingestion), `/onchain/networks/*/pools` (DeFiLlama multi-network discovery), `/onchain/networks/*/tokens/*` (DeFiLlama live price + decimals), `/onchain/networks/*/pools/*/trades` (Subsquid with address labels), `/coins/{id}` (CCXT-enriched description/links) | CCXT + DeFiLlama + Subsquid |
 | **Hybrid** (~25%) | Partial live | `/coins/markets` sparkline (seeded 7-day synthetic candles), `/coins/{id}/history`, `/coins/{id}/market_chart`, `/coins/{id}/ohlc`, `/coins/{id}/ohlc/range`, `/global`, `/search` (seeded index + live enrichment), `/search/trending` (live market-cap rank, not true trending), `/coins/top_gainers_losers`, `/exchanges/{id}/volume_chart*` (live refresh ownership) | Mixed |
-| **Fixture/Seeded** (~20%) | Zero live | `/derivatives*` (3 tickers, 2 exchanges, frozen data), `/public_treasury/holding_chart` (seeded), `/public_treasury/transaction_history` (seeded 6 tx), `/onchain/*/top_holders` (fixture USDC only), `/onchain/*/top_traders` (fixture USDC only), `/onchain/*/holders_chart` (fixture USDC only), `/onchain/pool OHLCV` (synthetic fallback), `/onchain/pool trades` (fixture fallback), `/coins/*/circulating_supply_chart`, `/coins/*/total_supply_chart`, `/global/market_cap_chart` | 100% seeded/fixture |
+| **Fixture/Seeded** (~20%) | Zero live | `/derivatives*` (3 tickers, 2 exchanges, frozen data, `meta.fixture: true`), `/public_treasury/*` (fixture-documented responses; USD still derived from live snapshots), `/onchain/*/top_holders` (fixture USDC only), `/onchain/*/top_traders` (fixture USDC only), `/onchain/*/holders_chart` (fixture USDC only), `/onchain/pool OHLCV` (synthetic fallback), `/onchain/pool trades` (fixture fallback), `/coins/categories*` (fixture-documented), `/coins/*/circulating_supply_chart`, `/coins/*/total_supply_chart`, `/global/market_cap_chart` | 100% seeded/fixture |
 
 **Key gap**: "Route implemented" ≠ "has live data". The 76/76 parity claim refers to HTTP contract surface (routing, parameters, response structure), not data fidelity. Several families serve seeded, fixture, or hybrid data.
 
@@ -54,7 +54,7 @@ The system has 3 live data sources: **CCXT** (8 CEX, ticker/OHLCV/exchange metad
 | WS-D Canonical entity resolution | Coin, platform, contract, venue, treasury, network, and DEX identity mapping | done | Canonical chain/platform resolution, alias-aware contract lookup, multi-exchange chain merging, and onchain network/platform identity mapping now cover the active compatibility surface |
 | WS-E Contract testing and fixtures | Endpoint fixtures, invalid-parameter coverage, repository/service-layer assertions | partial | Coverage is broad across active families, but the main Vitest suite is currently failing in parity and runtime-sensitive areas, so this workstream should not be treated as complete |
 | WS-F Jobs, operations, and observability | Refresh scheduling, search rebuilds, job failure handling, lag visibility | partial | Initial-sync failure handling, serialized runtime jobs, standalone `ohlcv:worker`, diagnostics for runtime/ohlcv/chain coverage, exchange durability hardening, and startup prewarm are in place; hosted-worker deployment guidance and deeper alerting remain open |
-| WS-G Data fidelity uplift | Replace seeded/fixture data with live sources | partial | Phase 2 complete: DeFiLlama multi-network pool/token discovery, CCXT coin enrichment, Subsquid address labels; live coverage increased from ~30% to ~55%; Phase 3 (fixture documentation) pending |
+| WS-G Data fidelity uplift | Replace seeded/fixture data with live sources | done | Phase 2 complete: DeFiLlama multi-network pool/token discovery, CCXT coin enrichment, Subsquid address labels; Phase 3 complete: fixture documentation for derivatives, treasury, onchain analytics, categories, supply charts; live coverage increased from ~30% to ~55% |
 
 ## Endpoint Family Progress
 
@@ -72,8 +72,8 @@ The system has 3 live data sources: **CCXT** (8 CEX, ticker/OHLCV/exchange metad
 | `/exchanges/*` | R2 | partial | hybrid | Exchange metadata and list are live from CCXT; `/exchanges/{id}/tickers` is live-backed via persisted CCXT ticker ingestion; `/exchanges/{id}/volume_chart*` is hybrid-from-live, accumulated from the same ticker refresh ownership while historical depth remains limited to retained points |
 | `/derivatives/*` | R2 | partial | fixture | 3 hardcoded tickers (BTC/ETH perpetual + 1 expired), 2 exchanges; data frozen at 2026-03-20. Responses include `meta.fixture: true` and `meta.frozen_at` to signal seeded data.
 | NFTs | removed | removed | — | removed from the active roadmap |
-| Public treasury | R3 | done (fixture documented) | fixture | 2 entities, 6 transactions, fixed holdings. USD values from live snapshots. All responses now include `meta.fixture: true` to signal seeded data. |
-| Onchain DEX | R4 | partial | live | Phase 2 complete: DeFiLlama multi-network pool/token discovery (ETH, Solana, Avalanche, Fantom), live price/decimals enrichment, Subsquid address labels for trades; `top_holders`, `top_traders`, `holders_chart` remain fixture (USDC only); `pool OHLCV` fallback is 6 synthetic candles |
+| Public treasury | R3 | done (fixture documented) | fixture | 2 entities, 6 transactions, fixed holdings. USD values still derive from live snapshots, but all treasury route payloads are explicitly marked with `meta.fixture: true`. |
+| Onchain DEX | R4 | partial | live | Phase 2 complete: DeFiLlama multi-network pool/token discovery (ETH, Solana, Avalanche, Fantom), live price/decimals enrichment, Subsquid address labels for trades; `top_holders`, `top_traders`, and `holders_chart` now advertise `meta.fixture: true` for their USDC-only fixture scope; `pool OHLCV` fallback is 6 synthetic candles |
 
 ## Active Decisions
 

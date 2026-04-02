@@ -2269,13 +2269,22 @@ describe('OpenGecko app scaffold', () => {
     });
 
     expect(entitiesResponse.statusCode).toBe(200);
-    expect(entitiesResponse.json()).toMatchObject([contractFixtures.treasuryEntities[1]]);
+    expect(entitiesResponse.json()).toMatchObject({
+      data: [contractFixtures.treasuryEntities[1]],
+      meta: expect.objectContaining({ fixture: true }),
+    });
 
     expect(groupedResponse.statusCode).toBe(200);
-    expect(groupedResponse.json()).toMatchObject(contractFixtures.companyTreasuryBitcoin);
+    expect(groupedResponse.json()).toMatchObject({
+      data: contractFixtures.companyTreasuryBitcoin,
+      meta: expect.objectContaining({ fixture: true }),
+    });
 
     expect(detailResponse.statusCode).toBe(200);
-    expect(detailResponse.json()).toMatchObject(contractFixtures.treasuryEntityDetail);
+    expect(detailResponse.json()).toMatchObject({
+      data: contractFixtures.treasuryEntityDetail,
+      meta: expect.objectContaining({ fixture: true }),
+    });
   });
 
   it('returns treasury holding charts and transaction history', async () => {
@@ -2294,22 +2303,31 @@ describe('OpenGecko app scaffold', () => {
 
     expect(chartResponse.statusCode).toBe(200);
     expect(chartResponse.json()).toMatchObject({
-      holdings: expect.any(Array),
-      holding_value_in_usd: expect.any(Array),
+      data: {
+        holdings: expect.any(Array),
+        holding_value_in_usd: expect.any(Array),
+      },
+      meta: expect.objectContaining({ fixture: true }),
     });
-    expect(chartResponse.json().holdings.length).toBeGreaterThan(0);
-    expect(chartResponse.json().holding_value_in_usd.length).toBeGreaterThan(0);
+    expect(chartResponse.json().data.holdings.length).toBeGreaterThan(0);
+    expect(chartResponse.json().data.holding_value_in_usd.length).toBeGreaterThan(0);
 
     expect(chartWithIntervalsResponse.statusCode).toBe(200);
     expect(chartWithIntervalsResponse.json()).toMatchObject({
-      holdings: expect.any(Array),
-      holding_value_in_usd: expect.any(Array),
+      data: {
+        holdings: expect.any(Array),
+        holding_value_in_usd: expect.any(Array),
+      },
+      meta: expect.objectContaining({ fixture: true }),
     });
-    expect(chartWithIntervalsResponse.json().holdings.length).toBeGreaterThan(0);
-    expect(chartWithIntervalsResponse.json().holding_value_in_usd.length).toBeGreaterThan(0);
+    expect(chartWithIntervalsResponse.json().data.holdings.length).toBeGreaterThan(0);
+    expect(chartWithIntervalsResponse.json().data.holding_value_in_usd.length).toBeGreaterThan(0);
 
     expect(transactionsResponse.statusCode).toBe(200);
-    expect(transactionsResponse.json()).toEqual(contractFixtures.treasuryTransactionHistory);
+    expect(transactionsResponse.json()).toEqual({
+      data: contractFixtures.treasuryTransactionHistory,
+      meta: expect.objectContaining({ fixture: true }),
+    });
   });
 
   it('returns onchain networks and network dexes', async () => {
@@ -4917,12 +4935,18 @@ describe('OpenGecko app scaffold', () => {
     ]));
     expect(detailBody).toMatchObject({ id: 'ethereum', symbol: 'eth', name: 'Ethereum' });
     expect(contractBody).toMatchObject({ id: 'usd-coin', symbol: 'usdc', name: 'USDC' });
-    expect(treasuryByCoinBody).toMatchObject({ coin_id: 'bitcoin' });
-    expect(treasuryByCoinBody.companies).toEqual(expect.arrayContaining([
+    expect(treasuryByCoinBody).toMatchObject({
+      data: { coin_id: 'bitcoin' },
+      meta: expect.objectContaining({ fixture: true }),
+    });
+    expect(treasuryByCoinBody.data.companies).toEqual(expect.arrayContaining([
       expect.objectContaining({ entity_id: 'strategy' }),
     ]));
-    expect(treasuryDetailBody).toMatchObject({ id: 'strategy' });
-    expect(treasuryDetailBody.holdings).toEqual(expect.arrayContaining([
+    expect(treasuryDetailBody).toMatchObject({
+      data: { id: 'strategy' },
+      meta: expect.objectContaining({ fixture: true }),
+    });
+    expect(treasuryDetailBody.data.holdings).toEqual(expect.arrayContaining([
       expect.objectContaining({ coin_id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
     ]));
     expect(exchangesListBody).toEqual(expect.arrayContaining([
@@ -5508,7 +5532,7 @@ describe('OpenGecko app scaffold', () => {
     expect(response.json()[0]).toMatchObject({
       id: 'bitcoin',
       current_price: expect.any(Number),
-      image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
+      image: 'http://localhost:3001/assets/chains/bitcoin/logo.png',
     });
     expect(Array.isArray(response.json()[0].sparkline_in_7d.price)).toBe(true);
   });
@@ -5578,11 +5602,11 @@ describe('OpenGecko app scaffold', () => {
     expect(marketsResponse.json()).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: 'bitcoin',
-        image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
+        image: 'http://localhost:3001/assets/chains/bitcoin/logo.png',
       }),
       expect.objectContaining({
         id: 'usd-coin',
-        image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
+        image: 'http://localhost:3001/assets/chains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
       }),
       expect.objectContaining({
         id: 'wrapped-bitcoin',
@@ -5591,9 +5615,9 @@ describe('OpenGecko app scaffold', () => {
     ]));
 
     expect(detailResponse.json().image).toEqual({
-      thumb: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
-      small: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
-      large: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
+      thumb: 'http://localhost:3001/assets/chains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
+      small: 'http://localhost:3001/assets/chains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
+      large: 'http://localhost:3001/assets/chains/ethereum/assets/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/logo.png',
     });
   });
 
@@ -5656,32 +5680,32 @@ describe('OpenGecko app scaffold', () => {
     expect(marketsResponse.json()).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: 'bitcoin',
-        image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
+        image: 'http://localhost:3001/assets/chains/bitcoin/logo.png',
       }),
       expect.objectContaining({
         id: 'ripple',
-        image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/xrp/info/logo.png',
+        image: 'http://localhost:3001/assets/chains/xrp/logo.png',
       }),
       expect.objectContaining({
         id: 'dogecoin',
-        image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/dogecoin/info/logo.png',
+        image: 'http://localhost:3001/assets/chains/dogecoin/logo.png',
       }),
     ]));
 
     expect(bitcoinDetailResponse.json().image).toEqual({
-      thumb: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
-      small: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
-      large: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
+      thumb: 'http://localhost:3001/assets/chains/bitcoin/logo.png',
+      small: 'http://localhost:3001/assets/chains/bitcoin/logo.png',
+      large: 'http://localhost:3001/assets/chains/bitcoin/logo.png',
     });
     expect(rippleDetailResponse.json().image).toEqual({
-      thumb: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/xrp/info/logo.png',
-      small: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/xrp/info/logo.png',
-      large: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/xrp/info/logo.png',
+      thumb: 'http://localhost:3001/assets/chains/xrp/logo.png',
+      small: 'http://localhost:3001/assets/chains/xrp/logo.png',
+      large: 'http://localhost:3001/assets/chains/xrp/logo.png',
     });
     expect(dogecoinDetailResponse.json().image).toEqual({
-      thumb: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/dogecoin/info/logo.png',
-      small: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/dogecoin/info/logo.png',
-      large: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/dogecoin/info/logo.png',
+      thumb: 'http://localhost:3001/assets/chains/dogecoin/logo.png',
+      small: 'http://localhost:3001/assets/chains/dogecoin/logo.png',
+      large: 'http://localhost:3001/assets/chains/dogecoin/logo.png',
     });
   });
 
@@ -7280,26 +7304,25 @@ describe('OpenGecko app scaffold', () => {
     const totalBody = totalResponse.json();
 
     expect(circulatingBody).toEqual({
-      circulating_supply: expect.any(Array),
+      data: [],
+      meta: {
+        fixture: true,
+        coin_id: 'bitcoin',
+        note: 'Circulating supply chart data is not available',
+      },
     });
     expect(totalBody).toEqual({
-      total_supply: expect.any(Array),
+      data: [],
+      meta: {
+        fixture: true,
+        coin_id: 'bitcoin',
+        note: 'Total supply chart data is not available',
+      },
     });
 
-    for (const [seriesKey, body] of [
-      ['circulating_supply', circulatingBody] as const,
-      ['total_supply', totalBody] as const,
-    ]) {
-      expect(body[seriesKey].length).toBeGreaterThan(0);
-      const timestamps = body[seriesKey].map((sample: number[]) => sample[0]);
-      expect(timestamps).toEqual([...timestamps].sort((left, right) => left - right));
-
-      for (const sample of body[seriesKey]) {
-        expect(sample).toHaveLength(2);
-        expect(typeof sample[0]).toBe('number');
-        expect(typeof sample[1]).toBe('number');
-        expect(Number.isFinite(sample[1])).toBe(true);
-      }
+    for (const body of [circulatingBody, totalBody]) {
+      expect(body.data).toEqual([]);
+      expect(body.meta.fixture).toBe(true);
     }
   });
 
@@ -7318,16 +7341,18 @@ describe('OpenGecko app scaffold', () => {
     expect(circulatingResponse.statusCode).toBe(200);
     expect(totalResponse.statusCode).toBe(200);
 
-    for (const [seriesKey, body] of [
-      ['circulating_supply', circulatingResponse.json()] as const,
-      ['total_supply', totalResponse.json()] as const,
+    for (const [expectedNote, body] of [
+      ['Circulating supply chart data is not available', circulatingResponse.json()] as const,
+      ['Total supply chart data is not available', totalResponse.json()] as const,
     ]) {
-      expect(body).toHaveProperty(seriesKey);
-      expect(body[seriesKey]).toEqual([
-        [1773792000000, seriesKey === 'circulating_supply' ? 19_800_000 : 21_000_000],
-        [1773878400000, seriesKey === 'circulating_supply' ? 19_800_000 : 21_000_000],
-        [1773964800000, seriesKey === 'circulating_supply' ? 19_800_000 : 21_000_000],
-      ]);
+      expect(body).toEqual({
+        data: [],
+        meta: {
+          fixture: true,
+          coin_id: 'bitcoin',
+          note: expectedNote,
+        },
+      });
     }
   });
 

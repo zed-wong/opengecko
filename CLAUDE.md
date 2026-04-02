@@ -11,6 +11,7 @@ Canonical planning documents:
 - `docs/plans/2026-03-20-opengecko-engineering-execution-plan.md`
 - `docs/plans/2026-03-22-opengecko-compatibility-gap-closure-plan.md`
 - `docs/plans/2026-03-29-data-fidelity-uplift-plan.md`
+- `docs/plans/2026-03-31-opengecko-assets-prd.md`
 - `docs/status/implementation-tracker.md`
 
 ## Product Principles
@@ -30,6 +31,7 @@ Canonical planning documents:
 - Only add custom exchange support when important required data is materially missing from CCXT.
 - Keep startup focused on exchange metadata, catalogs, and hot market snapshots; treat durable OHLCV ingestion as a continuous worker responsibility.
 - Preserve the top-100-first OHLCV scheduling policy unless a planning document explicitly supersedes it.
+- Use [OpenGecko Assets](https://github.com/opengecko/assets) as the canonical image asset source. The assets repository is a separate, modular project that produces CDN-ready chain and token logos. The API consumes its output via `ASSET_IMAGE_BASE_URL`. Do not embed asset-building logic in this repository.
 
 ## Versioning Rules
 
