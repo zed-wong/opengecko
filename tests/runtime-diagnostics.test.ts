@@ -342,6 +342,7 @@ describe('runtime diagnostics', () => {
       reason: 'validator degraded boot',
     });
     expect(seededDiagnostics.hot_paths.shared_market_snapshot.source_class).toBe('degraded_seeded_bootstrap');
+    expect(seededDiagnostics.degraded.stale_live_enabled).toBe(false);
   });
 
   it('reports seeded bootstrap runtime mode distinctly from degraded seeded bootstrap', () => {

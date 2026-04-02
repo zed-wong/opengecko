@@ -105,7 +105,7 @@ export function getSnapshotAccessPolicy(runtimeState: MarketDataRuntimeState): S
   if (validationOverrideMode === 'degraded_seeded_bootstrap') {
     return {
       initialSyncCompleted: false,
-      allowStaleLiveService: true,
+      allowStaleLiveService: false,
     };
   }
 

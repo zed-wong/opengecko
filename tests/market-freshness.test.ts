@@ -105,4 +105,41 @@ describe('market snapshot freshness', () => {
       Date.parse('2026-03-20T00:10:00.000Z'),
     )).toBeNull();
   });
+
+  it('treats validation degraded seeded bootstrap as bootstrap-only access instead of stale-live service', () => {
+    expect(getSnapshotAccessPolicy({
+      initialSyncCompleted: true,
+      listenerBindDeferred: false,
+      initialSyncCompletedWithoutUsableLiveSnapshots: false,
+      allowStaleLiveService: false,
+      syncFailureReason: null,
+      listenerBound: false,
+      hotDataRevision: 0,
+      validationOverride: {
+        mode: 'degraded_seeded_bootstrap',
+        reason: 'validator degraded boot',
+        snapshotTimestampOverride: null,
+        snapshotSourceCountOverride: 0,
+      },
+      providerFailureCooldownUntil: null,
+      forcedProviderFailure: {
+        active: false,
+        reason: null,
+      },
+      startupPrewarm: {
+        enabled: false,
+        budgetMs: 0,
+        readyWithinBudget: true,
+        firstRequestWarmBenefitsObserved: false,
+        firstRequestWarmBenefitPending: false,
+        targets: [],
+        completedAt: null,
+        totalDurationMs: null,
+        targetResults: [],
+      },
+    })).toEqual({
+      initialSyncCompleted: false,
+      allowStaleLiveService: false,
+    });
+  });
 });
