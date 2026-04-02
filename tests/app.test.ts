@@ -6718,7 +6718,145 @@ describe('OpenGecko app scaffold', () => {
         last_updated: null,
       }),
     ]);
+  });
 
+  it('keeps the full trust slice coherent across stale-live transitions, cache revisions, and timestamps', async () => {
+    const state = getApp().marketDataRuntimeState;
+    const { createDatabase } = await import('../src/db/client');
+    const { marketSnapshots } = await import('../src/db/schema');
+    const db = createDatabase(join(tempDir, 'test.db'));
+
+    const [healthyDiagnostics, healthySimple, healthyMarkets, healthyDetail] = await Promise.all([
+      getApp().inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin&vs_currencies=usd&include_last_updated_at=true',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/markets?vs_currency=usd&ids=bitcoin',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/bitcoin?tickers=false&community_data=false&developer_data=false&localization=false',
+      }),
+    ]);
+
+    expect(healthyDiagnostics.statusCode).toBe(200);
+    expect(healthySimple.statusCode).toBe(200);
+    expect(healthyMarkets.statusCode).toBe(200);
+    expect(healthyDetail.statusCode).toBe(200);
+    expect(healthyDiagnostics.json().data.hot_paths.shared_market_snapshot.source_class).toBe('fresh_live');
+    expect(healthySimple.json().bitcoin.usd).toBe(healthyMarkets.json()[0].current_price);
+    expect(healthySimple.json().bitcoin.usd).toBe(healthyDetail.json().market_data.current_price.usd);
+    expect(healthySimple.json().bitcoin.last_updated_at).toBe(
+      Math.floor(Date.parse(healthyMarkets.json()[0].last_updated) / 1000),
+    );
+    expect(healthyMarkets.json()[0].last_updated).toBe(healthyDetail.json().market_data.last_updated);
+
+    db.db
+      .update(marketSnapshots)
+      .set({
+        sourceProvidersJson: JSON.stringify(['binance']),
+        sourceCount: 1,
+        lastUpdated: new Date('2026-03-19T00:00:00.000Z'),
+      })
+      .where(eq(marketSnapshots.coinId, 'bitcoin'))
+      .run();
+    state.initialSyncCompleted = true;
+    state.allowStaleLiveService = true;
+    state.syncFailureReason = 'upstream timeout';
+    state.hotDataRevision += 1;
+    const staleAllowedRevision = state.hotDataRevision;
+
+    const [staleAllowedDiagnostics, staleAllowedSimple, staleAllowedMarkets, staleAllowedDetail] = await Promise.all([
+      getApp().inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin&vs_currencies=usd&include_last_updated_at=true',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/markets?vs_currency=usd&ids=bitcoin',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/bitcoin?tickers=false&community_data=false&developer_data=false&localization=false',
+      }),
+    ]);
+
+    expect(staleAllowedDiagnostics.statusCode).toBe(200);
+    expect(staleAllowedSimple.statusCode).toBe(200);
+    expect(staleAllowedMarkets.statusCode).toBe(200);
+    expect(staleAllowedDetail.statusCode).toBe(200);
+    expect(staleAllowedDiagnostics.json().data.degraded).toMatchObject({
+      active: true,
+      stale_live_enabled: true,
+      reason: 'upstream timeout',
+    });
+    expect(staleAllowedDiagnostics.json().data.hot_paths.cache_revision).toBe(staleAllowedRevision);
+    expect(staleAllowedSimple.json().bitcoin.usd).toBe(staleAllowedMarkets.json()[0].current_price);
+    expect(staleAllowedSimple.json().bitcoin.usd).toBe(staleAllowedDetail.json().market_data.current_price.usd);
+    expect(staleAllowedSimple.json().bitcoin.last_updated_at).toBe(
+      Math.floor(Date.parse(staleAllowedMarkets.json()[0].last_updated) / 1000),
+    );
+    expect(staleAllowedMarkets.json()[0].last_updated).toBe(staleAllowedDetail.json().market_data.last_updated);
+    expect(new Date(staleAllowedDiagnostics.json().data.hot_paths.shared_market_snapshot.last_successful_live_refresh_at).getTime())
+      .toBeGreaterThanOrEqual(Date.parse(staleAllowedMarkets.json()[0].last_updated));
+
+    state.allowStaleLiveService = false;
+    state.hotDataRevision += 1;
+    const staleDisallowedRevision = state.hotDataRevision;
+
+    const [staleDisallowedDiagnostics, staleDisallowedSimple, staleDisallowedMarkets, staleDisallowedDetail] = await Promise.all([
+      getApp().inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin&vs_currencies=usd&include_last_updated_at=true',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/markets?vs_currency=usd&ids=bitcoin',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/bitcoin?tickers=false&community_data=false&developer_data=false&localization=false',
+      }),
+    ]);
+
+    expect(staleDisallowedDiagnostics.statusCode).toBe(200);
+    expect(staleDisallowedSimple.statusCode).toBe(200);
+    expect(staleDisallowedMarkets.statusCode).toBe(200);
+    expect(staleDisallowedDetail.statusCode).toBe(200);
+    expect(staleDisallowedDiagnostics.json().data.degraded).toMatchObject({
+      active: false,
+      stale_live_enabled: false,
+      reason: 'upstream timeout',
+    });
+    expect(staleDisallowedDiagnostics.json().data.hot_paths.cache_revision).toBe(staleDisallowedRevision);
+    expect(staleDisallowedSimple.json()).toEqual({});
+    expect(staleDisallowedMarkets.json()).toEqual([
+      expect.objectContaining({
+        id: 'bitcoin',
+        current_price: null,
+        market_cap: null,
+        total_volume: null,
+        last_updated: null,
+      }),
+    ]);
+    expect(staleDisallowedDetail.json()).toMatchObject({
+      id: 'bitcoin',
+      market_data: null,
+    });
     db.client.close();
   });
 
