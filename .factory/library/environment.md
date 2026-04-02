@@ -46,6 +46,7 @@ Primary runtime configuration lives in `src/config/env.ts`.
 - The repo default `PORT` remains `3000`, but this mission must start its normal local API on port `3001` and reserve port `3102` for the validation-only API profile.
 - The repo default `CCXT_EXCHANGES` comes from `src/config/runtime-policy.ts`; `.factory/services.yaml` intentionally narrows the mission API override to `binance,coinbase,okx` for predictable local validation.
 - The validation API on `3102` must run with `OPEN_GECKO_DISABLE_REPO_DOTENV=1` and `DATABASE_URL=:memory:` so override-driven checks do not reuse shared repo runtime state.
+- `data/opengecko.db` remains the default local runtime DB, but this mission now treats `data/opengecko-validation.db` as the canonical known-good persisted snapshot fallback when the default DB is malformed or unreadable during bootstrap validation.
 - Ports `3000` and `5173` are off-limits for mission-owned services because they belong to other local projects.
 - Do not add new providers, credentials, hosted services, or background infrastructure without explicit mission scope expansion.
 - Fixture-backed families must stay honest in both runtime behavior and canonical planning/status docs.

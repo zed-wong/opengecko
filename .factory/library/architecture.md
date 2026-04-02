@@ -153,8 +153,8 @@ Important rule: diagnostics and public route behavior must describe the **same**
 - operator-visible truth source
 - must expose readiness, degraded state, source class, freshness, and cache revision
 - validation-only override routes must stay gated to validation mode
-- validation override POST routes are test-only controls on port `3102`; the exposed degraded-state override contract supports `off`, `stale_disallowed`, `stale_allowed`, and `degraded_seeded_bootstrap` only
-- `seeded_bootstrap` remains an internal/runtime-derived state unless the validation contract is explicitly expanded
+- validation override POST routes are test-only controls on port `3102`; for this mission follow-up they may expose `off`, `stale_disallowed`, `stale_allowed`, `degraded_seeded_bootstrap`, `seeded_bootstrap`, and `zero_live_completed_boot` so validators can exercise the locked contract states directly
+- those validation-only bootstrap and zero-live controls must never be exposed on the normal mission API at `3001`
 
 ## Change Strategy for This Mission
 
