@@ -81,9 +81,13 @@ export function buildRuntimeDiagnostics(
       : runtimeState.initialSyncCompleted;
   const effectiveAllowStaleLiveService = validationOverride.mode === 'stale_disallowed'
     ? false
-    : validationOverride.mode === 'stale_allowed' || validationOverride.mode === 'seeded_bootstrap'
+    : validationOverride.mode === 'stale_allowed'
       ? true
-      : runtimeState.allowStaleLiveService;
+      : validationOverride.mode === 'seeded_bootstrap'
+        ? latestSnapshotOwnership === 'live'
+        : validationOverride.mode === 'degraded_seeded_bootstrap'
+          ? true
+          : runtimeState.allowStaleLiveService;
   const effectiveFailureReason = validationOverride.reason ?? runtimeState.syncFailureReason;
   const effectiveSeededBootstrapFallbackActive = validationOverride.mode === 'degraded_seeded_bootstrap'
     || (
