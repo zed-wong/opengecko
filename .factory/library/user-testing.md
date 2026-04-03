@@ -76,6 +76,7 @@ Reasoning: use at most 70% of observed headroom and avoid SQLite/process content
 - Start with the narrowest relevant targeted suite.
 - During the trust-slice-semantics milestone, treat `commands.test` as the required scrutiny gate.
 - During the regression-gate-restoration milestone, use `commands.full_test` as the required repository gate before declaring the mission complete.
+- For milestones whose implementation features have no `fulfills` assertions, still rerun the repo gate and live smoke surface from current HEAD; existing synthesis/flow artifacts are context only and never a substitute for a fresh validator pass.
 - If endpoint smoke scripts are used, ensure the `3001` API service is already healthy and record the exact `BASE_URL`.
 
 ## Flow Validator Guidance: api-curl
