@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, unlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, renameSync, unlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { createDatabase } from '../db/client';
@@ -559,9 +559,18 @@ function restoreRuntimeDatabaseFromPersistentSnapshot(
 
   const resolvedRuntimeDatabaseUrl = resolve(process.cwd(), runtimeDatabaseUrl);
   const resolvedPersistentSnapshotDatabaseUrl = resolve(process.cwd(), persistentSnapshotDatabaseUrl);
+  const recoveredBackupPath = `${resolvedRuntimeDatabaseUrl}.corrupt.${Date.now()}.bak`;
 
   if (!existsSync(resolvedPersistentSnapshotDatabaseUrl)) {
     return false;
+  }
+
+  if (existsSync(resolvedRuntimeDatabaseUrl)) {
+    try {
+      renameSync(resolvedRuntimeDatabaseUrl, recoveredBackupPath);
+    } catch {
+      removeCorruptSqliteArtifacts(runtimeDatabaseUrl);
+    }
   }
 
   removeCorruptSqliteArtifacts(runtimeDatabaseUrl);
