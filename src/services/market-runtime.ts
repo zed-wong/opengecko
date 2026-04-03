@@ -54,7 +54,7 @@ function finalizeBootstrapSuccess(state: MarketDataRuntimeState) {
 }
 
 function shouldDeferListenerBoundRefreshAfterBootstrap(state: MarketDataRuntimeState) {
-  return !state.initialSyncCompletedWithoutUsableLiveSnapshots;
+  return !state.initialSyncCompletedWithoutUsableLiveSnapshots && !state.allowStaleLiveService;
 }
 
 function createSerializedJob(name: string, logger: RuntimeLogger, state: MarketDataRuntimeState, runner: JobRunner) {
