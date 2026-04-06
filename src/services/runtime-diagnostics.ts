@@ -51,10 +51,19 @@ export function buildRuntimeDiagnostics(
   marketFreshnessThresholdSeconds: number,
   now = Date.now(),
 ): RuntimeDiagnostics {
+  const listenerBoundSeededBootstrap = runtimeState.listenerBound
+    && runtimeState.validationOverride.mode === 'off'
+    && runtimeState.allowStaleLiveService
+    && runtimeState.syncFailureReason === null;
   const effectiveLatestUsdSnapshot = getEffectiveSnapshot(latestUsdSnapshot, runtimeState);
   const latestSnapshotOwnership = effectiveLatestUsdSnapshot ? getSnapshotOwnership(effectiveLatestUsdSnapshot) : null;
   const latestSnapshotFreshness = effectiveLatestUsdSnapshot && latestSnapshotOwnership === 'live'
     ? getSnapshotFreshness(effectiveLatestUsdSnapshot, marketFreshnessThresholdSeconds, now)
+    : null;
+  const latestStoredUsdSnapshot = latestUsdSnapshot;
+  const storedSnapshotOwnership = latestStoredUsdSnapshot ? getSnapshotOwnership(latestStoredUsdSnapshot) : null;
+  const storedLatestSnapshotFreshness = latestStoredUsdSnapshot && storedSnapshotOwnership === 'live'
+    ? getSnapshotFreshness(latestStoredUsdSnapshot, marketFreshnessThresholdSeconds, now)
     : null;
   const seededBootstrapFallbackActive = (
     runtimeState.initialSyncCompleted === false
@@ -62,7 +71,7 @@ export function buildRuntimeDiagnostics(
     && runtimeState.syncFailureReason !== null
   );
   const staleLiveFallbackActive = runtimeState.allowStaleLiveService
-    || (runtimeState.syncFailureReason !== null && latestSnapshotFreshness?.isStale === true);
+    || (runtimeState.syncFailureReason !== null && storedLatestSnapshotFreshness?.isStale === true);
   const degradedActive = staleLiveFallbackActive || seededBootstrapFallbackActive;
   const cooldownUntil = runtimeState.providerFailureCooldownUntil;
   const injectedProviderFailure = runtimeState.forcedProviderFailure ?? {
@@ -99,11 +108,14 @@ export function buildRuntimeDiagnostics(
       && latestSnapshotOwnership === 'seeded'
       && effectiveFailureReason !== null
     );
+  const validationOverrideForcesDegradedState = validationOverride.mode === 'stale_disallowed';
   const effectiveStaleLiveFallbackActive = validationOverride.mode === 'stale_allowed'
+    || validationOverride.mode === 'stale_disallowed'
     || effectiveAllowStaleLiveService
-    || (effectiveFailureReason !== null && latestSnapshotFreshness?.isStale === true);
+    || (effectiveFailureReason !== null && storedLatestSnapshotFreshness?.isStale === true);
   const effectiveDegradedActive = (
     validationOverride.mode !== 'seeded_bootstrap'
+    && validationOverride.mode !== 'zero_live_completed_boot'
     && (effectiveStaleLiveFallbackActive || effectiveSeededBootstrapFallbackActive)
   );
   const sourceClass = effectiveLatestUsdSnapshot
@@ -132,7 +144,11 @@ export function buildRuntimeDiagnostics(
         return 'seeded_bootstrap' as const;
       }
 
-      return latestSnapshotFreshness?.isStale ? 'stale_live' as const : 'fresh_live' as const;
+      if ((validationOverrideForcesDegradedState || listenerBoundSeededBootstrap) && storedSnapshotOwnership === 'live') {
+        return 'stale_live' as const;
+      }
+
+      return storedLatestSnapshotFreshness?.isStale ? 'stale_live' as const : 'fresh_live' as const;
     })()
     : 'unavailable' as const;
 
