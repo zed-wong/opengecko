@@ -7291,6 +7291,247 @@ describe('OpenGecko app scaffold', () => {
     db.client.close();
   });
 
+  it('keeps validation degraded-state override resets deterministic across diagnostics and hot endpoints', async () => {
+    const validationApp = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'validation-reset-determinism.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+        host: '127.0.0.1',
+        port: 3102,
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      await validationApp.ready();
+      validationApp.marketDataRuntimeState.listenerBound = true;
+
+      const baselineDiagnostics = await validationApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+      const baselineRevision = baselineDiagnostics.json().data.hot_paths.cache_revision;
+
+      const staleAllowedResponse = await validationApp.inject({
+        method: 'POST',
+        url: '/diagnostics/runtime/degraded_state',
+        payload: {
+          mode: 'stale_allowed',
+          reason: 'validator stale reset check',
+        },
+      });
+
+      expect(staleAllowedResponse.statusCode).toBe(200);
+      const staleAllowedRevision = staleAllowedResponse.json().data.cache_revision;
+      expect(staleAllowedRevision).toBeGreaterThan(baselineRevision);
+
+      const [staleAllowedDiagnostics, staleAllowedSimple, staleAllowedMarkets, staleAllowedHealth] = await Promise.all([
+        validationApp.inject({ method: 'GET', url: '/diagnostics/runtime' }),
+        validationApp.inject({ method: 'GET', url: '/simple/price?ids=bitcoin&vs_currencies=usd' }),
+        validationApp.inject({ method: 'GET', url: '/coins/markets?vs_currency=usd&ids=bitcoin&per_page=1&page=1' }),
+        validationApp.inject({ method: 'GET', url: '/health' }),
+      ]);
+
+      expect(staleAllowedDiagnostics.statusCode).toBe(200);
+      expect(staleAllowedDiagnostics.json().data).toMatchObject({
+        readiness: {
+          state: 'degraded',
+          degraded: true,
+          validation_override_active: true,
+        },
+        degraded: {
+          active: true,
+          stale_live_enabled: true,
+          reason: 'validator stale reset check',
+          validation_override: {
+            active: true,
+            mode: 'stale_allowed',
+            reason: 'validator stale reset check',
+          },
+        },
+        hot_paths: {
+          cache_revision: staleAllowedRevision,
+        },
+      });
+      expect(staleAllowedSimple.statusCode).toBe(200);
+      expect(staleAllowedSimple.json()).toEqual({
+        bitcoin: {
+          usd: expect.any(Number),
+        },
+      });
+      expect(staleAllowedMarkets.statusCode).toBe(200);
+      expect(staleAllowedMarkets.json()).toEqual([
+        expect.objectContaining({
+          id: 'bitcoin',
+          current_price: expect.any(Number),
+        }),
+      ]);
+      expect(staleAllowedHealth.statusCode).toBe(200);
+      expect(staleAllowedHealth.json()).toEqual(contractFixtures.ping);
+
+      const clearResponse = await validationApp.inject({
+        method: 'POST',
+        url: '/diagnostics/runtime/degraded_state',
+        payload: {
+          mode: 'off',
+        },
+      });
+
+      expect(clearResponse.statusCode).toBe(200);
+      const clearedRevision = clearResponse.json().data.cache_revision;
+      expect(clearedRevision).toBe(staleAllowedRevision + 1);
+
+      const [clearedDiagnostics, clearedSimple, clearedMarkets, clearedHealth] = await Promise.all([
+        validationApp.inject({ method: 'GET', url: '/diagnostics/runtime' }),
+        validationApp.inject({ method: 'GET', url: '/simple/price?ids=bitcoin&vs_currencies=usd' }),
+        validationApp.inject({ method: 'GET', url: '/coins/markets?vs_currency=usd&ids=bitcoin&per_page=1&page=1' }),
+        validationApp.inject({ method: 'GET', url: '/health' }),
+      ]);
+
+      expect(clearedDiagnostics.statusCode).toBe(200);
+      expect(clearedDiagnostics.json().data).toMatchObject({
+        readiness: {
+          validation_override_active: false,
+        },
+        degraded: {
+          validation_override: {
+            active: false,
+            mode: 'off',
+            reason: null,
+          },
+        },
+        hot_paths: {
+          cache_revision: clearedRevision,
+        },
+      });
+      expect(clearedSimple.statusCode).toBe(200);
+      expect(clearedSimple.json()).toEqual({
+        bitcoin: {
+          usd: expect.any(Number),
+        },
+      });
+      expect(clearedMarkets.statusCode).toBe(200);
+      expect(clearedMarkets.json()).toEqual([
+        expect.objectContaining({
+          id: 'bitcoin',
+          current_price: expect.any(Number),
+        }),
+      ]);
+      expect(clearedHealth.statusCode).toBe(200);
+      expect(clearedHealth.json()).toEqual(contractFixtures.ping);
+    } finally {
+      await validationApp.close();
+    }
+  });
+
+  it('propagates validation provider failure visibility without breaking hot endpoint contracts and clears cleanly', async () => {
+    const validationApp = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'validation-provider-failure-consistency.db'),
+        ccxtExchanges: ['binance', 'coinbase', 'kraken', 'okx'],
+        logLevel: 'silent',
+        host: '127.0.0.1',
+        port: 3102,
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      await validationApp.ready();
+      validationApp.marketDataRuntimeState.listenerBound = true;
+      validationApp.marketDataRuntimeState.allowStaleLiveService = true;
+      validationApp.marketDataRuntimeState.syncFailureReason = 'upstream timeout';
+      validationApp.marketDataRuntimeState.hotDataRevision += 1;
+
+      const enableResponse = await validationApp.inject({
+        method: 'POST',
+        url: '/diagnostics/runtime/provider_failure',
+        payload: {
+          active: true,
+          reason: 'contract-validation',
+        },
+      });
+
+      expect(enableResponse.statusCode).toBe(200);
+      expect(enableResponse.json()).toEqual({
+        data: {
+          active: true,
+          reason: 'contract-validation',
+        },
+      });
+
+      const [diagnosticsResponse, simpleResponse, marketsResponse, healthResponse] = await Promise.all([
+        validationApp.inject({ method: 'GET', url: '/diagnostics/runtime' }),
+        validationApp.inject({ method: 'GET', url: '/simple/price?ids=bitcoin&vs_currencies=usd' }),
+        validationApp.inject({ method: 'GET', url: '/coins/markets?vs_currency=usd&ids=bitcoin&per_page=1&page=1' }),
+        validationApp.inject({ method: 'GET', url: '/health' }),
+      ]);
+
+      expect(diagnosticsResponse.statusCode).toBe(200);
+      expect(diagnosticsResponse.json().data).toMatchObject({
+        readiness: {
+          state: 'degraded',
+          degraded: true,
+          validation_override_active: true,
+        },
+        degraded: {
+          active: true,
+          stale_live_enabled: true,
+          reason: 'default runtime exposing seeded/live snapshots after bootstrap sync',
+          injected_provider_failure: {
+            active: true,
+            reason: 'contract-validation',
+          },
+          validation_override: {
+            active: true,
+            mode: 'stale_allowed',
+            reason: 'default runtime exposing seeded/live snapshots after bootstrap sync',
+          },
+        },
+      });
+      expect(simpleResponse.statusCode).toBe(200);
+      expect(simpleResponse.json()).toEqual({
+        bitcoin: {
+          usd: expect.any(Number),
+        },
+      });
+      expect(marketsResponse.statusCode).toBe(200);
+      expect(marketsResponse.json()).toEqual([
+        expect.objectContaining({
+          id: 'bitcoin',
+          current_price: expect.any(Number),
+        }),
+      ]);
+      expect(healthResponse.statusCode).toBe(200);
+      expect(healthResponse.json()).toEqual(contractFixtures.ping);
+
+      const clearResponse = await validationApp.inject({
+        method: 'POST',
+        url: '/diagnostics/runtime/provider_failure',
+        payload: {
+          active: false,
+        },
+      });
+
+      expect(clearResponse.statusCode).toBe(200);
+
+      const clearedDiagnostics = await validationApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+
+      expect(clearedDiagnostics.statusCode).toBe(200);
+      expect(clearedDiagnostics.json().data.degraded.injected_provider_failure).toEqual({
+        active: false,
+        reason: null,
+      });
+      expect(clearedDiagnostics.json().data.degraded.provider_failure_cooldown_until).toBeNull();
+    } finally {
+      await validationApp.close();
+    }
+  });
+
   it('reuses preloaded chart series for market rows', async () => {
     const getCanonicalCloseSeriesSpy = vi.spyOn(candleStore, 'getCanonicalCloseSeries');
     const response = await getApp().inject({
