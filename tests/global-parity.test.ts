@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createDatabase, migrateDatabase, rebuildSearchIndex, seedStaticReferenceData, type AppDatabase } from '../src/db/client';
 import { coins, exchanges, marketSnapshots } from '../src/db/schema';
+import { buildApp } from '../src/app';
 import { getMarketRows } from '../src/modules/catalog';
 import { getSnapshotAccessPolicy, getUsableSnapshot } from '../src/modules/market-freshness';
 import type { MarketDataRuntimeState } from '../src/services/market-runtime-state';
@@ -269,5 +270,45 @@ describe('global parity', () => {
     expect(marketCapPercentage['bnb']).toBeCloseTo(4.1208173757922255, 2);
     expect(marketCapPercentage['xrp']).toBeCloseTo(4.0340029851952295, 2);
     expect(marketCapPercentage['sol']).toBeCloseTo(2.3346029273439157, 2);
+  });
+
+  it('preserves the /global data envelope with aggregate maps and scalar summary fields', async () => {
+    const app = buildApp({
+      config: {
+        databaseUrl: join(tempDir, 'test.db'),
+        logLevel: 'silent',
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/global',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        data: {
+          active_cryptocurrencies: expect.any(Number),
+          markets: expect.any(Number),
+          updated_at: expect.any(Number),
+          total_market_cap: expect.objectContaining({
+            usd: expect.any(Number),
+          }),
+          total_volume: expect.objectContaining({
+            usd: expect.any(Number),
+          }),
+          market_cap_percentage: expect.objectContaining({
+            btc: expect.any(Number),
+            eth: expect.any(Number),
+          }),
+          market_cap_change_percentage_24h_usd: expect.any(Number),
+          volume_change_percentage_24h_usd: expect.any(Number),
+        },
+      });
+    } finally {
+      await app.close();
+    }
   });
 });

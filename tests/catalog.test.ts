@@ -213,4 +213,5 @@ describe('catalog repository helpers', () => {
     expect(rankedSnapshotPlan.some((row) => row.detail.includes('market_snapshots_vs_currency_market_cap_rank_coin_id_idx'))).toBe(true);
     expect(rankedSnapshotPlan.some((row) => row.detail.includes('TEMP B-TREE'))).toBe(false);
   });
+
 });

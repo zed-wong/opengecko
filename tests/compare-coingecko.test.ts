@@ -228,6 +228,28 @@ describe('CoinGecko API compatibility', () => {
       const body = response.json();
       expect(body[0]).toHaveProperty('platforms');
     });
+
+    it('defaults to id/symbol/name rows and only adds platforms when include_platform=true', async () => {
+      const [defaultResponse, includePlatformsResponse] = await Promise.all([
+        app.inject({ method: 'GET', url: '/coins/list' }),
+        app.inject({ method: 'GET', url: '/coins/list?include_platform=true' }),
+      ]);
+
+      expect(defaultResponse.statusCode).toBe(200);
+      expect(includePlatformsResponse.statusCode).toBe(200);
+
+      const defaultBody = defaultResponse.json();
+      const includePlatformsBody = includePlatformsResponse.json();
+
+      expect(defaultBody.length).toBeGreaterThan(0);
+      expect(defaultBody[0]).toEqual({
+        id: expect.any(String),
+        symbol: expect.any(String),
+        name: expect.any(String),
+      });
+      expect(defaultBody.every((row: Record<string, unknown>) => !('platforms' in row))).toBe(true);
+      expect(includePlatformsBody.some((row: Record<string, unknown>) => 'platforms' in row)).toBe(true);
+    });
   });
 
   // ========================================
@@ -542,6 +564,15 @@ describe('CoinGecko API compatibility', () => {
         ]);
       }
     });
+
+    it('supports strict order validation happy-path semantics', async () => {
+      const response = await app.inject({ method: 'GET', url: '/coins/categories?order=market_cap_desc' });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json() as Record<string, unknown>;
+      expect(body).toHaveProperty('data');
+      expect(body).toHaveProperty('meta');
+    });
   });
 
   // ========================================
@@ -588,6 +619,22 @@ describe('CoinGecko API compatibility', () => {
         expect(coin).toHaveProperty('large');
         expect(coin).toHaveProperty('categories');
       }
+    });
+
+    it('preserves family envelopes for successful search queries', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/search?query=bitcoin',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        coins: expect.any(Array),
+        exchanges: expect.any(Array),
+        categories: expect.any(Array),
+        icos: [],
+        nfts: [],
+      });
     });
   });
 
@@ -703,6 +750,30 @@ describe('CoinGecko API compatibility', () => {
       expect(typeof data.total_market_cap).toBe('object');
       expect(typeof data.total_volume).toBe('object');
       expect(typeof data.market_cap_percentage).toBe('object');
+    });
+
+    it('preserves the global data envelope with aggregate maps and scalar summary fields', async () => {
+      const response = await app.inject({ method: 'GET', url: '/global' });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        data: {
+          active_cryptocurrencies: expect.any(Number),
+          markets: expect.any(Number),
+          updated_at: expect.any(Number),
+          total_market_cap: expect.objectContaining({
+            usd: expect.any(Number),
+          }),
+          total_volume: expect.objectContaining({
+            usd: expect.any(Number),
+          }),
+          market_cap_percentage: expect.objectContaining({
+            btc: expect.any(Number),
+            eth: expect.any(Number),
+          }),
+          market_cap_change_percentage_24h_usd: expect.any(Number),
+        },
+      });
     });
   });
 

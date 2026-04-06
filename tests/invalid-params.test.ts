@@ -327,13 +327,102 @@ describe('OpenGecko invalid parameter handling', () => {
   });
 
   it('rejects blank search queries', async () => {
-    const response = await app!.inject({
-      method: 'GET',
-      url: '/search?query=%20%20',
+    const [blankResponse, missingResponse] = await Promise.all([
+      app!.inject({
+        method: 'GET',
+        url: '/search?query=%20%20',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/search',
+      }),
+    ]);
+
+    expect(blankResponse.statusCode).toBe(400);
+    expect(blankResponse.json()).toMatchObject(errorFixtures.searchBlankQuery);
+
+    expect(missingResponse.statusCode).toBe(400);
+    expect(missingResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'query Required',
+    });
+  });
+
+  it('preserves VAL-CATALOG invalid-parameter semantics for simple, search, and category ordering surfaces', async () => {
+    const [
+      simplePriceMissingSelectorResponse,
+      simplePriceMissingVsCurrenciesResponse,
+      tokenPriceMissingContractsResponse,
+      tokenPriceMissingVsCurrenciesResponse,
+      searchBlankResponse,
+      searchMissingResponse,
+      categoriesBadOrderResponse,
+    ] = await Promise.all([
+      app!.inject({
+        method: 'GET',
+        url: '/simple/price?vs_currencies=usd',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin&vs_currencies=',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/simple/token_price/ethereum?contract_addresses=&vs_currencies=usd',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&vs_currencies=',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/search?query=%20%20',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/search',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/coins/categories?order=bad_order',
+      }),
+    ]);
+
+    expect(simplePriceMissingSelectorResponse.statusCode).toBe(400);
+    expect(simplePriceMissingSelectorResponse.json()).toMatchObject(errorFixtures.simplePriceMissingLookup);
+
+    expect(simplePriceMissingVsCurrenciesResponse.statusCode).toBe(400);
+    expect(simplePriceMissingVsCurrenciesResponse.json()).toEqual({
+      error: 'invalid_parameter',
+      message: 'At least one vs_currency must be provided.',
     });
 
-    expect(response.statusCode).toBe(400);
-    expect(response.json()).toMatchObject(errorFixtures.searchBlankQuery);
+    expect(tokenPriceMissingContractsResponse.statusCode).toBe(400);
+    expect(tokenPriceMissingContractsResponse.json()).toEqual({
+      error: 'invalid_parameter',
+      message: 'At least one contract address must be provided.',
+    });
+
+    expect(tokenPriceMissingVsCurrenciesResponse.statusCode).toBe(400);
+    expect(tokenPriceMissingVsCurrenciesResponse.json()).toEqual({
+      error: 'invalid_parameter',
+      message: 'At least one vs_currency must be provided.',
+    });
+
+    expect(searchBlankResponse.statusCode).toBe(400);
+    expect(searchBlankResponse.json()).toMatchObject(errorFixtures.searchBlankQuery);
+
+    expect(searchMissingResponse.statusCode).toBe(400);
+    expect(searchMissingResponse.json()).toEqual({
+      error: 'invalid_parameter',
+      message: 'query Required',
+    });
+
+    expect(categoriesBadOrderResponse.statusCode).toBe(400);
+    expect(categoriesBadOrderResponse.json()).toEqual({
+      error: 'invalid_parameter',
+      message: 'Unsupported order value: bad_order',
+    });
   });
 
   it('rejects invalid trending show_max values', async () => {
@@ -610,6 +699,120 @@ describe('OpenGecko invalid parameter handling', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject(errorFixtures.treasuryHoldingChartBadDays);
+  });
+
+  it('preserves exchange, treasury, and onchain contract guards for VAL-EXT negative-path assertions', async () => {
+    const [
+      exchangeStatusResponse,
+      exchangeTickerOrderResponse,
+      exchangeVolumeDaysResponse,
+      exchangeVolumeRangeResponse,
+      entityTypeResponse,
+      treasuryUnknownEntityResponse,
+      treasuryHoldingDaysResponse,
+      onchainUnknownNetworkResponse,
+      onchainTradesTokenFormatResponse,
+      onchainTradesTokenConstituentResponse,
+      onchainOhlcvCurrencyResponse,
+    ] = await Promise.all([
+      app!.inject({
+        method: 'GET',
+        url: '/exchanges/list?status=paused',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/exchanges/binance/tickers?order=price_desc',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/exchanges/binance/volume_chart?days=0',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/exchanges/binance/volume_chart/range?from=200&to=100',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/entities/list?entity_type=funds',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/public_treasury/unknown-entity',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/public_treasury/strategy/bitcoin/holding_chart?days=15',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/onchain/networks/notreal/pools',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades?token=bad',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/trades?token=0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
+      }),
+      app!.inject({
+        method: 'GET',
+        url: '/onchain/networks/eth/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640/ohlcv/minute?currency=eur',
+      }),
+    ]);
+
+    for (const response of [
+      exchangeStatusResponse,
+      exchangeTickerOrderResponse,
+      exchangeVolumeDaysResponse,
+      exchangeVolumeRangeResponse,
+      entityTypeResponse,
+      treasuryHoldingDaysResponse,
+      onchainTradesTokenFormatResponse,
+      onchainTradesTokenConstituentResponse,
+      onchainOhlcvCurrencyResponse,
+    ]) {
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        error: 'invalid_parameter',
+      });
+    }
+
+    expect(exchangeVolumeDaysResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid days value: 0',
+    });
+    expect(exchangeVolumeRangeResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid time range: from must be less than or equal to to.',
+    });
+    expect(treasuryHoldingDaysResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid days value: 15',
+    });
+    expect(onchainTradesTokenFormatResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Invalid onchain address: bad',
+    });
+    expect(onchainTradesTokenConstituentResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Token is not a constituent of pool: 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
+    });
+    expect(onchainOhlcvCurrencyResponse.json()).toMatchObject({
+      error: 'invalid_parameter',
+      message: 'Unsupported currency value: eur',
+    });
+
+    expect(treasuryUnknownEntityResponse.statusCode).toBe(404);
+    expect(treasuryUnknownEntityResponse.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Treasury entity not found: unknown-entity',
+    });
+    expect(onchainUnknownNetworkResponse.statusCode).toBe(404);
+    expect(onchainUnknownNetworkResponse.json()).toMatchObject({
+      error: 'not_found',
+      message: 'Onchain network not found: notreal',
+    });
   });
 
   it('returns not found for unknown exchanges', async () => {
