@@ -95,4 +95,23 @@ describe('treasury fixture compatibility', () => {
       },
     });
   });
+
+  it('accepts the microstrategy alias and returns the empty-state payload when history is absent', async () => {
+    const response = await getApp().inject({
+      method: 'GET',
+      url: '/public_treasury/microstrategy/bitcoin/holding_chart?days=max',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        holdings: [],
+        holding_value_in_usd: [],
+      },
+      meta: {
+        fixture: true,
+        note: 'Treasury data is seeded fixture, not live',
+      },
+    });
+  });
 });

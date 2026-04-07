@@ -73,7 +73,13 @@ function buildEntityListRow(row: TreasuryEntityRow) {
 }
 
 function getTreasuryEntityOrThrow(database: AppDatabase, entityId: string) {
-  const entity = database.db.select().from(treasuryEntities).where(eq(treasuryEntities.id, entityId)).limit(1).get();
+  const normalizedEntityId = entityId === 'microstrategy' ? 'strategy' : entityId;
+  const entity = database.db
+    .select()
+    .from(treasuryEntities)
+    .where(eq(treasuryEntities.id, normalizedEntityId))
+    .limit(1)
+    .get();
 
   if (!entity) {
     throw new HttpError(404, 'not_found', `Treasury entity not found: ${entityId}`);
