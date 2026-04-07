@@ -6479,6 +6479,65 @@ describe('OpenGecko app scaffold', () => {
     }
   });
 
+  it('reports persisted timestamp compatibility on runtime databases opened from the shared mission store', async () => {
+    const sourceDatabasePath = join(tempDir, 'shared-opengecko.db');
+    copyFileSync(join(process.cwd(), 'data', 'opengecko.db'), sourceDatabasePath);
+
+    const sharedRuntimeApp = buildApp({
+      config: {
+        databaseUrl: sourceDatabasePath,
+        ccxtExchanges: [],
+        logLevel: 'silent',
+        host: '127.0.0.1',
+        port: 3001,
+      },
+      startBackgroundJobs: false,
+    });
+
+    try {
+      await sharedRuntimeApp.ready();
+
+      expect(sharedRuntimeApp.db.persistedTimestampCompatibility).toEqual({
+        normalizedAtOpen: false,
+        source: 'none',
+      });
+
+      const diagnosticsResponse = await sharedRuntimeApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+      const simplePriceResponse = await sharedRuntimeApp.inject({
+        method: 'GET',
+        url: '/simple/price?ids=bitcoin&vs_currencies=usd',
+      });
+      const globalResponse = await sharedRuntimeApp.inject({
+        method: 'GET',
+        url: '/global',
+      });
+
+      expect(diagnosticsResponse.statusCode).toBe(200);
+      expect(simplePriceResponse.statusCode).toBe(200);
+      expect(simplePriceResponse.json()).toEqual({
+        bitcoin: {
+          usd: expect.any(Number),
+        },
+      });
+      expect(globalResponse.statusCode).toBe(200);
+      expect(globalResponse.json()).toMatchObject({
+        data: {
+          active_cryptocurrencies: expect.any(Number),
+          markets: expect.any(Number),
+          total_market_cap: expect.any(Object),
+          total_volume: expect.any(Object),
+          market_cap_percentage: expect.any(Object),
+          updated_at: expect.any(Number),
+        },
+      });
+    } finally {
+      await sharedRuntimeApp.close();
+    }
+  });
+
   it('falls back to the canonical validation snapshot when the default persistent database is malformed', async () => {
     const originalDefaultDatabasePath = join(process.cwd(), 'data', 'opengecko.db');
     const backupDefaultDatabasePath = join(process.cwd(), 'data', 'opengecko.db.backup');
@@ -6541,6 +6600,81 @@ describe('OpenGecko app scaffold', () => {
           },
         });
         expect(existsSync(originalDefaultDatabasePath)).toBe(true);
+      } finally {
+        await freshBootApp.close();
+      }
+    } finally {
+      if (existsSync(originalDefaultDatabasePath)) {
+        unlinkSync(originalDefaultDatabasePath);
+      }
+      if (existsSync(`${originalDefaultDatabasePath}-wal`)) {
+        unlinkSync(`${originalDefaultDatabasePath}-wal`);
+      }
+      if (existsSync(`${originalDefaultDatabasePath}-shm`)) {
+        unlinkSync(`${originalDefaultDatabasePath}-shm`);
+      }
+      if (existsSync(backupDefaultDatabasePath)) {
+        copyFileSync(backupDefaultDatabasePath, originalDefaultDatabasePath);
+        unlinkSync(backupDefaultDatabasePath);
+        restoredDefaultDatabase = true;
+      }
+
+      if (!restoredDefaultDatabase && existsSync(originalDefaultDatabasePath)) {
+        unlinkSync(originalDefaultDatabasePath);
+      }
+    }
+  });
+
+  it('reopens the local runtime database after replacing a malformed default sqlite file with the fallback snapshot', async () => {
+    const originalDefaultDatabasePath = join(process.cwd(), 'data', 'opengecko.db');
+    const backupDefaultDatabasePath = join(process.cwd(), 'data', 'opengecko.db.recovery-backup');
+    let restoredDefaultDatabase = false;
+
+    if (existsSync(originalDefaultDatabasePath)) {
+      copyFileSync(originalDefaultDatabasePath, backupDefaultDatabasePath);
+    }
+
+    writeFileSync(originalDefaultDatabasePath, 'not a sqlite database');
+
+    try {
+      const freshBootApp = buildApp({
+        config: {
+          databaseUrl: './data/opengecko.db',
+          ccxtExchanges: [],
+          logLevel: 'silent',
+          host: '127.0.0.1',
+          port: 3001,
+        },
+        startBackgroundJobs: false,
+      });
+
+      try {
+        await freshBootApp.ready();
+
+        const [diagnosticsResponse, simplePriceResponse, globalResponse] = await Promise.all([
+          freshBootApp.inject({
+            method: 'GET',
+            url: '/diagnostics/runtime',
+          }),
+          freshBootApp.inject({
+            method: 'GET',
+            url: '/simple/price?ids=bitcoin&vs_currencies=usd',
+          }),
+          freshBootApp.inject({
+            method: 'GET',
+            url: '/global',
+          }),
+        ]);
+
+        expect(diagnosticsResponse.statusCode).toBe(200);
+        expect(simplePriceResponse.statusCode).toBe(503);
+        expect(globalResponse.statusCode).toBe(200);
+        expect(globalResponse.json()).toMatchObject({
+          data: {
+            total_market_cap: expect.any(Object),
+            total_volume: expect.any(Object),
+          },
+        });
       } finally {
         await freshBootApp.close();
       }
@@ -7035,6 +7169,85 @@ describe('OpenGecko app scaffold', () => {
 
     runInitialMarketSyncSpy.mockRestore();
     await bootstrapApp.close();
+  });
+
+  it('binds the listener before background startup sync settles on the shared runtime path', async () => {
+    const initialSyncModule = await import('../src/services/initial-sync');
+    let releaseInitialSync!: () => void;
+    const runInitialMarketSyncSpy = vi.spyOn(initialSyncModule, 'runInitialMarketSync')
+      .mockImplementation(async () => {
+        await new Promise<void>((resolve) => {
+          releaseInitialSync = resolve;
+        });
+        return {
+          coinsDiscovered: 0,
+          chainsDiscovered: 0,
+          snapshotsCreated: 0,
+          tickersWritten: 0,
+          exchangesSynced: 0,
+          ohlcvCandlesWritten: 0,
+        };
+      });
+
+    const bootstrapApp = buildApp({
+      config: {
+        databaseUrl: ':memory:',
+        ccxtExchanges: ['binance'],
+        logLevel: 'silent',
+        host: '127.0.0.1',
+        port: 0,
+      },
+      startBackgroundJobs: true,
+      pluginTimeout: 0,
+    });
+
+    try {
+      const listenPromise = bootstrapApp.listen({ host: '127.0.0.1', port: 0 });
+      const address = await listenPromise;
+
+      expect(typeof address).toBe('string');
+      expect(runInitialMarketSyncSpy).toHaveBeenCalledTimes(1);
+      expect(bootstrapApp.marketDataRuntimeState.listenerBound).toBe(true);
+      expect(bootstrapApp.marketDataRuntimeState.initialSyncCompleted).toBe(false);
+      expect(bootstrapApp.marketDataRuntimeState.listenerBindDeferred).toBe(false);
+
+      const pingResponse = await bootstrapApp.inject({
+        method: 'GET',
+        url: '/ping',
+      });
+      expect(pingResponse.statusCode).toBe(200);
+
+      const diagnosticsBeforeReady = await bootstrapApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+      expect(diagnosticsBeforeReady.statusCode).toBe(200);
+      expect(diagnosticsBeforeReady.json().data.readiness).toMatchObject({
+        state: 'starting',
+        listener_bound: true,
+        listener_bind_deferred: false,
+        initial_sync_completed: false,
+      });
+
+      releaseInitialSync();
+      await bootstrapApp.marketRuntime?.whenReady();
+
+      const diagnosticsAfterReady = await bootstrapApp.inject({
+        method: 'GET',
+        url: '/diagnostics/runtime',
+      });
+      expect(diagnosticsAfterReady.statusCode).toBe(200);
+      expect(diagnosticsAfterReady.json().data.readiness).toMatchObject({
+        state: 'ready',
+        listener_bound: true,
+        initial_sync_completed: true,
+      });
+    } finally {
+      releaseInitialSync?.();
+      runInitialMarketSyncSpy.mockRestore();
+      await bootstrapApp.marketRuntime?.whenReady().catch(() => undefined);
+      await bootstrapApp.close();
+    }
   });
 
   it('allows background-runtime startup when fastify plugin timeout is disabled', async () => {
@@ -7780,6 +7993,31 @@ describe('OpenGecko app scaffold', () => {
     });
   });
 
+  it('clamps oversized coin markets per_page requests to 250 without changing default page semantics', async () => {
+    const [defaultPageResponse, clampedLargePerPageResponse, explicitPageOneResponse] = await Promise.all([
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/markets?vs_currency=usd&per_page=250',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/markets?vs_currency=usd&per_page=999&page=1',
+      }),
+      getApp().inject({
+        method: 'GET',
+        url: '/coins/markets?vs_currency=usd&per_page=250&page=1',
+      }),
+    ]);
+
+    expect(defaultPageResponse.statusCode).toBe(200);
+    expect(clampedLargePerPageResponse.statusCode).toBe(200);
+    expect(explicitPageOneResponse.statusCode).toBe(200);
+
+    expect(defaultPageResponse.json()).toEqual(explicitPageOneResponse.json());
+    expect(clampedLargePerPageResponse.json()).toEqual(explicitPageOneResponse.json());
+    expect(clampedLargePerPageResponse.json().length).toBeLessThanOrEqual(250);
+  });
+
   it('supports deterministic coin market volume ordering on the stabilized query path', async () => {
     const [volumeDescResponse, repeatedVolumeDescResponse, volumeAscResponse] = await Promise.all([
       getApp().inject({
@@ -8039,6 +8277,108 @@ describe('OpenGecko app scaffold', () => {
       },
       target: 'USDT',
     });
+  });
+
+  it('uses a default ticker page size of 100 and preserves explicit pagination semantics', async () => {
+    const app = getApp();
+    const originalGetCoinById = catalogModule.getCoinById;
+    vi.spyOn(catalogModule, 'getCoinById').mockImplementation((database, coinId) => {
+      if (coinId === 'bitcoin') {
+        return {
+          id: 'bitcoin',
+          symbol: 'btc',
+          name: 'Bitcoin',
+          apiSymbol: 'bitcoin',
+          hashingAlgorithm: null,
+          blockTimeInMinutes: null,
+          categoriesJson: '[]',
+          descriptionJson: '{}',
+          linksJson: '{}',
+          imageThumbUrl: null,
+          imageSmallUrl: null,
+          imageLargeUrl: null,
+          genesisDate: null,
+          marketCapRank: 1,
+          platformsJson: '{}',
+          status: 'active',
+          createdAt: new Date('2026-03-20T00:00:00.000Z'),
+          updatedAt: new Date('2026-03-20T00:00:00.000Z'),
+          activatedAt: new Date('2026-03-20T00:00:00.000Z'),
+        };
+      }
+
+      return originalGetCoinById(database, coinId);
+    });
+    const getCoinTickerRowsSpy = vi.spyOn(await import('../src/modules/coins/detail'), 'getCoinTickers');
+
+    const syntheticTickers = Array.from({ length: 105 }, (_, index) => ({
+      base: `BTC${index.toString().padStart(3, '0')}`,
+      target: 'USDT',
+      market: {
+        name: 'Binance',
+        identifier: 'binance',
+        has_trading_incentive: false,
+      },
+      last: 100000 - index,
+      volume: 1000 + index,
+      converted_last: { btc: 1, usd: 100000 - index, eth: 40 },
+      converted_volume: { btc: 10, usd: 1000000 - index, eth: 400 },
+      trust_score: 'green',
+      bid_ask_spread_percentage: 0.1,
+      timestamp: Date.UTC(2026, 2, 20, 0, 0, index),
+      last_traded_at: new Date(Date.UTC(2026, 2, 20, 0, 0, index)).toISOString(),
+      last_fetch_at: new Date(Date.UTC(2026, 2, 20, 0, 1, index)).toISOString(),
+      is_anomaly: false,
+      is_stale: false,
+      trade_url: `https://example.com/btc-${index}`,
+      token_info_url: null,
+      coin_id: 'bitcoin',
+      target_coin_id: null,
+    }));
+
+    getCoinTickerRowsSpy.mockImplementation((_database, _coinId, options) => {
+      const start = (options.page - 1) * options.perPage;
+
+      return {
+        tickers: syntheticTickers.slice(start, start + options.perPage),
+      };
+    });
+
+    const [defaultResponse, explicitHundredResponse, explicitSmallPageResponse, explicitSecondPageResponse] = await Promise.all([
+      app.inject({
+        method: 'GET',
+        url: '/coins/bitcoin/tickers',
+      }),
+      app.inject({
+        method: 'GET',
+        url: '/coins/bitcoin/tickers?per_page=100',
+      }),
+      app.inject({
+        method: 'GET',
+        url: '/coins/bitcoin/tickers?per_page=5',
+      }),
+      app.inject({
+        method: 'GET',
+        url: '/coins/bitcoin/tickers?per_page=5&page=2',
+      }),
+    ]);
+
+    expect(defaultResponse.statusCode).toBe(200);
+    expect(explicitHundredResponse.statusCode).toBe(200);
+    expect(explicitSmallPageResponse.statusCode).toBe(200);
+    expect(explicitSecondPageResponse.statusCode).toBe(200);
+
+    const defaultTickers = defaultResponse.json().tickers;
+    const explicitHundredTickers = explicitHundredResponse.json().tickers;
+    const explicitSmallPageTickers = explicitSmallPageResponse.json().tickers;
+    const explicitSecondPageTickers = explicitSecondPageResponse.json().tickers;
+
+    expect(defaultTickers).toHaveLength(100);
+    expect(explicitHundredTickers).toHaveLength(100);
+    expect(defaultTickers).toEqual(explicitHundredTickers);
+    expect(explicitSmallPageTickers).toHaveLength(5);
+    expect(explicitSecondPageTickers).toHaveLength(5);
+    expect(explicitSecondPageTickers).toEqual(defaultTickers.slice(5, 10));
   });
 
   it('returns coin history, chart, and ohlc data', async () => {

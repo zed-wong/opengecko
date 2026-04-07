@@ -118,6 +118,7 @@ const categoriesQuerySchema = z.object({
 const coinTickersQuerySchema = z.object({
   exchange_ids: z.string().optional(),
   include_exchange_logo: z.enum(['true', 'false']).optional(),
+  per_page: z.string().optional(),
   page: z.string().optional(),
   order: z.string().optional(),
 });
@@ -356,10 +357,12 @@ export function registerCoinRoutes(
     const query = coinTickersQuerySchema.parse(request.query);
     const coin = getRequiredCoin(database, params.id);
     const page = parsePositiveInt(query.page, 1);
+    const perPage = Math.min(parsePositiveInt(query.per_page, 100), 100);
     const tickerPayload = getCoinTickers(database, params.id, {
       exchangeIds: parseCsvQuery(query.exchange_ids),
       includeExchangeLogo: parseBooleanQuery(query.include_exchange_logo, false),
       page,
+      perPage,
       order: query.order,
       marketFreshnessThresholdSeconds,
       snapshotAccessPolicy: getSnapshotAccessPolicy(runtimeState),

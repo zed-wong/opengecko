@@ -178,6 +178,7 @@ export function buildCoinDetail(
       ? getCoinTickers(database, coin.id, {
         includeExchangeLogo: false,
         page: 1,
+        perPage: 100,
         marketFreshnessThresholdSeconds,
         snapshotAccessPolicy,
       }).tickers
@@ -272,18 +273,18 @@ export function getCoinTickers(
     exchangeIds?: string[];
     includeExchangeLogo: boolean;
     page: number;
+    perPage: number;
     order?: string;
     marketFreshnessThresholdSeconds: number;
     snapshotAccessPolicy: SnapshotAccessPolicy;
   },
 ) {
-  const perPage = 100;
   const rows = sortCoinTickerRows(getCoinTickerRows(database, coinId, options.exchangeIds), options.order);
-  const start = (options.page - 1) * perPage;
+  const start = (options.page - 1) * options.perPage;
   const conversionRates = getConversionRates(database, options.marketFreshnessThresholdSeconds, options.snapshotAccessPolicy);
 
   return {
-    tickers: rows.slice(start, start + perPage).map((row) => buildCoinTickerPayload(row, options.includeExchangeLogo, conversionRates)),
+    tickers: rows.slice(start, start + options.perPage).map((row) => buildCoinTickerPayload(row, options.includeExchangeLogo, conversionRates)),
   };
 }
 
